@@ -1,0 +1,7 @@
+[workspace]
+members = ["crates/mmlx-macros", "crates/mmlx-core", "crates/mmlx-songs"]
+resolver = "2"
+
+[workspace.dependencies]
+mmlx-core = { path = "crates/mmlx-core" }
+mmlx-macros = { path = "crates/mmlx-macros" }

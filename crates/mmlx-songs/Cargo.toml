@@ -1,0 +1,11 @@
+[package]
+name = "mmlx-songs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mmlx-core = { workspace = true }
+genawaiter = "0.99.1"
+
+[dev-dependencies]
+mmlx-core = { workspace = true }
