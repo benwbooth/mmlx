@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/mmlx-macros", "crates/mmlx-core", "crates/mmlx-songs"]
+members = ["crates/mmlx-macros", "crates/mmlx-core", "crates/mmlx-synth", "crates/mmlx-songs"]
 resolver = "2"
 
 [workspace.dependencies]
