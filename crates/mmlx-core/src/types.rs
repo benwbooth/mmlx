@@ -1732,11 +1732,21 @@ pub type TimedMusicalEventIterator =
 /// Type alias for the shared REPL context (event queue Arc and synth time Arc)
 pub type ReplContext = Arc<(Arc<Mutex<VecDeque<TimedMusicalEvent>>>, Arc<Mutex<f32>>)>;
 
+/// Owned clone of a composition item. Blocks take items borrowed
+/// (`&voice` splices locals without moves) and resolve over owned clones.
+fn owned_item<N: std::borrow::Borrow<Note>>(item: N) -> Note {
+    Note::clone(item.borrow())
+}
+
 /// Processes a sequence, resolving implicit durations/pitches, handling ties and repeats.
 pub fn ser<I>(items: I) -> Note
 where
-    I: IntoIterator<Item = Note>,
+    I: IntoIterator,
+    I::Item: std::borrow::Borrow<Note>,
 {
+    // Borrowed items (`&voice`) clone into owned notes up front; the rest
+    // of resolution is unchanged.
+    let items: Vec<Note> = items.into_iter().map(owned_item).collect();
     let mut resolved_items: Vec<Note> = Vec::new();
     let mut current_attrs: LinkedHashMap<String, ParamValue> = LinkedHashMap::new();
     let mut last_duration: Option<f32> = None;
@@ -1943,8 +1953,12 @@ where
 /// Processes parallel notes. Implicit durations/pitches inherit; ties apply.
 pub fn par<I>(items: I) -> Note
 where
-    I: IntoIterator<Item = Note>,
+    I: IntoIterator,
+    I::Item: std::borrow::Borrow<Note>,
 {
+    // Borrowed items (`&voice`) clone into owned notes up front; the rest
+    // of resolution is unchanged.
+    let items: Vec<Note> = items.into_iter().map(owned_item).collect();
     let mut vec_items = Vec::new();
     let mut current_attrs: LinkedHashMap<String, ParamValue> = LinkedHashMap::new();
     // Bare env!() macros are not allowed in par(); use param!(key=env!(...)) instead
@@ -2049,8 +2063,12 @@ where
 /// Processes parallel notes, duration determined by the SHORTEST note.
 pub fn parmin<I>(items: I) -> Note
 where
-    I: IntoIterator<Item = Note>,
+    I: IntoIterator,
+    I::Item: std::borrow::Borrow<Note>,
 {
+    // Borrowed items (`&voice`) clone into owned notes up front; the rest
+    // of resolution is unchanged.
+    let items: Vec<Note> = items.into_iter().map(owned_item).collect();
     let mut vec_items = Vec::new();
     let mut current_attrs: LinkedHashMap<String, ParamValue> = LinkedHashMap::new();
     let mut last_duration: Option<f32> = None;
@@ -2148,8 +2166,12 @@ where
 /// Processes a sequence without advancing the outer time cursor.
 pub fn forkseq<I>(items: I) -> Note
 where
-    I: IntoIterator<Item = Note>,
+    I: IntoIterator,
+    I::Item: std::borrow::Borrow<Note>,
 {
+    // Borrowed items (`&voice`) clone into owned notes up front; the rest
+    // of resolution is unchanged.
+    let items: Vec<Note> = items.into_iter().map(owned_item).collect();
     // Essentially the same logic as ser(), but returns ForkSequence
     let mut resolved_items: Vec<Note> = Vec::new();
     let mut current_attrs: LinkedHashMap<String, ParamValue> = LinkedHashMap::new();
@@ -2338,8 +2360,12 @@ where
 /// Processes parallel notes without advancing the outer time cursor.
 pub fn forkpar<I>(items: I) -> Note
 where
-    I: IntoIterator<Item = Note>,
+    I: IntoIterator,
+    I::Item: std::borrow::Borrow<Note>,
 {
+    // Borrowed items (`&voice`) clone into owned notes up front; the rest
+    // of resolution is unchanged.
+    let items: Vec<Note> = items.into_iter().map(owned_item).collect();
     // Essentially the same logic as par(), but returns ForkParallel
     let mut vec_items = Vec::new();
     let mut current_attrs: LinkedHashMap<String, ParamValue> = LinkedHashMap::new();

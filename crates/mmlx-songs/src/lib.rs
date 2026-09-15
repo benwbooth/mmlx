@@ -302,6 +302,26 @@ mod tests {
     }
 
     #[test]
+    fn bindings_splice_bare() {
+        // Blocks borrow items and clone inside, so `let`-bound programs
+        // splice bare with no moves and no explicit `.clone()`.
+        use mmlx_core::{MusicalEventType, ParamValue};
+        let voice: Note = ser!(param!(op4_tl = 9));
+        let song = ser!(voice c4q voice d4q);
+        let tls: Vec<f32> = song
+            .event_stream(0.0)
+            .filter_map(|event| match &event.event {
+                MusicalEventType::NoteOn { parameters, .. } => match parameters.get("op4_tl") {
+                    Some(ParamValue::Number(tl)) => Some(*tl),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect();
+        assert_eq!(tls, vec![9.0, 9.0]);
+    }
+
+    #[test]
     fn legato_matches_tie() {
         // Tied-over-barline sustain: one NoteOn with the full duration,
         // grid advance covered by rests. Note events identical to a tie

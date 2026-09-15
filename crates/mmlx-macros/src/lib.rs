@@ -823,12 +823,14 @@ fn prev_ident(current: &[TokenTree]) -> String {
     }
 }
 
-/// Turn a composition body into `vec![...]` for `ser()`/`par()`/… .
+/// Turn a composition body into `vec![&...]` for `ser()`/`par()`/… .
+/// Items are borrowed: plain bindings splice bare (`&voice` clones inside
+/// the block fns), owned values borrow their temporaries for the call.
 #[proc_macro]
 pub fn seq_items(input: TokenStream) -> TokenStream {
     let tokens: Vec<TokenTree> = proc_macro2::TokenStream::from(input).into_iter().collect();
     match split_items(&tokens) {
-        Ok(items) => quote! { ::std::vec![#(#items),*] }.into(),
+        Ok(items) => quote! { ::std::vec![#(&(#items)),*] }.into(),
         Err(message) => quote! { ::core::compile_error!(#message) }.into(),
     }
 }
