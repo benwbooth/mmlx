@@ -1,0 +1,37 @@
+{
+  "name": "mmlx",
+  "displayName": "mmlx music",
+  "description": "Play and live-edit mmlx songs: CodeLens transport above each fn() -> Note, note highlighting, type-to-play.",
+  "version": "0.1.0",
+  "publisher": "mmlx",
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onLanguage:rust"],
+  "main": "./extension.js",
+  "dependencies": {
+    "web-tree-sitter": "^0.25.0",
+    "tree-sitter-wasms": "^0.1.12"
+  },
+  "contributes": {
+    "commands": [
+      { "command": "mmlx.play", "title": "mmlx: Play song" },
+      { "command": "mmlx.stop", "title": "mmlx: Stop" },
+      { "command": "mmlx.toggleLoop", "title": "mmlx: Toggle loop" }
+    ],
+    "configuration": {
+      "title": "mmlx",
+      "properties": {
+        "mmlx.audio": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run mmlx-server with live audio (needs system audio headers for the cpal backend)."
+        },
+        "mmlx.debounceMs": {
+          "type": "number",
+          "default": 300,
+          "description": "Delay after you stop typing before reloading the playing song."
+        }
+      }
+    }
+  }
+}
