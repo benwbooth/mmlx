@@ -10,6 +10,7 @@ members = [
     "crates/mmlx-fx",
     "crates/mmlx-clap",
     "crates/mmlx-chip",
+    "crates/mmlx-ym",
     "crates/mmlx-sf2",
     "crates/mmlx-midi",
     "crates/mmlx-track",
