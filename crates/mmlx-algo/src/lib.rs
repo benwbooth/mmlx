@@ -339,6 +339,56 @@ pub fn continue_melody(corpus: &[Note], duration: f32, len: usize, seed: u64) ->
         .collect()
 }
 
+/// Remix: reorder sections by `order` indices, optionally shuffling sections
+/// first at `seed`. The agent-friendly arrangement helper.
+pub fn remix(
+    sections: Vec<Vec<Note>>,
+    order: &[usize],
+    shuffle_sections: bool,
+    seed: u64,
+) -> Vec<Note> {
+    let mut indexed: Vec<(usize, Vec<Note>)> = sections.into_iter().enumerate().collect();
+    if shuffle_sections {
+        let mut state = seed.wrapping_add(0x9E3779B97F4A7C15);
+        for i in (1..indexed.len()).rev() {
+            let j = (lcg_next(&mut state) as usize) % (i + 1);
+            indexed.swap(i, j);
+        }
+    }
+    let mut out = Vec::new();
+    for position in order {
+        if let Some((_, section)) = indexed.iter().find(|(i, _)| i == position) {
+            out.extend(section.clone());
+        }
+    }
+    out
+}
+
+/// Piano-roll view: one deterministic text row per NoteOn —
+/// `start_secs midi duration_secs instrument`. A read-only projection for
+/// editors and agents, never the source of truth.
+pub fn piano_roll(events: &[mmlx_core::TimedMusicalEvent]) -> String {
+    use mmlx_core::MusicalEventType;
+    let mut rows: Vec<(f32, u8, f32, String)> = Vec::new();
+    for event in events {
+        if let MusicalEventType::NoteOn { pitch_midi, .. } = &event.event {
+            rows.push((
+                event.time_seconds,
+                *pitch_midi,
+                event.real_duration,
+                event.instrument_name.clone(),
+            ));
+        }
+    }
+    rows.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    rows.iter()
+        .map(|(start, midi, duration, instrument)| {
+            format!("{start:.3} {midi:>3} {duration:.3} {instrument}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Zip parallel lanes (cf. Opusmodus `make-omn`): pitches × durations.
 pub fn zip(pitches: Vec<u8>, durations: Vec<f32>) -> Vec<Note> {
     let len = pitches.len().max(durations.len());

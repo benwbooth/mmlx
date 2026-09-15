@@ -240,6 +240,27 @@ fn harmonize_and_continue() {
 }
 
 #[test]
+fn remix_and_piano_roll() {
+    let sections = vec![
+        vec![atom(60, 0.25)],
+        vec![atom(64, 0.25)],
+        vec![atom(67, 0.25)],
+    ];
+    let remixed = remix(sections, &[2, 0], false, 0);
+    assert_eq!(midis(&remixed), vec![Some(67), Some(60)]);
+    // Out-of-range positions are skipped.
+    assert_eq!(remix(vec![vec![atom(60, 0.25)]], &[5], false, 0).len(), 0);
+
+    let song = mmlx_core::ser(vec![atom(60, 0.5), atom(64, 0.25)]);
+    let events: Vec<_> = song.event_stream(0.0).collect();
+    let roll = piano_roll(&events);
+    let rows: Vec<&str> = roll.lines().collect();
+    assert_eq!(rows.len(), 2);
+    assert!(rows[0].contains(" 60 ") && rows[0].starts_with("0.000"));
+    assert!(rows[1].contains(" 64 "));
+}
+
+#[test]
 fn generative_series() {
     // L-system: A->AB, B->A gives Fibonacci words.
     let word = lindenmayer("A", &[('A', "AB"), ('B', "A")], 4);

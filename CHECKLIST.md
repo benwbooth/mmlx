@@ -56,11 +56,10 @@ then commit + push after every feature/fix.
 - [x] CLAP scaffold: `mmlx-clap` cdylib (Clack gain plugin, descriptor test,
   real `libmmlx_clap.so`); full instrument-param export next
 - [ ] Instrument plugin: SF2 wavetable (RustySynth, cf. Kog `decoder.rs`)
-- [ ] Instrument plugin: SF2 wavetable (RustySynth, cf. Kog `decoder.rs`)
-- [ ] CLAP export of instruments (needs audio-machine verification)
-- [ ] Chiptune wrappers (external C/C++ — each its own crate):
-      OPL3, MT-32, SC-55, GME set, libvgm, SID, libopenmpt, vgmstream,
-      PSF family, HivelyTracker, AdPlug — with designed (not fixed) params
+- [x] Instrument plugin: `mmlx-sf2` (RustySynth + in-memory bank, render test)
+- [x] Chiptune voices: `mmlx-chip` NES 2A03 + GB DMG (pure Rust, patch tests)
+- [x] CLAP export: `mmlx-clap` cdylib with `gain_db` params extension
+- [ ] FM voices (YM2612/OPL3), SID filter, tracker wrappers (need C++ or big DSP)
 
 ## Phase 5 — AI text DAW
 
@@ -69,6 +68,7 @@ then commit + push after every feature/fix.
 - [x] `mmlx-fx::BusMixer` mix stage (gain/master math test)
 - [x] Agent helpers: `humanize` (seeded velocity/gate jitter),
   `harmonize` (interval stacks), `continue_melody` (Markov), all tested
-- [ ] Mixer bus rendering in backend (per-bus buffers into BusMixer)
-- [ ] Agent helpers: remix operating on `Note` text
-- [ ] Piano-roll *view* over event stream (never source of truth)
+- [x] Mixer bus rendering in backend (per-bus buffers into BusMixer,
+  `param!(bus)` live routing; compiles under nix audio env)
+- [x] Agent helpers: remix + piano-roll text view in `mmlx-algo`
+- [ ] Piano-roll graphical view in vscode-mmlx (never source of truth)
