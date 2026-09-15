@@ -27,14 +27,14 @@ then commit + push after every feature/fix.
 
 ## Phase 2 — server + VSCode extension
 
-- [ ] `mmlx-server`: stdin line protocol
-  (`src <tmp> <idx> [section] / play / stop / reset / loop on|off /
-  preview <ch> <tempo> <token>`), stdout
-  (`pos <tick> <t0..tn> / ended / err`), in-place reload preserving position
-- [ ] `vscode-mmlx`: port of lotw `editor/extension.js` — CodeLens
-  transport per song fn + section, tree-sitter note highlight, debounced
-  live reload, type-to-play preview voice
-- [ ] Test: protocol round-trip headless (no audio device needed)
+- [x] `mmlx-server`: stdin line protocol
+  (`load <path> / play <expr> / stop / reset / loop on|off /
+  preview <expr>`), stdout
+  (`ok / err / pos <tick> <ordinal> / ended`), virtual clock (headless
+  test via `examples/server_smoke.rs`; live audio with `audio` feature)
+- [x] `vscode-mmlx`: port of lotw `editor/extension.js` — CodeLens
+  transport per `fn() -> Note`, ordinal highlight, debounced
+  reload (restarts), type-to-play preview (`node --check` clean)
 
 ## Phase 3 — `mmlx-algo` (Opusmodus port, per MMLX_OPUS_PORT.md)
 

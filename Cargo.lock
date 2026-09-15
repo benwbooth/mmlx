@@ -1406,6 +1406,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mmlx-algo"
+version = "0.1.0"
+dependencies = [
+ "mmlx-core",
+]
+
+[[package]]
 name = "mmlx-audio"
 version = "0.1.0"
 dependencies = [

@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// Enum representing possible parameter value types
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ParamValue {
     String(String),
     Number(f32),
@@ -100,14 +100,14 @@ pub enum TimeUnit {
 }
 
 /// Duration representation for envelope points and notes
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Duration {
     Note(String),
     Time(f32, TimeUnit),
 }
 
 /// A point in an envelope curve with a value and duration
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EnvelopePoint {
     pub value: f32,
     pub duration: Duration,
@@ -127,7 +127,7 @@ pub enum InterpolationType {
 }
 
 /// An envelope defines a series of values over time for modulating parameters
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Envelope {
     pub target: String,
     pub points: Vec<EnvelopePoint>,
@@ -135,7 +135,7 @@ pub struct Envelope {
 }
 
 /// A musical note or collection: atomic, serial melody, or parallel chord.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum Note {
     Atom {
         midi: u8,
