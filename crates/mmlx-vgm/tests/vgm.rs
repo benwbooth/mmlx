@@ -134,6 +134,7 @@ fn emitter_is_exact_and_compressed() {
     assert!(src.contains("repeat!(1)"), "run compression:\n{src}");
     assert!(src.contains("pub fn synth()"), "song fn");
     assert!(src.contains("pub fn loop_synth()"), "loop fn");
+    assert!(src.contains("pub fn synth_full()"), "full generator fn");
     assert!(src.contains("tempo=112.5"), "tempo header");
     assert!(src.contains("ym_algo"), "raw program");
     // Terse form: voice program variable, no bracket bodies.

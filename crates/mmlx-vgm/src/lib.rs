@@ -2009,7 +2009,8 @@ pub fn emit_song(
     }
     format!(
         "/// Decompiled `{name}` (tempo {tempo}, bar = {bar_ticks} ticks).\n\
-         /// `{name}` plays the intro once; `loop_{name}` is the looping body.\n\
+         /// `{name}` plays the intro once; `loop_{name}` is the looping body;\n\
+         /// `{name}_full` is the whole performance (intro once, loop forever).\n\
          /// Bar-major score: outer `ser!` of `par!` bars, each a stack of\n\
          /// channel `ser!`s in score order ({staff_order}); every sounding\n\
          /// channel restates its voice (`#[rustfmt::skip]` keeps it).\n\
@@ -2037,6 +2038,22 @@ pub fn emit_song(
          \x20       param!(tempo={tempo}),\n\
          {lp}\n\
          \x20   )\n\
+         }}\n\
+         \n\
+         /// Full performance: intro once, then the loop body forever.\n\
+         /// A generator (not a `Note`): each pull builds one body, so the\n\
+         /// server pages per cycle with bounded memory instead of replaying\n\
+         /// one collected stream.\n\
+         pub fn {name}_full() -> NoteIterator {{\n\
+         \x20   use genawaiter::sync::gen;\n\
+         \x20   use genawaiter::yield_;\n\
+         \x20   Box::new(gen!({{\n\
+         \x20       yield_!({name}());\n\
+         \x20       loop {{\n\
+         \x20           yield_!(loop_{name}());\n\
+         \x20       }}\n\
+         \x20   }})\n\
+         \x20   .into_iter())\n\
          }}",
         segs = if seg_defs.is_empty() {
             String::new()

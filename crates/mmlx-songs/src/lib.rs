@@ -24,6 +24,17 @@ pub fn song_by_name(name: &str) -> Option<fn() -> Note> {
     }
 }
 
+/// Compiled-in generator songs: `fn() -> NoteIterator` constructors for
+/// full performances (intro once, loop body forever). The server pages
+/// one body per cycle with bounded memory instead of replaying one
+/// collected stream.
+pub fn song_stream_by_name(name: &str) -> Option<fn() -> NoteIterator> {
+    match name {
+        "alisia_stage1_full" => Some(vgm::alisia_stage1::alisia_stage1_full),
+        _ => None,
+    }
+}
+
 /// Exercise every currently implemented feature in one composition.
 ///
 /// Covers: pitched atoms (plain/sharp/flat, dotted), rests, previous-pitch,
@@ -173,6 +184,33 @@ mod tests {
         let stream = note_stream_to_event_stream(Box::new(it), 0.0);
         let first: Vec<_> = stream.take(8).collect();
         assert_eq!(first.len(), 8);
+    }
+
+    #[test]
+    fn full_song_streams_intro_then_loop_forever() {
+        // The generator song yields the intro once, then the loop body on
+        // every pull, event-identical to the finite fns. Big stack like
+        // the other Alisia collectors.
+        std::thread::Builder::new()
+            .stack_size(64 << 20)
+            .spawn(|| {
+                let ctor = song_stream_by_name("alisia_stage1_full")
+                    .expect("stream registry misses alisia_stage1_full");
+                let mut full = ctor();
+                let intro = full.next().expect("intro body");
+                assert_eq!(
+                    stream_events(&intro),
+                    stream_events(&vgm::alisia_stage1::alisia_stage1())
+                );
+                let expect_loop = stream_events(&vgm::alisia_stage1::loop_alisia_stage1());
+                for _ in 0..3 {
+                    let body = full.next().expect("loop body");
+                    assert_eq!(stream_events(&body), expect_loop);
+                }
+            })
+            .expect("spawn")
+            .join()
+            .expect("collect");
     }
 
     #[test]

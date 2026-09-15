@@ -1,5 +1,6 @@
 /// Decompiled `alisia_stage1` (tempo 116.955444, bar = 128 ticks).
-/// `alisia_stage1` plays the intro once; `loop_alisia_stage1` is the looping body.
+/// `alisia_stage1` plays the intro once; `loop_alisia_stage1` is the looping body;
+/// `alisia_stage1_full` is the whole performance (intro once, loop forever).
 /// Bar-major score: outer `ser!` of `par!` bars, each a stack of
 /// channel `ser!`s in score order (melody (psg), lead (ym), lead2 (ym), arp (psg), arp2 (psg), harmony3 (ym), harmony2 (ym), harmony (ym), bass (ym), drums (psg)); every sounding
 /// channel restates its voice (`#[rustfmt::skip]` keeps it).
@@ -957,5 +958,23 @@ pub fn loop_alisia_stage1() -> Note {
             ser!(voice_bass_9 a2o rxd b2o as2o a2o rx b2o as2o a2o rx b2o as2o a2o rx b2x as2o a2o gs2o fs2o f2o ds2o d2o rx),
             ser!(reddd),
         )
+    )
+}
+
+/// Full performance: intro once, then the loop body forever.
+/// A generator (not a `Note`): each pull builds one body, so the
+/// server pages per cycle with bounded memory instead of replaying
+/// one collected stream.
+pub fn alisia_stage1_full() -> NoteIterator {
+    use genawaiter::sync::gen;
+    use genawaiter::yield_;
+    Box::new(
+        gen!({
+            yield_!(alisia_stage1());
+            loop {
+                yield_!(loop_alisia_stage1());
+            }
+        })
+        .into_iter(),
     )
 }
