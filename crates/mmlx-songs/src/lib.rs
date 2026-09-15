@@ -318,6 +318,30 @@ mod tests {
         let full = ser!([legato!(c4e, 16), rqd]);
         let plain = ser!([c4e, rqd]);
         assert_eq!(stream_events(&full), stream_events(&plain));
+        // Par-head tempo bakes into atoms but never reaches event ambient;
+        // the sustain must read tempo exactly like its inner note does
+        // (note events identical; the remainder rest starts early by design).
+        let par_tied = par!([param!(tempo = 116.955444), ser!([c4q, q, rq])]);
+        let par_sus = par!([
+            param!(tempo = 116.955444),
+            ser!([legato!(ser!(c4q, q), 32), rq]),
+        ]);
+        assert_eq!(notes_only(&par_tied), notes_only(&par_sus));
+        // Grid exactness: material after the sustain lands on the advance,
+        // read with the song's tempo (not the 60bpm default). 64 ticks =
+        // 1026ms at this tempo; ambient-only tempo would give 1513ms.
+        let grid = ser!([
+            param!(tempo = 116.955444),
+            legato!(ser!(c4q, q), 32),
+            rq,
+            c4e,
+        ]);
+        let onsets: Vec<u32> = stream_events(&grid)
+            .into_iter()
+            .filter(|(_, _, shown, _)| shown.starts_with("NoteOn("))
+            .map(|(time, _, _, _)| time)
+            .collect();
+        assert_eq!(onsets, vec![0, 1026]);
     }
 
     #[test]

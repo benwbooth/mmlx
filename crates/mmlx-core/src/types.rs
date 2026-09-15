@@ -1626,8 +1626,17 @@ impl Note {
                 // Tied-over-barline sustain: sound the inner note in full
                 // (NoteOff lands at its true end) but advance only past
                 // `advance_ticks` 128th-note ticks; rests cover the rest.
-                let tempo = get_numeric_param(active_params, "tempo", 60.0);
-                let time_note_val = get_numeric_param(active_params, "time_note", 4.0);
+                // Tempo rides baked into atoms (par-head params bake at
+                // resolution and never reach event ambient), so read it
+                // exactly like the Atom arm does: ambient + baked params.
+                let mut final_params = active_params.clone();
+                if let Some(baked) = baked_params(note) {
+                    for (key, value) in baked {
+                        final_params.insert(key.clone(), value.clone());
+                    }
+                }
+                let tempo = get_numeric_param(&final_params, "tempo", 60.0);
+                let time_note_val = get_numeric_param(&final_params, "time_note", 4.0);
                 let seconds_per_beat = 60.0 / tempo;
                 let whole_note_secs = 4.0 * (4.0 / time_note_val) * seconds_per_beat;
                 let _ = Self::generate_events_recursive(note, start_time, active_params, producer)
@@ -2389,6 +2398,23 @@ where
     }
 
     Note::ForkParallel(vec_items)
+}
+
+/// Parameters baked into the first sounding atom/rest inside `note`.
+/// Block attrs (including par-head tempo) bake into atoms at resolution
+/// and never reach event ambient; legato reads tempo the way its inner
+/// note does by consulting these first.
+fn baked_params(note: &Note) -> Option<&Vec<(String, ParamValue)>> {
+    match note {
+        Note::Atom { parameters, .. } | Note::Rest { parameters, .. } => Some(parameters),
+        Note::Serial(items)
+        | Note::Parallel(items)
+        | Note::ParallelMin(items)
+        | Note::ForkSequence(items)
+        | Note::ForkParallel(items) => items.iter().find_map(baked_params),
+        Note::Legato { note, .. } => baked_params(note),
+        _ => None,
+    }
 }
 
 /// (sounding duration, pitch) inside a legato wrapper, for resolution

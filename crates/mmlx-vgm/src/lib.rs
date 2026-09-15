@@ -780,8 +780,16 @@ fn parse_sounding(item: &str) -> Option<(Option<String>, String, Option<String>)
     Some((Some(pitch.to_string()), dur.to_string(), attr))
 }
 
-/// Split notes/rests crossing bar lines into head + bare-tie pieces so
-/// every item lies within one bar. Setups copy to all pieces.
+/// Split note/rest units crossing bar lines so every emitted item lies
+/// within one bar (a hard requirement for per-bar `ser!` calls, where a
+/// leading bare tie would panic). A crossing NOTE becomes
+/// `legato!(head, advance)` — full duration sounds, only `advance` ticks
+/// elapse — plus explicit rest pieces covering the remainder span (rests
+/// never cut sustains: voices ignore them). A crossing REST (defensive;
+/// `rest_pieces` pre-splits, so this should not happen) becomes explicit
+/// `r` heads, audio-identical for silence. Units contained in one bar
+/// pass through untouched, ties glued to their head. Setups copy to all
+/// pieces; positions stay exact.
 fn split_spanning(
     items: Vec<String>,
     lens: Vec<u64>,
@@ -795,68 +803,89 @@ fn split_spanning(
     let mut out_lens = Vec::new();
     let mut out_setups = Vec::new();
     let mut position = 0u64;
-    for ((item, len), setup) in items.into_iter().zip(lens).zip(setups) {
-        let end = position + len;
-        // Sounding notes/rests split into head + bare-tie pieces; rest-gap
-        // continuations are bare ties carrying ticks (len > 0) and split
-        // into bare-tie pieces. Note-duration ties ride len 0 and stay
-        // glued to their head.
-        let splittable = parse_sounding(&item).is_some() || (len > 0 && is_bare_tie(&item));
-        let crosses =
-            len > 0 && position / bar_ticks != end.saturating_sub(1) / bar_ticks && splittable;
-        if !crosses {
-            out_items.push(item);
+    let mut index = 0;
+    let n = items.len();
+    while index < n {
+        let item = &items[index];
+        let len = lens[index];
+        // Zero-length items (params, voice calls, comments) and seg/repeat
+        // markers pass through in order; they never cross a barline.
+        let sounding = parse_sounding(item);
+        if sounding.is_none() {
+            out_items.push(item.clone());
             out_lens.push(len);
-            out_setups.push(setup);
-            position = end;
+            out_setups.push(setups[index].clone());
+            position += len;
+            index += 1;
             continue;
         }
-        // Boundaries strictly inside (start, end).
-        let mut bounds = vec![position];
-        let mut boundary = (position / bar_ticks + 1) * bar_ticks;
-        while boundary < end {
-            bounds.push(boundary);
-            boundary += bar_ticks;
+        // Gather the unit: head plus following bare-tie pieces (len > 0;
+        // the head's own duration fragments). Zero-len items never
+        // intervene: emission lays head + ties adjacently and grouping
+        // only merges params (which stay zero-len, breaking the run here
+        // only if one sits between head and tie — impossible by
+        // construction, but the loop below tolerates it by ending the unit).
+        let (pitch, _, attr) = sounding.unwrap();
+        let head_setup = setups[index].clone();
+        let start = position;
+        let mut pieces: Vec<(String, u64)> = vec![(item.clone(), len)];
+        let mut end = position + len;
+        position = end;
+        index += 1;
+        while index < n && lens[index] > 0 && is_bare_tie(&items[index]) {
+            pieces.push((items[index].clone(), lens[index]));
+            end += lens[index];
+            position = end;
+            index += 1;
         }
-        bounds.push(end);
-        // Bare-tie rest continuations split into bare-tie pieces (no head:
-        // the `r` lives in an earlier bar).
-        if is_bare_tie(&item) {
-            for window in bounds.windows(2) {
-                let seg_len = window[1] - window[0];
-                for suffix in ticks_to_durations(seg_len) {
-                    out_items.push(suffix.to_string());
-                    out_lens.push(suffix_ticks(suffix));
-                    out_setups.push(setup.clone());
+        let in_same_bar = end <= start || start / bar_ticks == end.saturating_sub(1) / bar_ticks;
+        if in_same_bar {
+            for (piece, piece_len) in &pieces {
+                out_items.push(piece.clone());
+                out_lens.push(*piece_len);
+                out_setups.push(head_setup.clone());
+            }
+            continue;
+        }
+        // Crossing unit: advance to the first barline under legato, then
+        // cover the remainder with explicit rests.
+        let advance = (start / bar_ticks + 1) * bar_ticks - start;
+        if pitch.is_none() {
+            // Defensive rest path: explicit head per piece (silence is silence).
+            for (piece, piece_len) in &pieces {
+                let suffix = piece.strip_prefix('r').unwrap_or(piece);
+                out_items.push(format!("r{suffix}"));
+                out_lens.push(*piece_len);
+                out_setups.push(head_setup.clone());
+            }
+            continue;
+        }
+        let attr_suffix = attr.map(|a| format!("!{a}")).unwrap_or_default();
+        // Single-suffix head: legato wraps the atom directly.
+        // Multi-suffix (e.g. `c4h t`): merge textually inside a nested
+        // ser so ties still resolve against their head.
+        let inner = if pieces.len() == 1 {
+            pieces[0].0.clone()
+        } else {
+            let mut inner_pieces = Vec::new();
+            for (k, (piece, _)) in pieces.iter().enumerate() {
+                if k == 0 {
+                    inner_pieces.push(format!("{piece}{attr_suffix}"));
+                } else {
+                    inner_pieces.push(piece.clone());
                 }
             }
-            position = end;
-            continue;
+            format!("ser!({})", inner_pieces.join(" "))
+        };
+        out_items.push(format!("legato!({inner}, {advance})"));
+        out_lens.push(advance);
+        out_setups.push(head_setup.clone());
+        for piece in rest_pieces(start + advance, end - (start + advance), bar_ticks) {
+            let piece_len = suffix_ticks(piece.strip_prefix('r').unwrap_or(&piece));
+            out_items.push(piece);
+            out_lens.push(piece_len);
+            out_setups.push(head_setup.clone());
         }
-        let (pitch, _, attr) = parse_sounding(&item).unwrap();
-        let attr_suffix = attr.map(|a| format!("!{a}")).unwrap_or_default();
-        for window in bounds.windows(2) {
-            let seg_len = window[1] - window[0];
-            let suffixes = ticks_to_durations(seg_len);
-            for (k, suffix) in suffixes.iter().enumerate() {
-                let text = if pitch.is_none() {
-                    // Rest: head keeps `r`, continuations are bare ties.
-                    if window[0] == position && k == 0 {
-                        format!("r{suffix}")
-                    } else {
-                        suffix.to_string()
-                    }
-                } else if window[0] == position && k == 0 {
-                    format!("{}{suffix}{attr_suffix}", pitch.clone().unwrap())
-                } else {
-                    suffix.to_string()
-                };
-                out_items.push(text);
-                out_lens.push(suffix_ticks(suffix));
-                out_setups.push(setup.clone());
-            }
-        }
-        position = end;
     }
     (out_items, out_lens, out_setups)
 }
@@ -1292,6 +1321,7 @@ fn compressible(item: &str) -> bool {
     !(item.starts_with("param!(")
         || item.starts_with("comment!(")
         || item.starts_with("repeat!(")
+        || item.starts_with("legato!(")
         || item.ends_with("()")
         || is_bare_tie(item))
 }
