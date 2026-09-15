@@ -867,6 +867,11 @@ pub enum MusicalEventType {
     NoteOff { note_id: u64 },
     /// Represents a comment to be logged.
     Comment(String),
+    /// Logical end of a branch/sub-stream for advance accounting. Par heaps
+    /// and top-level streaming consume it (never yield it): sustains
+    /// (`Legato`) emit events past their advance, so advance must come
+    /// from branch ends, not from max event time.
+    BranchEnd,
 }
 
 /// An event tuple containing the absolute time and the event type.
@@ -1326,13 +1331,16 @@ impl Note {
                         Gen::new(move |producer: Co<TimedMusicalEvent>| {
                             let mut params_clone = params.clone();
                             async move {
-                                let _ = Note::generate_events_recursive(
+                                let end = Note::generate_events_recursive(
                                     &note_clone,
                                     start_time,
                                     &mut params_clone,
                                     &producer,
                                 )
                                 .await;
+                                // Logical end for advance accounting (heaps
+                                // consume it, never yield it downstream).
+                                producer.yield_(branch_end_event(end)).await;
                             }
                         })
                         .into_iter(),
@@ -1362,16 +1370,23 @@ impl Note {
                     }
                 }
 
+                // Sustain overhang (Legato NoteOn/NoteOff past the advance)
+                // must not extend the bar: branch logical ends rule. This
+                // also aligns fork lookahead with ser's long-standing
+                // returned-end semantics (fork advances 0).
+                let mut branch_ends: Vec<Option<f32>> = vec![None; streams.len()];
                 while let Some(HeapItem { event, stream_idx }) = heap.pop() {
-                    max_end_time = max_end_time.max(event.time_seconds + event.real_duration);
-
-                    // *** Important Consideration for Parallel ParamSetters ***
-                    // If an event is a SetParameter, it currently *only* affects the heap item generation
-                    // logic (which uses event_stream_with_params -> generate_events_recursive).
-                    // It does NOT update the `active_params` of the *caller* of this parallel block,
-                    // nor does it affect other parallel branches directly after being yielded.
-                    // This is generally the desired behavior for `par`.
-                    producer.yield_(event).await;
+                    if matches!(event.event, MusicalEventType::BranchEnd) {
+                        branch_ends[stream_idx] = Some(event.time_seconds);
+                    } else {
+                        // *** Important Consideration for Parallel ParamSetters ***
+                        // If an event is a SetParameter, it currently *only* affects the heap item generation
+                        // logic (which uses event_stream_with_params -> generate_events_recursive).
+                        // It does NOT update the `active_params` of the *caller* of this parallel block,
+                        // nor does it affect other parallel branches directly after being yielded.
+                        // This is generally the desired behavior for `par`.
+                        producer.yield_(event).await;
+                    }
 
                     if let Some(next_event) = streams[stream_idx].next() {
                         heap.push(HeapItem {
@@ -1380,6 +1395,10 @@ impl Note {
                         });
                     }
                 }
+                max_end_time = branch_ends
+                    .into_iter()
+                    .flatten()
+                    .fold(max_end_time, |a, b| a.max(b));
                 // Updates to params within parallel branches are discarded.
                 max_end_time
             }
@@ -1428,13 +1447,16 @@ impl Note {
                         Gen::new(move |producer: Co<TimedMusicalEvent>| {
                             let mut params_clone = params.clone();
                             async move {
-                                let _ = Note::generate_events_recursive(
+                                let end = Note::generate_events_recursive(
                                     &note_clone,
                                     start_time,
                                     &mut params_clone,
                                     &producer,
                                 )
                                 .await;
+                                // Logical end for advance accounting (heaps
+                                // consume it, never yield it downstream).
+                                producer.yield_(branch_end_event(end)).await;
                             }
                         })
                         .into_iter(),
@@ -1479,6 +1501,10 @@ impl Note {
                     .unwrap_or(f32::MAX); // Default value if not ParallelMin
 
                 while let Some(HeapItemPM { event, stream_idx }) = heap.pop() {
+                    // Branch-end markers are advance accounting, never music.
+                    if matches!(event.event, MusicalEventType::BranchEnd) {
+                        continue;
+                    }
                     // Yield event only if it starts before the minimum end time
                     if event.time_seconds < min_end_time {
                         producer.yield_(event).await;
@@ -1559,13 +1585,16 @@ impl Note {
                         Gen::new(move |producer: Co<TimedMusicalEvent>| {
                             let mut params_clone = params.clone();
                             async move {
-                                let _ = Note::generate_events_recursive(
+                                let end = Note::generate_events_recursive(
                                     &note_clone,
                                     start_time,
                                     &mut params_clone,
                                     &producer,
                                 )
                                 .await;
+                                // Logical end for advance accounting (heaps
+                                // consume it, never yield it downstream).
+                                producer.yield_(branch_end_event(end)).await;
                             }
                         })
                         .into_iter(),
@@ -1595,6 +1624,10 @@ impl Note {
                 }
 
                 while let Some(HeapItemFP { event, stream_idx }) = heap.pop() {
+                    // Branch-end markers are advance accounting, never music.
+                    if matches!(event.event, MusicalEventType::BranchEnd) {
+                        continue;
+                    }
                     producer.yield_(event).await;
                     if let Some(next_event) = streams[stream_idx].next() {
                         heap.push(HeapItemFP {
@@ -2506,6 +2539,16 @@ fn apply_parameters(mut note: Note, params: &LinkedHashMap<String, ParamValue>) 
     note
 }
 
+/// Logical end marker for a branch/sub-stream (see `BranchEnd`).
+fn branch_end_event(end: f32) -> TimedMusicalEvent {
+    TimedMusicalEvent {
+        time_seconds: end,
+        real_duration: 0.0,
+        event: MusicalEventType::BranchEnd,
+        instrument_name: String::new(),
+    }
+}
+
 /// Convert an iterator of notes to a flattened event stream iterator
 ///
 /// This iterator takes a stream of notes and produces a flattened stream of events.
@@ -2528,22 +2571,29 @@ pub fn note_stream_to_event_stream(
 
             // Use a sub-generator to get events for this note
             let sub_gen = Gen::new(|sub_producer: Co<TimedMusicalEvent>| async move {
-                let _ = Note::generate_events_recursive(
+                let end = Note::generate_events_recursive(
                     &note,
                     current_time, // Pass down the current (potentially advanced) time
                     &mut note_params_clone,
                     &sub_producer,
                 )
                 .await;
+                // Logical end for advance accounting (consumed below,
+                // never yielded downstream).
+                sub_producer.yield_(branch_end_event(end)).await;
             });
 
             let mut note_events_iter = sub_gen.into_iter();
             let mut max_end_time_for_this_note = current_time;
 
-            // Process all events generated by this single note
+            // Process all events generated by this single note. Advance
+            // comes from logical branch ends (see Parallel): sustains emit
+            // events past their advance, and forks advance 0 by contract.
             while let Some(event) = note_events_iter.next() {
-                max_end_time_for_this_note =
-                    max_end_time_for_this_note.max(event.time_seconds + event.real_duration);
+                if matches!(event.event, MusicalEventType::BranchEnd) {
+                    max_end_time_for_this_note = max_end_time_for_this_note.max(event.time_seconds);
+                    continue;
+                }
 
                 // If the event is a parameter setter, update the *top-level* active parameters
                 if let MusicalEventType::SetParameter { key, value } = &event.event {
