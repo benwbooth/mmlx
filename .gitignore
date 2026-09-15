@@ -2,3 +2,6 @@
 # NOTE: Cargo.lock is intentionally tracked — this workspace ships a binary
 # (mmlx-repl), so reproducible builds matter.
 /.direnv/
+# vscode-mmlx deps are auto-installed by the nix shellHook; never commit them
+# (package-lock.json IS tracked for reproducible installs).
+vscode-mmlx/node_modules/

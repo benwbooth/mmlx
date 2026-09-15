@@ -21,7 +21,8 @@ use std::sync::{Arc, Mutex}; // Import Stream
 /// real-time callback, using pre-allocated buffers for mixing and event processing.
 ///
 /// Returns the shared state Arcs and the CPAL audio stream. The caller
-/// is responsible for calling .play() on the stream and keeping it alive.
+/// is responsible for starting the stream with [`play_stream`] and
+/// keeping it alive.
 pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> {
     info!("Setting up audio via setup_audio...");
 
@@ -298,6 +299,14 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
     // Note: stream.play() is NOT called here. Caller must do it.
 
     Ok((event_queue, synth_time, instruments_map, stream))
+}
+
+/// Starts a stream from [`setup_audio`]. Lives here (not in callers) so
+/// cpal stays behind the `audio` feature of this crate.
+pub fn play_stream(stream: &Stream) -> Result<()> {
+    use cpal::traits::StreamTrait;
+    stream.play()?;
+    Ok(())
 }
 
 // Queueing lives in the crate root (`mmlx_audio::queue_note`) so it works

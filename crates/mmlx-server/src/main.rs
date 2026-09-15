@@ -16,7 +16,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "audio")]
     {
         let (queue_, time_, _instruments, stream) = mmlx_audio::backend::setup_audio()?;
-        cpal::traits::StreamTrait::play(&stream)?;
+        mmlx_audio::backend::play_stream(&stream)?;
         _stream = stream;
         queue = queue_;
         time = time_;
