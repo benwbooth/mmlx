@@ -5,6 +5,7 @@ members = [
     "crates/mmlx-synth",
     "crates/mmlx-audio",
     "crates/mmlx-repl",
+    "crates/mmlx-server",
     "crates/mmlx-songs",
 ]
 resolver = "2"

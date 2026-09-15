@@ -120,6 +120,13 @@ impl ReplEnv {
             .map(String::as_str)
     }
 
+    /// Execute arbitrary code (e.g. a song file's items) in the context.
+    /// Returns trimmed text output, if any.
+    pub fn execute_code(&mut self, code: &str) -> Result<String> {
+        let output = self.execute(code)?;
+        Ok(Self::plain_text(&output).unwrap_or("").trim().to_string())
+    }
+
     pub fn evaluate_line(&mut self, line: &str) -> Result<EvalOutcome> {
         let trimmed = line.trim();
         if trimmed.is_empty() {

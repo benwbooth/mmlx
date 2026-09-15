@@ -1458,6 +1458,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "mmlx-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "log",
+ "mmlx-audio",
+ "mmlx-core",
+ "mmlx-repl",
+]
+
+[[package]]
 name = "mmlx-songs"
 version = "0.1.0"
 dependencies = [
