@@ -30,9 +30,15 @@ impl std::error::Error for TrackError {}
 
 fn open(env: &str, soname: &str) -> Result<Library, TrackError> {
     let candidate = std::env::var(env).unwrap_or_else(|_| soname.to_string());
-    let lib = unsafe { Library::new(&candidate) }
-        .map_err(|_| TrackError::MissingLibrary(candidate.clone()))?;
-    Ok(lib)
+    // RTLD_NOW: resolve every relocation at open time so a broken library
+    // fails here with an error instead of segfaulting on first call.
+    // (Arity mismatches are still only caught by the render tests.)
+    // SAFETY: flags are valid dlopen constants; the handle is closed on drop.
+    unsafe {
+        libloading::os::unix::Library::open(Some(&candidate), libc::RTLD_NOW | libc::RTLD_LOCAL)
+            .map(Library::from)
+            .map_err(|_| TrackError::MissingLibrary(candidate))
+    }
 }
 
 fn gme_check(err: *const c_char) -> Result<(), TrackError> {

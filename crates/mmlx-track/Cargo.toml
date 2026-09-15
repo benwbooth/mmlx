@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 mmlx-core = { workspace = true }
 libloading = "0.8"
+libc = "0.2"
 
 [dev-dependencies]
 mmlx-sf2 = { path = "../mmlx-sf2" }
