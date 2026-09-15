@@ -39,10 +39,10 @@ let rollPanel = null;
 let rollRows = [];
 
 const highlight = vscode.window.createTextEditorDecorationType({
-  backgroundColor: "rgba(120,220,90,0.40)",
-  border: "1px solid rgba(120,220,90,0.95)",
+  backgroundColor: "rgba(255,235,59,0.35)",
+  border: "1px solid rgba(255,235,59,0.95)",
   borderRadius: "2px",
-  overviewRulerColor: "rgba(120,220,90,1.0)",
+  overviewRulerColor: "rgba(255,235,59,1.0)",
   overviewRulerLane: vscode.OverviewRulerLane.Full,
 });
 
