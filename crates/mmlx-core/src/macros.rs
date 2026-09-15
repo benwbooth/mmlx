@@ -296,6 +296,11 @@ pub fn resolve_key_value(key: &str, value_str: &str) -> (String, ParamValue) {
 
 // --- Macros ---
 
+/// Set one or more ambient parameters: `param!(tempo = 120)`,
+/// `param!(instrument = "ym", ym_channel = 0)`, `param!(duty =)` unsets.
+/// Single pair returns the setter directly; multi-pair returns a `ser!`-free
+/// `Serial` of setters that splices the same way. Inside `ser!`/`par!`
+/// bodies the values also apply as block attributes to following siblings.
 #[macro_export]
 macro_rules! param {
     ($key:ident =) => {
@@ -331,6 +336,12 @@ macro_rules! param_opt {
     };
 }
 
+/// Envelope constructor (linear interpolation): `en!(q0, e1, h0.5, q0)`.
+/// Each point is `<duration><value>` with metric (`q`), seconds (`s`),
+/// milliseconds (`ms`) or percent (`p`) durations. A bare number takes a
+/// quarter-note duration. Must be bound via `param!(key = en!(...))` —
+/// a bare `en!(...)` inside any block panics. See `linen!`/`cosen!`/
+/// `expen!`/`cuben!` for other interpolations, `env!` for the alias.
 #[macro_export]
 macro_rules! en {
     ($($point:expr),* $(,)?) => {{
@@ -510,6 +521,10 @@ macro_rules! cuben {
     }};
 }
 
+/// Repeat the previous item `N` more times: `ser!(a4e, repeat!(2))`
+/// plays three hits. Only atoms, rests and `ser!`/`par!` blocks repeat;
+/// params, envelopes, ties and markers panic. Must directly follow the
+/// repeated item (a param change in between breaks the chain).
 #[macro_export]
 macro_rules! repeat {
     ($count:expr) => {
@@ -517,6 +532,8 @@ macro_rules! repeat {
     };
 }
 
+/// Zero-duration marker in the event stream: `comment!("approx timbre")`.
+/// Takes no musical time and affects no params; shows in logs and renders.
 #[macro_export]
 macro_rules! comment {
    ($($arg:tt)*) => {
