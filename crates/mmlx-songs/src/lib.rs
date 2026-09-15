@@ -299,6 +299,28 @@ mod tests {
     }
 
     #[test]
+    fn legato_matches_tie() {
+        // Tied-over-barline sustain: one NoteOn with the full duration,
+        // grid advance covered by rests. Note events identical to a tie
+        // (the remainder rest starts before the NoteOff — inherent overlap).
+        let notes_only = |song: &Note| {
+            stream_events(song)
+                .into_iter()
+                .filter(|(_, _, shown, _)| {
+                    shown.starts_with("NoteOn(") || shown.starts_with("NoteOff")
+                })
+                .collect::<Vec<_>>()
+        };
+        let tied = ser!([c4q, q, rq]);
+        let sustained = ser!([legato!(ser!(c4q, q), 32), rq]);
+        assert_eq!(notes_only(&tied), notes_only(&sustained));
+        // Advance accounting: full-duration advance behaves like a plain note.
+        let full = ser!([legato!(c4e, 16), rqd]);
+        let plain = ser!([c4e, rqd]);
+        assert_eq!(stream_events(&full), stream_events(&plain));
+    }
+
+    #[test]
     fn envelopes_evaluate() {
         let probe = env!(q0, e1, h0.5, q0);
         let mmlx_core::Note::Envelope(envelope) = probe else {

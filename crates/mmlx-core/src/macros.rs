@@ -525,6 +525,23 @@ macro_rules! cuben {
 /// plays three hits. Only atoms, rests and `ser!`/`par!` blocks repeat;
 /// params, envelopes, ties and markers panic. Must directly follow the
 /// repeated item (a param change in between breaks the chain).
+/// Tied-over-barline sustain: `legato!(d5q, 100)` sounds `d5q` in full
+/// (NoteOff at its true end) but advances only 100 128th-note ticks, so a
+/// note can start in one bar and ring past the barline while the grid
+/// stays exact; rests cover the remaining span. The inner note is any
+/// sounding expression (atoms, per-note attrs, or a tie-merged
+/// `ser!(...)` for dotted values with no single literal). Advance is in
+/// ticks (128 per whole note), always exact — never a float duration.
+#[macro_export]
+macro_rules! legato {
+    ($note:expr, $advance:expr) => {
+        $crate::Note::Legato {
+            note: Box::new($note.clone()),
+            advance_ticks: $advance,
+        }
+    };
+}
+
 #[macro_export]
 macro_rules! repeat {
     ($count:expr) => {

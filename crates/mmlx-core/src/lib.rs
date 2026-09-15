@@ -51,7 +51,7 @@ pub mod prelude {
     // NOT re-exported here (the names would collide). They are available via
     // `#[macro_use] extern crate mmlx_core;` or full path (`mmlx_core::ser!`).
     // All other macros are safe to glob-import.
-    pub use crate::{comment, repeat};
+    pub use crate::{comment, legato, repeat};
     pub use crate::{
         cosen, cosenv, cuben, cubenv, en, env, expen, expenv, linen, linenv, param, param_opt,
     };

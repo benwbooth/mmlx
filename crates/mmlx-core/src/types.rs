@@ -163,6 +163,13 @@ pub enum Note {
         key: String,
         value: ParamValue,
     },
+    /// Tied-over-barline sustain: sound `note` in full (NoteOff at its true
+    /// end) but advance only `advance_ticks` 128th-note ticks. The remaining
+    /// span is covered by rests. Built by `legato!`; see its docs.
+    Legato {
+        note: Box<Note>,
+        advance_ticks: u64,
+    },
     Envelope(Envelope),
     RepeatMarker(usize),
     ParallelMin(Vec<Note>),
@@ -570,6 +577,12 @@ impl std::fmt::Display for Note {
                 ParamValue::Number(n) => write!(f, "param!({}={})", key, n),
                 _ => write!(f, "param!({}={:?})", key, value),
             },
+            Note::Legato {
+                note,
+                advance_ticks,
+            } => {
+                write!(f, "legato!({note}, {advance_ticks})")
+            }
             Note::Envelope(env) => {
                 write!(f, "{}", env)
             }
@@ -899,6 +912,7 @@ impl Note {
         match self {
             Note::Atom { duration, .. } => Some(*duration),
             Note::Rest { duration, .. } => Some(*duration),
+            Note::Legato { note, .. } => note.get_base_duration(),
             Note::Comment(_) => None, // Comments have no duration
             _ => None,                // All other variants don't have a single base duration
         }
@@ -926,6 +940,10 @@ impl Note {
                     .iter()
                     .map(|n| n.clone().param(key.clone(), value.clone()))
                     .collect();
+            }
+            Note::Legato { note, .. } => {
+                let inner = (**note).clone().param(key.clone(), value.clone());
+                *note = Box::new(inner);
             }
             Note::ParallelMin(notes) | Note::ForkSequence(notes) | Note::ForkParallel(notes) => {
                 *notes = notes
@@ -1601,6 +1619,21 @@ impl Note {
                     .await;
                 start_time // Does not advance time
             }
+            Note::Legato {
+                note,
+                advance_ticks,
+            } => {
+                // Tied-over-barline sustain: sound the inner note in full
+                // (NoteOff lands at its true end) but advance only past
+                // `advance_ticks` 128th-note ticks; rests cover the rest.
+                let tempo = get_numeric_param(active_params, "tempo", 60.0);
+                let time_note_val = get_numeric_param(active_params, "time_note", 4.0);
+                let seconds_per_beat = 60.0 / tempo;
+                let whole_note_secs = 4.0 * (4.0 / time_note_val) * seconds_per_beat;
+                let _ = Self::generate_events_recursive(note, start_time, active_params, producer)
+                    .await;
+                start_time + *advance_ticks as f32 / 128.0 * whole_note_secs
+            }
             // These should have been resolved by ser/par processing
             Note::AtomImplicitDuration { .. }
             | Note::PreviousPitch { .. }
@@ -1698,8 +1731,11 @@ where
 
                 // Check if the item is repeatable
                 match &last_resolved {
-                    Note::Atom { .. } | Note::Rest { .. } | Note::Serial(_) | Note::Parallel(_) => {
-                    }
+                    Note::Atom { .. }
+                    | Note::Rest { .. }
+                    | Note::Serial(_)
+                    | Note::Parallel(_)
+                    | Note::Legato { .. } => {}
                     _ => panic!("Cannot repeat ParamSetter, Envelope, Tie, or RepeatMarker."),
                 }
 
@@ -1764,6 +1800,16 @@ where
                         }
                         note @ Note::Rest { duration, .. } => {
                             last_duration = Some(*duration);
+                            resolved_items.push(note.clone());
+                        }
+                        note @ Note::Legato { .. } => {
+                            let (dur, pitch) = legato_context(note);
+                            if dur.is_some() {
+                                last_duration = dur;
+                            }
+                            if pitch.is_some() {
+                                last_pitch_midi = pitch;
+                            }
                             resolved_items.push(note.clone());
                         }
                         _ => resolved_items.push(item_with_attrs.clone()),
@@ -1832,6 +1878,18 @@ where
             }
             // Serial/Parallel pushed without updating context
             // Implicit/Previous/Tie/Repeat handled earlier
+            note @ Note::Legato { .. } => {
+                // Sounding duration/pitch feed following implicits, exactly
+                // as if the inner note sat here with full duration.
+                let (dur, pitch) = legato_context(note);
+                if dur.is_some() {
+                    last_duration = dur;
+                }
+                if pitch.is_some() {
+                    last_pitch_midi = pitch;
+                }
+                resolved_items.push(note.clone());
+            }
             _ => {
                 resolved_items.push(item_with_attrs.clone());
             }
@@ -2091,7 +2149,8 @@ where
                     | Note::Parallel(_)
                     | Note::ForkSequence(_)
                     | Note::ForkParallel(_)
-                    | Note::ParallelMin(_) => {}
+                    | Note::ParallelMin(_)
+                    | Note::Legato { .. } => {}
                     _ => panic!("Cannot repeat ParamSetter, Envelope, Tie, or RepeatMarker."),
                 }
                 resolved_items.push(last_resolved.clone());
@@ -2146,6 +2205,16 @@ where
                         }
                         note @ Note::Rest { duration, .. } => {
                             last_duration = Some(*duration);
+                            resolved_items.push(note.clone());
+                        }
+                        note @ Note::Legato { .. } => {
+                            let (dur, pitch) = legato_context(note);
+                            if dur.is_some() {
+                                last_duration = dur;
+                            }
+                            if pitch.is_some() {
+                                last_pitch_midi = pitch;
+                            }
                             resolved_items.push(note.clone());
                         }
                         _ => resolved_items.push(item_with_attrs.clone()),
@@ -2206,6 +2275,16 @@ where
             }
             note @ Note::Rest { duration, .. } => {
                 last_duration = Some(*duration);
+                resolved_items.push(note.clone());
+            }
+            note @ Note::Legato { .. } => {
+                let (dur, pitch) = legato_context(note);
+                if dur.is_some() {
+                    last_duration = dur;
+                }
+                if pitch.is_some() {
+                    last_pitch_midi = pitch;
+                }
                 resolved_items.push(note.clone());
             }
             _ => resolved_items.push(item_with_attrs.clone()),
@@ -2312,6 +2391,48 @@ where
     Note::ForkParallel(vec_items)
 }
 
+/// (sounding duration, pitch) inside a legato wrapper, for resolution
+/// context (following implicit durations / previous-pitch). Inner shapes
+/// are atoms or tie-merged serials; anything else yields `None` (stale
+/// context is kept, same as an unrecognized block).
+fn legato_context(note: &Note) -> (Option<f32>, Option<u8>) {
+    match note {
+        Note::Atom { midi, duration, .. } => (Some(*duration), Some(*midi)),
+        Note::Serial(items) => {
+            let mut dur = 0.0f32;
+            let mut pitch = None;
+            let mut any = false;
+            for item in items {
+                match item {
+                    Note::Atom { midi, duration, .. } => {
+                        dur += duration;
+                        pitch = Some(*midi);
+                        any = true;
+                    }
+                    Note::Rest { duration, .. } => {
+                        dur += duration;
+                        any = true;
+                    }
+                    Note::Legato { .. } => {
+                        let (d, p) = legato_context(item);
+                        if let Some(d) = d {
+                            dur += d;
+                            any = true;
+                        }
+                        if p.is_some() {
+                            pitch = p;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            (any.then_some(dur), pitch)
+        }
+        Note::Legato { note, .. } => legato_context(note),
+        _ => (None, None),
+    }
+}
+
 fn apply_parameters(mut note: Note, params: &LinkedHashMap<String, ParamValue>) -> Note {
     match &mut note {
         Note::Atom { parameters, .. }
@@ -2345,6 +2466,10 @@ fn apply_parameters(mut note: Note, params: &LinkedHashMap<String, ParamValue>) 
             for n in notes.iter_mut() {
                 *n = apply_parameters(n.clone(), params);
             }
+        }
+        Note::Legato { note, .. } => {
+            let inner = apply_parameters((**note).clone(), params);
+            *note = Box::new(inner);
         },
         Note::ParallelMin(notes) | Note::ForkSequence(notes) | Note::ForkParallel(notes) => {
              for n in notes.iter_mut() {
@@ -2461,6 +2586,13 @@ pub fn transpose_note(note: &Note, offset: i8) -> Note {
         Note::ForkParallel(notes) => {
             Note::ForkParallel(notes.iter().map(|n| transpose_note(n, offset)).collect())
         }
+        Note::Legato {
+            note,
+            advance_ticks,
+        } => Note::Legato {
+            note: Box::new(transpose_note(note, offset)),
+            advance_ticks: *advance_ticks,
+        },
         // Non-pitch related notes are returned unchanged
         Note::Rest { .. }
         | Note::ParamSetter { .. }
