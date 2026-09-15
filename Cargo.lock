@@ -1466,9 +1466,11 @@ dependencies = [
  "anyhow",
  "cpal",
  "log",
+ "mmlx-chip",
  "mmlx-core",
  "mmlx-fx",
  "mmlx-synth",
+ "mmlx-ym",
 ]
 
 [[package]]
@@ -1555,6 +1557,7 @@ dependencies = [
  "mmlx-audio",
  "mmlx-core",
  "mmlx-repl",
+ "mmlx-songs",
 ]
 
 [[package]]
@@ -1590,6 +1593,16 @@ dependencies = [
  "libloading",
  "mmlx-core",
  "mmlx-sf2",
+]
+
+[[package]]
+name = "mmlx-vgm"
+version = "0.1.0"
+dependencies = [
+ "mmlx-chip",
+ "mmlx-core",
+ "mmlx-songs",
+ "mmlx-ym",
 ]
 
 [[package]]

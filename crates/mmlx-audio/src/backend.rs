@@ -30,10 +30,51 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
     let default_sample_rate = 44100; // Used for synth init if actual rate differs
     let event_queue: EventQueue = Arc::new(Mutex::new(VecDeque::new()));
     let synth_time: SynthTime = Arc::new(Mutex::new(0.0f32));
-    let instruments_map_inner: HashMap<String, Arc<Mutex<dyn Instrument>>> = HashMap::from([(
-        "basic_synth".to_string(),
-        Arc::new(Mutex::new(BasicSynth::new(default_sample_rate))) as Arc<Mutex<dyn Instrument>>,
-    )]);
+    let mut instruments_map_inner: HashMap<String, Arc<Mutex<dyn Instrument>>> = HashMap::from([
+        (
+            "basic_synth".to_string(),
+            Arc::new(Mutex::new(BasicSynth::new(default_sample_rate)))
+                as Arc<Mutex<dyn Instrument>>,
+        ),
+        (
+            "fm".to_string(),
+            Arc::new(Mutex::new(mmlx_chip::Fm4::new())) as Arc<Mutex<dyn Instrument>>,
+        ),
+        (
+            "sid".to_string(),
+            Arc::new(Mutex::new(mmlx_chip::Sid::new())) as Arc<Mutex<dyn Instrument>>,
+        ),
+        (
+            "nes".to_string(),
+            Arc::new(Mutex::new(mmlx_chip::Nes2A03::new())) as Arc<Mutex<dyn Instrument>>,
+        ),
+        (
+            "gb".to_string(),
+            Arc::new(Mutex::new(mmlx_chip::GbDmg::new())) as Arc<Mutex<dyn Instrument>>,
+        ),
+        (
+            "ay".to_string(),
+            Arc::new(Mutex::new(mmlx_chip::AyVoice::new())) as Arc<Mutex<dyn Instrument>>,
+        ),
+        (
+            "psg".to_string(),
+            Arc::new(Mutex::new(mmlx_chip::PsgVoice::new())) as Arc<Mutex<dyn Instrument>>,
+        ),
+        (
+            "opl".to_string(),
+            Arc::new(Mutex::new(mmlx_chip::Opl2::new())) as Arc<Mutex<dyn Instrument>>,
+        ),
+    ]);
+    // Exact YM2612 core (GENS): silent skip on allocation failure.
+    match mmlx_ym::Ym2612Voice::new(mmlx_ym::YM2612_CLOCK_NTSC, default_sample_rate as u32) {
+        Some(voice) => {
+            instruments_map_inner.insert(
+                "ym".to_string(),
+                Arc::new(Mutex::new(voice)) as Arc<Mutex<dyn Instrument>>,
+            );
+        }
+        None => warn!("ym2612 voice unavailable"),
+    }
     let instruments_map: InstrumentsMap = Arc::new(Mutex::new(instruments_map_inner));
     info!("Shared state initialized.");
 

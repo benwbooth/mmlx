@@ -12,7 +12,7 @@ pub mod sid;
 pub mod sn;
 
 pub use ay::AyVoice;
-pub use fm::Fm4;
+pub use fm::{Fm4, YM_ALGO_TO_ROUTING};
 pub use opl::Opl2;
 pub use sid::Sid;
 pub use sn::PsgVoice;

@@ -1,0 +1,12 @@
+[package]
+name = "mmlx-vgm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mmlx-core = { workspace = true }
+
+[dev-dependencies]
+mmlx-chip = { path = "../mmlx-chip" }
+mmlx-ym = { path = "../mmlx-ym" }
+mmlx-songs = { path = "../mmlx-songs" }

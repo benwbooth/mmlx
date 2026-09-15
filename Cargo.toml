@@ -14,6 +14,7 @@ members = [
     "crates/mmlx-sf2",
     "crates/mmlx-midi",
     "crates/mmlx-track",
+    "crates/mmlx-vgm",
     "crates/mmlx-songs",
 ]
 resolver = "2"
@@ -22,6 +23,8 @@ resolver = "2"
 mmlx-core = { path = "crates/mmlx-core" }
 mmlx-macros = { path = "crates/mmlx-macros" }
 mmlx-synth = { path = "crates/mmlx-synth" }
+mmlx-chip = { path = "crates/mmlx-chip" }
+mmlx-ym = { path = "crates/mmlx-ym" }
 mmlx-audio = { path = "crates/mmlx-audio" }
 mmlx-fx = { path = "crates/mmlx-fx" }
 mmlx-algo = { path = "crates/mmlx-algo" }

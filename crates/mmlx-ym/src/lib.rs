@@ -188,9 +188,19 @@ impl Ym2612Voice {
     fn key_on(&mut self, channel: u8, midi: u8, parameters: &HashMap<String, ParamValue>) {
         let num = |key: &str| number(parameters, key);
         let (port, base) = Self::channel_regs(channel);
-        let routing = num("fm_routing").unwrap_or(0.0).round().clamp(0.0, 8.0) as usize;
-        let algo = ROUTING_TO_YM_ALGO[routing];
-        let feedback = (num("fm_feedback").unwrap_or(0.0).clamp(0.0, 1.0) * 7.0).round() as u8;
+        // Raw YM program wins when present (decompiler-exact path);
+        // otherwise cooked mmlx FM params are translated.
+        let algo = num("ym_algo")
+            .map(|algo| algo.round().clamp(0.0, 7.0) as u8)
+            .unwrap_or_else(|| {
+                let routing = num("fm_routing").unwrap_or(0.0).round().clamp(0.0, 8.0) as usize;
+                ROUTING_TO_YM_ALGO[routing]
+            });
+        let feedback = num("ym_feedback")
+            .map(|feedback| feedback.round().clamp(0.0, 7.0) as u8)
+            .unwrap_or_else(|| {
+                (num("fm_feedback").unwrap_or(0.0).clamp(0.0, 1.0) * 7.0).round() as u8
+            });
         self.chip.write(port, 0xB0 + base, (feedback << 3) | algo);
         let pan = num("pan").unwrap_or(0.5);
         let stereo = if pan < 0.25 {
@@ -209,37 +219,61 @@ impl Ym2612Voice {
                 .unwrap() as u8;
             let prefix = format!("op{}", slot + 1);
             let field = |key: &str| num(&format!("{prefix}_{key}"));
-            let mult = field("ratio").or_else(|| field("mult")).unwrap_or(1.0);
-            let mult_reg = if mult <= 0.75 {
-                0
-            } else {
-                mult.round().clamp(1.0, 15.0) as u8
+            // Raw register values win when present (decompiler-exact path).
+            let raw = |key: &str, mask: f32| {
+                field(key).map(|value| value.round().clamp(0.0, mask) as u8)
             };
-            self.chip
-                .write(port, 0x30 + row * 4 + base, mult_reg & 0x0F);
-            let level = field("level").unwrap_or(0.8).clamp(0.0, 1.0);
-            self.chip
-                .write(port, 0x40 + row * 4 + base, gain_to_tl(level));
-            let attack = field("attack").unwrap_or(0.01).max(0.0);
-            self.chip
-                .write(port, 0x50 + row * 4 + base, secs_to_rate(attack, 1.5, 31));
-            let decay = field("decay").unwrap_or(0.1).max(0.0);
-            self.chip
-                .write(port, 0x60 + row * 4 + base, secs_to_rate(decay, 3.0, 31));
-            // Sustain rate: hold (our voices sustain indefinitely).
-            self.chip.write(port, 0x70 + row * 4 + base, 0);
-            let sustain = field("sustain").unwrap_or(0.9).clamp(0.0, 1.0);
-            let release = field("release").unwrap_or(0.1).max(0.0);
-            let sustain_level = ((1.0 - sustain) * 15.0).round() as u8;
-            let release_rate = secs_to_rate(release, 3.0, 15);
+            let mult_reg = raw("mult", 15.0).unwrap_or_else(|| {
+                let mult = field("ratio").unwrap_or(1.0);
+                if mult <= 0.75 {
+                    0
+                } else {
+                    mult.round().clamp(1.0, 15.0) as u8
+                }
+            });
+            // DT lives in the MUL high nibble (bits 4-6).
+            let detune = raw("dt", 7.0).unwrap_or(0);
+            self.chip.write(
+                port,
+                0x30 + row * 4 + base,
+                mult_reg & 0x0F | (detune << 4),
+            );
+            let tl = raw("tl", 127.0).unwrap_or_else(|| {
+                gain_to_tl(field("level").unwrap_or(0.8).clamp(0.0, 1.0))
+            });
+            self.chip.write(port, 0x40 + row * 4 + base, tl);
+            let attack = raw("ar", 31.0).unwrap_or_else(|| {
+                secs_to_rate(field("attack").unwrap_or(0.01).max(0.0), 1.5, 31)
+            });
+            self.chip.write(port, 0x50 + row * 4 + base, attack);
+            let decay = raw("dr", 31.0).unwrap_or_else(|| {
+                secs_to_rate(field("decay").unwrap_or(0.1).max(0.0), 3.0, 31)
+            });
+            self.chip.write(port, 0x60 + row * 4 + base, decay);
+            // Sustain rate: hold unless programmed raw.
+            let sustain_rate = raw("sr", 31.0).unwrap_or(0);
+            self.chip.write(port, 0x70 + row * 4 + base, sustain_rate);
+            let sustain_level = raw("sl", 15.0).unwrap_or_else(|| {
+                ((1.0 - field("sustain").unwrap_or(0.9).clamp(0.0, 1.0)) * 15.0).round() as u8
+            });
+            let release_rate = raw("rr", 15.0).unwrap_or_else(|| {
+                secs_to_rate(field("release").unwrap_or(0.1).max(0.0), 3.0, 15)
+            });
             self.chip.write(
                 port,
                 0x80 + row * 4 + base,
                 (sustain_level << 4) | release_rate,
             );
-            self.chip.write(port, 0x90 + row * 4 + base, 0); // SSG-EG off
+            let ssg = raw("ssg", 15.0).unwrap_or(0);
+            self.chip.write(port, 0x90 + row * 4 + base, ssg);
         }
-        let (block, fnum) = midi_to_fnum(midi, YM2612_CLOCK_NTSC);
+        let (block, fnum) = match (num("ym_block"), num("ym_fnum")) {
+            (Some(block), Some(fnum)) => (
+                block.round().clamp(0.0, 7.0) as u8,
+                fnum.round().clamp(0.0, 0x7FF as f32) as u16,
+            ),
+            _ => midi_to_fnum(midi, YM2612_CLOCK_NTSC),
+        };
         self.chip
             .write(port, 0xA4 + base, (block << 3) | ((fnum >> 8) as u8 & 0x07));
         self.chip.write(port, 0xA0 + base, (fnum & 0xFF) as u8);

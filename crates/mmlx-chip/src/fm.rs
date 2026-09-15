@@ -22,6 +22,11 @@ struct OpConfig {
     release: f32,
 }
 
+/// YM2612 algorithm number (0-7) to routing.
+/// Chart: 0:1>2>3>4, 1:(1+2)>3>4, 2:1>2>4&3>4, 3:1>2>4&3, 4:1>2&3>4,
+/// 5:1>2>3&4, 6:1>2&3&4, 7:all parallel. Verify by ear per song.
+pub const YM_ALGO_TO_ROUTING: [u8; 8] = [0, 5, 6, 7, 1, 2, 8, 3];
+
 #[derive(Clone, Copy)]
 struct FmPatchDef {
     routing: u8,

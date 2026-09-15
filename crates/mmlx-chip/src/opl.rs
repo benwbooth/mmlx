@@ -104,7 +104,7 @@ impl OplVoice {
         let dt = 1.0 / sample_rate;
         let e0 = self.ops[0].step_env(dt);
         let e1 = self.ops[1].step_env(dt);
-        for (i, op) in self.ops.iter_mut().enumerate() {
+        for op in self.ops.iter_mut() {
             let ratio = op.ratio;
             op.phase = (op.phase + self.freq * ratio / sample_rate).fract();
         }

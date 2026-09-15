@@ -9,6 +9,8 @@ extern crate mmlx_core;
 use mmlx_core::env;
 use mmlx_core::prelude::*;
 
+pub mod vgm;
+
 /// Exercise every currently implemented feature in one composition.
 ///
 /// Covers: pitched atoms (plain/sharp/flat, dotted), rests, previous-pitch,
