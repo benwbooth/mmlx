@@ -1548,6 +1548,7 @@ dependencies = [
  "anyhow",
  "env_logger",
  "log",
+ "mmlx-algo",
  "mmlx-audio",
  "mmlx-core",
  "mmlx-repl",

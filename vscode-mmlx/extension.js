@@ -35,6 +35,8 @@ let previewDebounce = null;
 let previewHlTimer = null;
 let lensChanged = new vscode.EventEmitter();
 const cache = new Map(); // doc uri -> { version, fns }
+let rollPanel = null;
+let rollRows = [];
 
 const highlight = vscode.window.createTextEditorDecorationType({
   backgroundColor: "rgba(120,220,90,0.40)",
@@ -156,6 +158,15 @@ function handleEvent(line) {
   if (line.startsWith("pos ")) {
     const ordinal = Number(line.split(/\s+/)[2]);
     applyHighlight(ordinal);
+    if (rollPanel) rollPanel.webview.postMessage({ ordinal });
+    return;
+  }
+  if (line.startsWith("rollrow ")) {
+    rollRows.push(line.slice("rollrow ".length));
+    return;
+  }
+  if (line === "rollend") {
+    renderRoll();
     return;
   }
   if (line === "ended") {
@@ -220,6 +231,36 @@ function writeAndSend() {
   send(`play ${playing.name}()`);
 }
 
+function rollHtml(rows) {
+  const trs = rows.map((r, i) => {
+    const [start, midi, dur, inst] = r.split(/\s+/);
+    return `<tr id="row${i + 1}"><td>${i + 1}</td><td>${start}</td><td>${midi}</td><td>${dur}</td><td>${inst || ""}</td></tr>`;
+  }).join("");
+  return `<!DOCTYPE html><html><body>
+<style>table{border-collapse:collapse;font-family:monospace}td,th{border:1px solid #555;padding:2px 8px}.on{background:rgba(120,220,90,.45)}</style>
+<table><tr><th>#</th><th>start</th><th>midi</th><th>dur</th><th>inst</th></tr>${trs}</table>
+<script>const vscode=acquireVsCodeApi();window.addEventListener('message',e=>{document.querySelectorAll('.on').forEach(el=>el.classList.remove('on'));const el=document.getElementById('row'+e.data.ordinal);if(el)el.classList.add('on');});</script>
+</body></html>`;
+}
+
+function renderRoll() {
+  if (!rollPanel) return;
+  rollPanel.webview.html = rollHtml(rollRows);
+}
+
+async function showRoll(doc, name) {
+  ensureServer(doc);
+  if (!rollPanel) {
+    rollPanel = vscode.window.createWebviewPanel("mmlxRoll", "mmlx piano roll", vscode.ViewColumn.Beside, { enableScripts: true });
+    rollPanel.onDidDispose(() => { rollPanel = null; rollRows = []; });
+  }
+  rollRows = [];
+  const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
+  fs.writeFileSync(tmp, doc.getText());
+  send(`load ${tmp}`);
+  send(`roll ${name}()`);
+}
+
 async function reloadIfPlaying() {
   if (!playing || playing.paused) return;
   writeAndSend(); // v1: reload restarts from the top
@@ -280,6 +321,13 @@ function activate(ctx) {
       loopState.set(`${doc.uri}#${name}`, on);
       if (playing && playing.name === name) send(`loop ${on ? "on" : "off"}`);
       lensChanged.fire();
+    }),
+    vscode.commands.registerCommand("mmlx.showRoll", async () => {
+      const ed = vscode.window.activeTextEditor;
+      if (!ed) return;
+      const fn = await functionAt(ed.document, ed.selection.active.line);
+      if (!fn) return vscode.window.showInformationMessage("No fn() -> Note under the cursor.");
+      showRoll(ed.document, fn.name);
     })
   );
 

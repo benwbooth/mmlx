@@ -16,7 +16,8 @@
     "commands": [
       { "command": "mmlx.play", "title": "mmlx: Play song" },
       { "command": "mmlx.stop", "title": "mmlx: Stop" },
-      { "command": "mmlx.toggleLoop", "title": "mmlx: Toggle loop" }
+      { "command": "mmlx.toggleLoop", "title": "mmlx: Toggle loop" },
+      { "command": "mmlx.showRoll", "title": "mmlx: Show piano roll" }
     ],
     "configuration": {
       "title": "mmlx",

@@ -70,5 +70,25 @@ fn main() {
         "unknown command errors: {messages:?}"
     );
 
+    player.handle_line("roll ser!([c4q, e4q])");
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let mut rows = 0;
+    let mut ended = false;
+    while Instant::now() < deadline {
+        for message in drain(&out_rx) {
+            if message.starts_with("rollrow ") {
+                rows += 1;
+            }
+            if message == "rollend" {
+                ended = true;
+            }
+        }
+        if ended {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(ended && rows == 2, "roll yields 2 rows + end");
+
     println!("SERVER SMOKE PASS");
 }

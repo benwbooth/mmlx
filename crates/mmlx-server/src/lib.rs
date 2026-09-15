@@ -7,6 +7,8 @@
 //!   reset            stop and rewind to the start
 //!   loop on|off      toggle looping at the end of the stream
 //!   preview <expr>   evaluate `<expr>` (queued to audio when present)
+//!   roll <expr>      evaluate `<expr>` and emit its piano roll as
+//!     `rollrow <start> <midi> <dur> <instrument>` lines plus `rollend`
 //! stdout events:
 //!   ok <msg> | err <msg>
 //!   pos <tick> <ordinal>   `<ordinal>` = NoteOns with time <= now (1-based
@@ -119,6 +121,17 @@ impl Player {
                 Ok(EvalOutcome::Note(note)) => {
                     let count = note.event_stream(0.0).count();
                     self.say(format!("ok preview {count}"));
+                }
+                Ok(_) => self.say("err expression is not a Note".to_string()),
+                Err(err) => self.say(format!("err {err:?}")),
+            },
+            "roll" => match self.repl.evaluate_line(rest) {
+                Ok(EvalOutcome::Note(note)) => {
+                    let events: Vec<_> = note.event_stream(0.0).collect();
+                    for row in mmlx_algo::piano_roll(&events).lines() {
+                        self.say(format!("rollrow {row}"));
+                    }
+                    self.say("rollend".to_string());
                 }
                 Ok(_) => self.say("err expression is not a Note".to_string()),
                 Err(err) => self.say(format!("err {err:?}")),

@@ -9,6 +9,7 @@ audio = ["mmlx-audio/audio"]
 
 [dependencies]
 mmlx-core = { workspace = true }
+mmlx-algo = { workspace = true }
 mmlx-audio = { workspace = true }
 mmlx-repl = { path = "../mmlx-repl" }
 anyhow = "1.0"
