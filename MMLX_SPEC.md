@@ -89,6 +89,13 @@ Lowercase only. Generated as `pub const` + `macro_rules!` with optional `(key=va
 
 All take array/`IntoIterator<Item=Note>`. Functions `ser/par/parmin/forkseq/forkpar` + `macro_rules!` wrappers `ser!/par!/parmin!/forkser!/forkpar!` are equivalent; spec shows `!` form.
 
+Body forms (all equivalent — a proc-macro frontend splits items, the
+runtime functions resolve): `ser!([c4q, d4q])` (legacy) ≡ `ser!(c4q, d4q)`
+≡ `ser!(c4q d4q)`. Whitespace separation recognizes notes, rests, ties,
+`repeat!`/`param!`/`comment!`, nested `ser!`/`par!`, per-note `!(...)`
+attrs, `::` paths and block constructs as units; a lone `(...)` group
+passes through as one expression.
+
 | Op | Time advance | Param scope | Notes |
 |---|---|---|---|
 | `ser!([a,b,c])` | sum | `param!` inside applies forward within block (lexical, §7) | Resolves implicit/tie/repeat inline. |

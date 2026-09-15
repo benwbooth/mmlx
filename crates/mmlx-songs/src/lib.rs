@@ -198,6 +198,65 @@ mod tests {
         assert!(song_by_name("no_such_song").is_none());
     }
 
+    // Event streams with note IDs zeroed (IDs come from a global counter)
+    // and params key-sorted (HashMap iteration order is random per map).
+    fn stream_events(song: &Note) -> Vec<(u32, u32, String, String)> {
+        song.event_stream(0.0)
+            .map(|event| {
+                let time = (event.time_seconds * 1000.0).round() as u32;
+                let dur = (event.real_duration * 1000.0).round() as u32;
+                let mut ev = event.event.clone();
+                match &mut ev {
+                    MusicalEventType::NoteOn { note_id, .. } => *note_id = 0,
+                    MusicalEventType::NoteOff { note_id } => *note_id = 0,
+                    _ => {}
+                }
+                let mut shown = format!("{ev:?}");
+                if let MusicalEventType::NoteOn { parameters, .. } = &ev {
+                    let mut params: Vec<String> = parameters
+                        .iter()
+                        .map(|(key, value)| format!("{key}={value:?}"))
+                        .collect();
+                    params.sort();
+                    shown = format!("NoteOn({})", params.join(","));
+                }
+                (time, dur, shown, event.instrument_name)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn frontend_forms_are_equivalent() {
+        // Bracket, paren-comma, and whitespace bodies expand identically.
+        let old = ser!([
+            param!(tempo = 120),
+            c4q,
+            d4q,
+            rq,
+            e4e,
+            o,
+            f4q!(velocity = 0.5),
+            repeat!(1)
+        ]);
+        let new_parens = ser!(
+            param!(tempo = 120),
+            c4q,
+            d4q,
+            rq,
+            e4e,
+            o,
+            f4q!(velocity = 0.5),
+            repeat!(1)
+        );
+        let new_ws = ser!(param!(tempo = 120) c4q d4q rq e4e o f4q!(velocity = 0.5) repeat!(1));
+        assert_eq!(stream_events(&old), stream_events(&new_parens));
+        assert_eq!(stream_events(&old), stream_events(&new_ws));
+        // Nesting mixes old and new forms freely.
+        let old_par = par!([ser!([c4q, e4q]), ser!([g4q])]);
+        let new_par = par!(ser!(c4q e4q) ser!(g4q));
+        assert_eq!(stream_events(&old_par), stream_events(&new_par));
+    }
+
     #[test]
     fn envelopes_evaluate() {
         let probe = env!(q0, e1, h0.5, q0);

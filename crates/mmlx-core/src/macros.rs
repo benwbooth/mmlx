@@ -552,45 +552,45 @@ macro_rules! cubenv {
 
 // --- Composition operator wrappers (functions exist in types.rs) ---
 
-/// `ser!([...])` ≡ `ser([...])`: sequential composition.
+/// `ser!([...])` ≡ `ser!(a, b)` ≡ `ser!(a b)`: sequential composition.
 #[macro_export]
 macro_rules! ser {
-    ($items:expr) => {
-        $crate::ser($items)
+    ($($t:tt)*) => {
+        $crate::ser($crate::seq_items!($($t)*))
     };
 }
-/// `par!([...])` ≡ `par([...])`: parallel composition (max duration).
+/// `par!([...])` ≡ `par!(a, b)` ≡ `par!(a b)`: parallel composition (max duration).
 #[macro_export]
 macro_rules! par {
-    ($items:expr) => {
-        $crate::par($items)
+    ($($t:tt)*) => {
+        $crate::par($crate::seq_items!($($t)*))
     };
 }
-/// `parmin!([...])` ≡ `parmin([...])`: parallel composition (min duration).
+/// `parmin!([...])` ≡ `parmin!(a, b)` ≡ `parmin!(a b)`: parallel composition (min duration).
 #[macro_export]
 macro_rules! parmin {
-    ($items:expr) => {
-        $crate::parmin($items)
+    ($($t:tt)*) => {
+        $crate::parmin($crate::seq_items!($($t)*))
     };
 }
-/// `forkseq!([...])` ≡ `forkseq([...])`: forked serial (advances 0).
+/// `forkseq!([...])` ≡ `forkseq!(a, b)` ≡ `forkseq!(a b)`: forked serial (advances 0).
 #[macro_export]
 macro_rules! forkseq {
-    ($items:expr) => {
-        $crate::forkseq($items)
+    ($($t:tt)*) => {
+        $crate::forkseq($crate::seq_items!($($t)*))
     };
 }
 /// `forkser!` is the CP437-spelled alias of `forkseq!`.
 #[macro_export]
 macro_rules! forkser {
-    ($items:expr) => {
-        $crate::forkseq($items)
+    ($($t:tt)*) => {
+        $crate::forkseq($crate::seq_items!($($t)*))
     };
 }
-/// `forkpar!([...])` ≡ `forkpar([...])`: forked parallel (advances 0).
+/// `forkpar!([...])` ≡ `forkpar!(a, b)` ≡ `forkpar!(a b)`: forked parallel (advances 0).
 #[macro_export]
 macro_rules! forkpar {
-    ($items:expr) => {
-        $crate::forkpar($items)
+    ($($t:tt)*) => {
+        $crate::forkpar($crate::seq_items!($($t)*))
     };
 }

@@ -30,6 +30,10 @@ pub use types::{Duration, Envelope, EnvelopePoint, InterpolationType, Note, Para
 pub use macros::create_param_setter;
 pub use macros::resolve_key_value;
 
+// Composition-body frontend: `ser!(c4q d4q)` ≡ `ser!([c4q, d4q])`.
+// The proc macro only splits items; runtime `ser()`/`par()`/… resolve.
+pub use mmlx_macros::seq_items;
+
 // Re-export note module functions
 pub use types::{forkpar, forkseq, note_stream_to_event_stream, par, parmin, ser};
 pub use types::{NoteIterator, ReplContext, TimedMusicalEventIterator};
