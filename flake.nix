@@ -28,6 +28,10 @@
           shellHook = ''
             export MMLX_GME_LIB="${pkgs.game-music-emu}/lib/libgme.so"
             export MMLX_OPENMPT_LIB="${pkgs.libopenmpt}/lib/libopenmpt.so"
+            # nix rustc ships no rust-src; point rust-analyzer at the
+            # platform sources so the standard library resolves
+            # (same value nixpkgs' own rust-analyzer wrapper uses).
+            export RUST_SRC_PATH="${pkgs.rustPlatform.rustLibSrc}"
           '';
         };
       });
