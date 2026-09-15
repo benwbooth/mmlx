@@ -3,7 +3,7 @@ use anyhow::Result;
 use cpal::traits::{DeviceTrait, HostTrait};
 use cpal::Stream;
 use log::{debug, error, info, warn};
-use mmlx_core::{Instrument, MusicalEventType, TimedMusicalEvent};
+use mmlx_core::{Instrument, MusicalEventType};
 use mmlx_synth::BasicSynth;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex}; // Import Stream
