@@ -122,7 +122,13 @@ fn emitter_is_exact_and_compressed() {
     let header = parse_header(&data).expect("header");
     let commands = parse_commands(&data, &header).expect("commands");
     let notes = track_fm(&commands, header.ym2612_clock, header.total_samples as u64);
-    let src = emit_song("synth", &[("ym".to_string(), vec![], notes)], 735, 112.5);
+    let src = emit_song(
+        "synth",
+        &[("ym".to_string(), "lead".to_string(), vec![], notes)],
+        735,
+        112.5,
+        128,
+    );
     // Readable consts, compression markers, loop fns, tempo.
     assert!(src.contains("a4q"), "note literal:\n{src}");
     assert!(src.contains("repeat!(1)"), "run compression:\n{src}");
@@ -130,4 +136,8 @@ fn emitter_is_exact_and_compressed() {
     assert!(src.contains("pub fn loop_synth()"), "loop fn");
     assert!(src.contains("tempo=112.5"), "tempo header");
     assert!(src.contains("ym_algo"), "raw program");
+    // Terse form: voice program variable, no bracket bodies.
+    assert!(src.contains("voice_lead()"), "program var:\n{src}");
+    assert!(!src.contains("ser!(['"), "terse lanes:\n{src}");
+    assert!(!src.contains("par!(["), "terse mix:\n{src}");
 }

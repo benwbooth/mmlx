@@ -110,6 +110,17 @@ passes through as one expression.
 
 Nesting is free: `par!([ser!([...]), ser!([...])])` is the standard multi-voice pattern.
 
+Voice programs as variables: a `ser!` holding only `param!` setters splices
+like any nested block — its params leak forward to following siblings
+(`nested_ser_shares_ambient_params`). Decompiled songs hoist each recurring
+voice program to `fn voice_<role>() -> Note` once and splice calls, so a
+lane reads as program changes plus notes; once-only programs stay inline
+and small tweaks stay inline `param!` diffs. Lanes emit in score order
+(melody on top, drums at the bottom) with one `// bar N` line per bar, so
+parts align vertically like staff systems. Repeated phrases recurring 3+
+times with net savings extract to bar-local `seg_*()` functions (never
+crossing a barline, never opening with a bare tie).
+
 ---
 
 ## 5. Block resolution (`ser/par/parmin/fork*`)
