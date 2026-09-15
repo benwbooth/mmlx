@@ -11,6 +11,19 @@ use mmlx_core::prelude::*;
 
 pub mod vgm;
 
+/// Compiled-in song registry for instant play (no JIT): maps the names of
+/// the `fn() -> Note` songs to their constructors. This is the lotw-style
+/// fast path — pressing play on a saved song starts in milliseconds;
+/// only unsaved edits go through the evcxr JIT in mmlx-server.
+pub fn song_by_name(name: &str) -> Option<fn() -> Note> {
+    match name {
+        "all_features" => Some(all_features),
+        "alisia_stage1" => Some(vgm::alisia_stage1::alisia_stage1),
+        "loop_alisia_stage1" => Some(vgm::alisia_stage1::loop_alisia_stage1),
+        _ => None,
+    }
+}
+
 /// Exercise every currently implemented feature in one composition.
 ///
 /// Covers: pitched atoms (plain/sharp/flat, dotted), rests, previous-pitch,
@@ -157,6 +170,32 @@ mod tests {
         let stream = note_stream_to_event_stream(Box::new(it), 0.0);
         let first: Vec<_> = stream.take(8).collect();
         assert_eq!(first.len(), 8);
+    }
+
+    #[test]
+    fn registry_resolves_compiled_songs() {
+        // Instant-play path: every registry entry must build a Note.
+        // The Alisia tree is huge; collect on a big stack like the
+        // server's main thread does (default test threads are 2 MiB).
+        for name in ["all_features", "alisia_stage1", "loop_alisia_stage1"] {
+            let events = std::thread::Builder::new()
+                .stack_size(64 << 20)
+                .spawn(move || {
+                    let ctor =
+                        song_by_name(name).unwrap_or_else(|| panic!("registry misses {name}"));
+                    collect_events(ctor())
+                })
+                .expect("spawn")
+                .join()
+                .expect("collect");
+            assert!(
+                events
+                    .iter()
+                    .any(|ev| matches!(ev.event, MusicalEventType::NoteOn { .. })),
+                "{name} streams notes"
+            );
+        }
+        assert!(song_by_name("no_such_song").is_none());
     }
 
     #[test]

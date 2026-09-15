@@ -12,6 +12,7 @@ mmlx-core = { workspace = true }
 mmlx-algo = { workspace = true }
 mmlx-audio = { workspace = true }
 mmlx-repl = { path = "../mmlx-repl" }
+mmlx-songs = { path = "../mmlx-songs" }
 anyhow = "1.0"
 env_logger = "0.11"
 log = "0.4"

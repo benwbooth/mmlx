@@ -283,9 +283,26 @@ async function play(doc, name) {
   out.appendLine(`▶ ${name}`);
   playing = { doc, name, section: null, paused: false };
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
-  writeAndSend();
+  if (bufferMatchesDisk(doc)) {
+    // Saved file: the server plays its compiled-in copy instantly
+    // (lotw `rom` path), no load/compile wait.
+    send(`play ${name}()`);
+  } else {
+    // Unsaved edits: load the buffer through the JIT, then play.
+    writeAndSend();
+  }
   markBusy("loading…");
   lensChanged.fire();
+}
+
+// True when the editor buffer is byte-identical to the file on disk
+// (or the file can't be read, e.g. untitled — then false → JIT path).
+function bufferMatchesDisk(doc) {
+  try {
+    return fs.readFileSync(doc.uri.fsPath, "utf8") === doc.getText();
+  } catch {
+    return false;
+  }
 }
 
 // Sections play by submitting their (whitespace-collapsed) source text.
