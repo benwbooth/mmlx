@@ -57,9 +57,11 @@ then commit + push after every feature/fix.
   real `libmmlx_clap.so`); full instrument-param export next
 - [ ] Instrument plugin: SF2 wavetable (RustySynth, cf. Kog `decoder.rs`)
 - [x] Instrument plugin: `mmlx-sf2` (RustySynth + in-memory bank, render test)
-- [x] Chiptune voices: `mmlx-chip` NES 2A03 + GB DMG (pure Rust, patch tests)
+- [x] Chiptune voices: `mmlx-chip` NES 2A03 + GB DMG (pure Rust, patch tests),
+  4-op FM (`Fm4`, 5 routings/patches), SID voice + resonant lowpass
+  (`cutoff`/`resonance` params, filter test)
 - [x] CLAP export: `mmlx-clap` cdylib with `gain_db` params extension
-- [ ] FM voices (YM2612/OPL3), SID filter, tracker wrappers (need C++ or big DSP)
+- [ ] Tracker wrappers (libopenmpt etc. need C++; no pure-Rust equivalent)
 
 ## Phase 5 — AI text DAW
 
@@ -71,4 +73,4 @@ then commit + push after every feature/fix.
 - [x] Mixer bus rendering in backend (per-bus buffers into BusMixer,
   `param!(bus)` live routing; compiles under nix audio env)
 - [x] Agent helpers: remix + piano-roll text view in `mmlx-algo`
-- [ ] Piano-roll graphical view in vscode-mmlx (never source of truth)
+- [x] Piano-roll graphical view: server `roll` + vscode webview (`showRoll`)
