@@ -12,6 +12,7 @@ members = [
     "crates/mmlx-chip",
     "crates/mmlx-sf2",
     "crates/mmlx-midi",
+    "crates/mmlx-track",
     "crates/mmlx-songs",
 ]
 resolver = "2"

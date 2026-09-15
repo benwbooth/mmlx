@@ -1,0 +1,11 @@
+[package]
+name = "mmlx-track"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mmlx-core = { workspace = true }
+libloading = "0.8"
+
+[dev-dependencies]
+mmlx-sf2 = { path = "../mmlx-sf2" }

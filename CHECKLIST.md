@@ -61,7 +61,11 @@ then commit + push after every feature/fix.
   4-op FM (`Fm4`, 5 routings/patches), SID voice + resonant lowpass
   (`cutoff`/`resonance` params, filter test)
 - [x] CLAP export: `mmlx-clap` cdylib with `gain_db` params extension
-- [ ] Tracker wrappers (libopenmpt etc. need C++; no pure-Rust equivalent)
+- [x] Tracker/streaming backends (`mmlx-track`, dlopen so builds stay pure):
+  GME chip logs, openmpt modules, `events_to_mod` piano-roll synthesis
+  (pitch-calibrated), FluidSynth + MT-32 realtime `Instrument` voices
+- [x] Live sound verified on hardware (`audio_check`: stream plays, clock
+  advances, queue drains)
 
 ## Phase 5 — AI text DAW
 

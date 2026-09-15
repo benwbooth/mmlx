@@ -1583,6 +1583,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mmlx-track"
+version = "0.1.0"
+dependencies = [
+ "libloading",
+ "mmlx-core",
+ "mmlx-sf2",
+]
+
+[[package]]
 name = "ndk"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -20,7 +20,15 @@
             pkg-config
             # cpal audio backend (`--features audio`) links ALSA on Linux.
             alsa-lib
+            # Tracker/chip playback libs for mmlx-track (dlopen at runtime).
+            game-music-emu
+            libopenmpt
           ];
+
+          shellHook = ''
+            export MMLX_GME_LIB="${pkgs.game-music-emu}/lib/libgme.so"
+            export MMLX_OPENMPT_LIB="${pkgs.libopenmpt}/lib/libopenmpt.so"
+          '';
         };
       });
     };
