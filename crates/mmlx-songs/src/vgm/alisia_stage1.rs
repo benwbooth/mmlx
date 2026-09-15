@@ -1,12 +1,12 @@
 /// Decompiled `alisia_stage1` (tempo 116.955444, bar = 128 ticks).
 /// `alisia_stage1` plays the intro once; `loop_alisia_stage1` is the looping body.
-/// Terse form (no brackets, space-separated): one `// bar N` line
-/// per bar, lanes in score order (melody on top, drums at the
-/// bottom) so parts align vertically like staff systems;
-/// `#[rustfmt::skip]` keeps it. Voice programs bind once per song
-/// fn as `let voice_*` variables (`voice.clone()` splices them);
-/// single-use programs inline as `param!(...)`; `seg_*()` phrases
-/// are bar-local repeats.
+/// Bar-major score: outer `ser!` of `par!` bars, each a stack of
+/// channel `ser!`s in score order (melody (psg), lead (ym), lead2 (ym), arp (psg), arp2 (psg), harmony3 (ym), harmony2 (ym), harmony (ym), bass (ym), drums (psg)); every sounding
+/// channel restates its voice (`#[rustfmt::skip]` keeps it).
+/// Voice programs bind once per song fn as `let voice_*`
+/// variables (`voice.clone()` splices them); single-use programs
+/// inline as `param!(...)`; `seg_*()` phrases are bar-local repeats;
+/// cross-bar sustains are `legato!` plus rest cover.
 use mmlx_core::prelude::*;
 
 #[rustfmt::skip]
@@ -30,22 +30,28 @@ pub fn alisia_stage1() -> Note {
     let voice_lead: Note = ser!(param!(instrument="ym", op1_ar=15, op1_dr=18, op1_mult=3, op1_rr=8, op1_sl=15, op1_sr=0, op1_tl=8, op2_ar=15, op2_dr=15, op2_mult=1, op2_rr=8, op2_sl=0, op2_sr=0, op2_tl=36, op3_ar=13, op3_dr=18, op3_mult=2, op3_rr=8, op3_sl=2, op3_sr=2, op3_tl=28, op4_ar=15, op4_dr=15, op4_mult=1, op4_rr=8, op4_sl=1, op4_sr=0, op4_tl=24, ym_algo=4, ym_channel=4, ym_feedback=7));
     let voice_lead_2: Note = ser!(param!(instrument="ym", op1_ar=18, op1_dr=14, op1_mult=4, op1_rr=5, op1_sl=6, op1_sr=3, op1_tl=26, op2_ar=19, op2_dr=16, op2_mult=8, op2_rr=5, op2_sl=5, op2_sr=2, op2_tl=64, op3_ar=18, op3_dr=4, op3_mult=4, op3_rr=5, op3_sl=2, op3_sr=0, op3_tl=40, op4_ar=15, op4_dr=4, op4_mult=4, op4_rr=8, op4_sl=0, op4_sr=0, op4_tl=19, ym_algo=3, ym_channel=4, ym_feedback=7));
     let voice_lead_3: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=10, op1_mult=1, op1_rr=5, op1_sl=1, op1_sr=0, op1_tl=31, op2_ar=25, op2_dr=11, op2_mult=5, op2_rr=8, op2_sl=5, op2_sr=0, op2_tl=15, op3_ar=28, op3_dr=13, op3_mult=1, op3_rr=6, op3_sl=2, op3_sr=0, op3_tl=47, op4_ar=14, op4_dr=4, op4_mult=1, op4_rr=6, op4_sl=2, op4_sr=0, op4_tl=20, ym_algo=2, ym_channel=4, ym_feedback=7));
+    let voice_lead_4: Note = ser!(param!(instrument="ym", op1_ar=12, op1_dr=6, op1_mult=4, op1_rr=2, op1_sl=2, op1_sr=2, op1_tl=32, op2_ar=10, op2_dr=9, op2_mult=2, op2_rr=6, op2_sl=7, op2_sr=0, op2_tl=31, op3_ar=12, op3_dr=6, op3_mult=4, op3_rr=2, op3_sl=2, op3_sr=2, op3_tl=35, op4_ar=10, op4_dr=9, op4_mult=2, op4_rr=6, op4_sl=7, op4_sr=0, op4_tl=31, ym_algo=4, ym_channel=4, ym_feedback=5));
     let voice_lead_5: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=17, ym_algo=3, ym_channel=4, ym_feedback=3));
+    let voice_lead_8: Note = ser!(param!(instrument="ym", op1_ar=18, op1_dr=14, op1_mult=4, op1_rr=5, op1_sl=6, op1_sr=3, op1_tl=26, op2_ar=19, op2_dr=16, op2_mult=8, op2_rr=5, op2_sl=5, op2_sr=2, op2_tl=64, op3_ar=18, op3_dr=4, op3_mult=4, op3_rr=5, op3_sl=2, op3_sr=0, op3_tl=40, op4_ar=15, op4_dr=4, op4_mult=4, op4_rr=8, op4_sl=0, op4_sr=0, op4_tl=23, ym_algo=3, ym_channel=4, ym_feedback=7));
     let voice_lead2: Note = ser!(param!(instrument="ym", op1_ar=15, op1_dr=18, op1_mult=3, op1_rr=8, op1_sl=15, op1_sr=0, op1_tl=8, op2_ar=15, op2_dr=15, op2_mult=1, op2_rr=8, op2_sl=0, op2_sr=0, op2_tl=28, op3_ar=13, op3_dr=18, op3_mult=2, op3_rr=8, op3_sl=2, op3_sr=2, op3_tl=28, op4_ar=15, op4_dr=15, op4_mult=1, op4_rr=8, op4_sl=1, op4_sr=0, op4_tl=16, ym_algo=4, ym_channel=0, ym_feedback=7));
     let voice_lead2_2: Note = ser!(param!(instrument="ym", op1_ar=18, op1_dr=14, op1_mult=4, op1_rr=5, op1_sl=6, op1_sr=3, op1_tl=26, op2_ar=19, op2_dr=16, op2_mult=8, op2_rr=5, op2_sl=5, op2_sr=2, op2_tl=64, op3_ar=18, op3_dr=4, op3_mult=4, op3_rr=5, op3_sl=2, op3_sr=0, op3_tl=40, op4_ar=15, op4_dr=4, op4_mult=4, op4_rr=8, op4_sl=0, op4_sr=0, op4_tl=11, ym_algo=3, ym_channel=0, ym_feedback=7));
     let voice_lead2_3: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=10, op1_mult=1, op1_rr=5, op1_sl=1, op1_sr=0, op1_tl=31, op2_ar=25, op2_dr=11, op2_mult=5, op2_rr=8, op2_sl=5, op2_sr=0, op2_tl=15, op3_ar=28, op3_dr=13, op3_mult=1, op3_rr=6, op3_sl=2, op3_sr=0, op3_tl=47, op4_ar=14, op4_dr=4, op4_mult=1, op4_rr=6, op4_sl=2, op4_sr=0, op4_tl=12, ym_algo=2, ym_channel=0, ym_feedback=7));
+    let voice_lead2_4: Note = ser!(param!(instrument="ym", op1_ar=12, op1_dr=6, op1_mult=4, op1_rr=2, op1_sl=2, op1_sr=2, op1_tl=32, op2_ar=10, op2_dr=9, op2_mult=2, op2_rr=6, op2_sl=7, op2_sr=0, op2_tl=23, op3_ar=12, op3_dr=6, op3_mult=4, op3_rr=2, op3_sl=2, op3_sr=2, op3_tl=35, op4_ar=10, op4_dr=9, op4_mult=2, op4_rr=6, op4_sl=7, op4_sr=0, op4_tl=23, ym_algo=4, ym_channel=0, ym_feedback=5));
     let voice_lead2_5: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=9, ym_algo=3, ym_channel=0, ym_feedback=3));
     let voice_arp: Note = ser!(param!(instrument="psg", sn_channel=0));
     let voice_arp2: Note = ser!(param!(instrument="psg", sn_channel=1));
     let voice_harmony3: Note = ser!(param!(instrument="ym", op1_ar=15, op1_dr=12, op1_mult=2, op1_rr=3, op1_sl=10, op1_sr=1, op1_tl=22, op2_ar=13, op2_dr=4, op2_mult=2, op2_rr=8, op2_sl=5, op2_sr=6, op2_tl=22, op3_ar=31, op3_dr=5, op3_mult=8, op3_rr=2, op3_sl=10, op3_sr=6, op3_tl=17, op4_ar=31, op4_dr=13, op4_mult=4, op4_rr=7, op4_sl=10, op4_sr=4, op4_tl=20, ym_algo=4, ym_channel=3, ym_feedback=6));
     let voice_harmony3_2: Note = ser!(param!(instrument="ym", op1_ar=18, op1_dr=14, op1_mult=4, op1_rr=5, op1_sl=6, op1_sr=3, op1_tl=26, op2_ar=19, op2_dr=16, op2_mult=8, op2_rr=5, op2_sl=5, op2_sr=2, op2_tl=64, op3_ar=18, op3_dr=4, op3_mult=4, op3_rr=5, op3_sl=2, op3_sr=0, op3_tl=40, op4_ar=15, op4_dr=4, op4_mult=4, op4_rr=8, op4_sl=0, op4_sr=0, op4_tl=15, ym_algo=3, ym_channel=3, ym_feedback=7));
     let voice_harmony3_3: Note = ser!(param!(instrument="ym", op1_ar=15, op1_dr=12, op1_mult=2, op1_rr=3, op1_sl=10, op1_sr=1, op1_tl=22, op2_ar=13, op2_dr=4, op2_mult=2, op2_rr=8, op2_sl=5, op2_sr=6, op2_tl=18, op3_ar=31, op3_dr=5, op3_mult=8, op3_rr=2, op3_sl=10, op3_sr=6, op3_tl=17, op4_ar=31, op4_dr=13, op4_mult=4, op4_rr=7, op4_sl=10, op4_sr=4, op4_tl=16, ym_algo=4, ym_channel=3, ym_feedback=6));
+    let voice_harmony3_4: Note = ser!(param!(instrument="ym", op1_ar=26, op1_dr=8, op1_mult=3, op1_rr=7, op1_sl=13, op1_sr=5, op1_tl=29, op2_ar=29, op2_dr=5, op2_mult=4, op2_rr=4, op2_sl=4, op2_sr=4, op2_tl=29, op3_ar=28, op3_dr=4, op3_mult=1, op3_rr=6, op3_sl=6, op3_sr=2, op3_tl=34, op4_ar=31, op4_dr=10, op4_mult=1, op4_rr=4, op4_sl=1, op4_sr=6, op4_tl=23, ym_algo=0, ym_channel=3, ym_feedback=7));
+    let voice_harmony3_5: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=10, op1_mult=1, op1_rr=5, op1_sl=1, op1_sr=0, op1_tl=31, op2_ar=25, op2_dr=11, op2_mult=5, op2_rr=8, op2_sl=5, op2_sr=0, op2_tl=15, op3_ar=28, op3_dr=13, op3_mult=1, op3_rr=6, op3_sl=2, op3_sr=0, op3_tl=47, op4_ar=14, op4_dr=4, op4_mult=1, op4_rr=6, op4_sl=2, op4_sr=0, op4_tl=23, ym_algo=2, ym_channel=3, ym_feedback=7));
     let voice_harmony2: Note = ser!(param!(instrument="ym", op1_ar=15, op1_dr=12, op1_mult=2, op1_rr=3, op1_sl=10, op1_sr=1, op1_tl=22, op2_ar=13, op2_dr=4, op2_mult=2, op2_rr=8, op2_sl=5, op2_sr=6, op2_tl=18, op3_ar=31, op3_dr=5, op3_mult=8, op3_rr=2, op3_sl=10, op3_sr=6, op3_tl=17, op4_ar=31, op4_dr=13, op4_mult=4, op4_rr=7, op4_sl=10, op4_sr=4, op4_tl=16, ym_algo=4, ym_channel=2, ym_feedback=6));
     let voice_harmony2_2: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=10, op1_mult=1, op1_rr=5, op1_sl=1, op1_sr=0, op1_tl=31, op2_ar=25, op2_dr=11, op2_mult=5, op2_rr=8, op2_sl=5, op2_sr=0, op2_tl=15, op3_ar=28, op3_dr=13, op3_mult=1, op3_rr=6, op3_sl=2, op3_sr=0, op3_tl=47, op4_ar=14, op4_dr=4, op4_mult=1, op4_rr=6, op4_sl=2, op4_sr=0, op4_tl=23, ym_algo=2, ym_channel=2, ym_feedback=7));
     let voice_harmony2_3: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=9, ym_algo=3, ym_channel=2, ym_feedback=3));
     let voice_harmony: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=10, op1_mult=1, op1_rr=5, op1_sl=1, op1_sr=0, op1_tl=31, op2_ar=25, op2_dr=11, op2_mult=5, op2_rr=8, op2_sl=5, op2_sr=0, op2_tl=15, op3_ar=28, op3_dr=13, op3_mult=1, op3_rr=6, op3_sl=2, op3_sr=0, op3_tl=47, op4_ar=14, op4_dr=4, op4_mult=1, op4_rr=6, op4_sl=2, op4_sr=0, op4_tl=15, ym_algo=2, ym_channel=5, ym_feedback=7));
     let voice_harmony_2: Note = ser!(param!(instrument="ym", op1_ar=30, op1_dr=14, op1_mult=0, op1_rr=6, op1_sl=11, op1_sr=8, op1_tl=26, op2_ar=24, op2_dr=10, op2_mult=0, op2_rr=6, op2_sl=11, op2_sr=8, op2_tl=34, op3_ar=28, op3_dr=4, op3_mult=0, op3_rr=6, op3_sl=11, op3_sr=8, op3_tl=18, op4_ar=28, op4_dr=5, op4_mult=1, op4_rr=6, op4_sl=11, op4_sr=8, op4_tl=13, ym_algo=0, ym_channel=5, ym_feedback=6));
     let voice_harmony_3: Note = ser!(param!(instrument="ym", op1_ar=23, op1_dr=16, op1_mult=2, op1_rr=9, op1_sl=10, op1_sr=7, op1_tl=25, op2_ar=29, op2_dr=6, op2_mult=3, op2_rr=9, op2_sl=2, op2_sr=6, op2_tl=33, op3_ar=26, op3_dr=9, op3_mult=0, op3_rr=7, op3_sl=1, op3_sr=0, op3_tl=28, op4_ar=26, op4_dr=6, op4_mult=1, op4_rr=8, op4_sl=5, op4_sr=5, op4_tl=18, ym_algo=2, ym_channel=5, ym_feedback=7));
+    let voice_bass: Note = ser!(param!(instrument="ym", op1_ar=10, op1_dr=3, op1_mult=4, op1_rr=3, op1_sl=10, op1_sr=0, op1_tl=20, op2_ar=11, op2_dr=3, op2_mult=0, op2_rr=4, op2_sl=6, op2_sr=1, op2_tl=16, op3_ar=12, op3_dr=9, op3_mult=7, op3_rr=5, op3_sl=10, op3_sr=4, op3_tl=27, op4_ar=15, op4_dr=8, op4_mult=5, op4_rr=7, op4_sl=3, op4_sr=10, op4_tl=13, ym_algo=3, ym_channel=1, ym_feedback=7));
     let voice_bass_2: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=28, op1_mult=15, op1_rr=6, op1_sl=0, op1_sr=0, op1_tl=0, op2_ar=31, op2_dr=29, op2_mult=2, op2_rr=10, op2_sl=6, op2_sr=17, op2_tl=7, op3_ar=31, op3_dr=12, op3_mult=15, op3_rr=8, op3_sl=15, op3_sr=8, op3_tl=0, op4_ar=31, op4_dr=25, op4_mult=9, op4_rr=12, op4_sl=5, op4_sr=19, op4_tl=7, ym_algo=4, ym_channel=1, ym_feedback=7));
     let voice_bass_3: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=28, op1_mult=15, op1_rr=6, op1_sl=0, op1_sr=0, op1_tl=0, op2_ar=31, op2_dr=25, op2_mult=2, op2_rr=8, op2_sl=3, op2_sr=12, op2_tl=10, op3_ar=31, op3_dr=12, op3_mult=15, op3_rr=8, op3_sl=15, op3_sr=8, op3_tl=0, op4_ar=31, op4_dr=25, op4_mult=9, op4_rr=12, op4_sl=5, op4_sr=19, op4_tl=13, ym_algo=4, ym_channel=1, ym_feedback=7));
     let voice_bass_4: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=28, op1_mult=15, op1_rr=6, op1_sl=0, op1_sr=0, op1_tl=0, op2_ar=31, op2_dr=29, op2_mult=2, op2_rr=10, op2_sl=6, op2_sr=17, op2_tl=11, op3_ar=31, op3_dr=12, op3_mult=15, op3_rr=8, op3_sl=15, op3_sr=8, op3_tl=0, op4_ar=31, op4_dr=25, op4_mult=9, op4_rr=12, op4_sl=5, op4_sr=19, op4_tl=11, ym_algo=4, ym_channel=1, ym_feedback=7));
@@ -54,538 +60,618 @@ pub fn alisia_stage1() -> Note {
     let voice_bass_7: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=8, op1_mult=4, op1_rr=6, op1_sl=13, op1_sr=16, op1_tl=0, op2_ar=31, op2_dr=17, op2_mult=2, op2_rr=9, op2_sl=3, op2_sr=15, op2_tl=7, op3_ar=31, op3_dr=21, op3_mult=4, op3_rr=5, op3_sl=8, op3_sr=21, op3_tl=14, op4_ar=31, op4_dr=16, op4_mult=2, op4_rr=8, op4_sl=10, op4_sr=19, op4_tl=11, ym_algo=4, ym_channel=1, ym_feedback=6));
     let voice_bass_8: Note = ser!(param!(instrument="ym", op1_ar=29, op1_dr=31, op1_mult=4, op1_rr=5, op1_sl=0, op1_sr=20, op1_tl=20, op2_ar=29, op2_dr=31, op2_mult=0, op2_rr=7, op2_sl=0, op2_sr=18, op2_tl=20, op3_ar=29, op3_dr=31, op3_mult=0, op3_rr=6, op3_sl=0, op3_sr=14, op3_tl=11, op4_ar=31, op4_dr=31, op4_mult=0, op4_rr=9, op4_sl=0, op4_sr=15, op4_tl=15, ym_algo=2, ym_channel=1, ym_feedback=7));
     let voice_drums: Note = ser!(param!(instrument="psg", sn_channel=3));
-    par!(
+    ser!(
         param!(tempo=116.955444),
-        // melody (psg)
-        ser!(
-        ridd o voice_melody.clone() param!(velocity=76.2) e3i rx a3i rx e4i rx b4e x ro e3i rx b4i rx f3i rx c4i rx a4e x rx legato!(c3i, 4) // bar 1
-                rt rx a4i rx g3i rx d4i rx g4e x rx d3i rxd g4i rx a3i rx e4i rx b4e xd ro e3i rxd // bar 2
-                a4i ro a3i o ro e4i o ro b4e xd ro e3i o ro b4i o ro f3i o ro c4i o ro a4e xd ro c3i rx a4i o // bar 3
-                ro g3i rx d4i rx g4e x rx d3i rx g4i rx a3i rx e4i rx b4e xd rx e3i o ro param!(velocity=67.73) a4i rx legato!(ser!(a4i o), 6) // bar 4
-                rxd ro f5i o rx b5e xd ro e4i rx b5i o ro f4i o ro b4i rx as5e x rxd c4i rx a5i rx g4i rx legato!(d5i, 2) // bar 5
-                rtd rx g5e xd ro d4i o ro g5i o ro a4i o ro f5i o ro b5e xd ro ds4i o ro a5i o ro a4i o rx f5i o // bar 6
-                ro b5e x rx e4i rx b5i rx f4i rx b4i rx as5e x rx c4i rx a5i rx g4i o ro d5i o ro legato!(ser!(g5e xd), 7) // bar 7
-                rid ro d4i o rx g5i o ro a4i rx f5i o ro b5e x rxd ds4i rx a5i rx a4i rx f5i rxd legato!(ser!(b5e xd), 12) // bar 8
-                rtdd ro e4i rx b5i o ro f4i o ro b4i o ro as5e xd ro c4i o rx a5i o ro g4i o ro d5i o ro g5e xd // bar 9
-                ro d4i o ro g5i rxd a4i rx f5i rx b5e x rx ds4i rx a5i rx a4i o ro f5i o rx b5e xd ro legato!(ser!(e4i o), 5) // bar 10
-                rt ro b5i o rx f4i o ro b4i o ro as5e xd rx c4i o ro a5i o ro g4i rx d5i rxd g5e xd ro g4i rx // bar 11
-                gs5i rxd cs5i ro f5i o rx b5i o ro b5i o ro d6i o ro a5i o ro gs4i o rx e4i o ro gs4i o ro e4i o ro gs4i o ro legato!(ser!(e4i o), 6) // bar 12
-                rxd ro g4i o ro d4i rxd g4i rx d4i rx g4i rx d4i rx as4i rx ds4i rx as4i o ro ds4i o rx as4i o ro e4i o ro legato!(ser!(gs4i o), 2) // bar 13
-                rtdd ro e4i o rx gs4i o ro e4i o ro gs4i o ro ds4i o rx as4i o ro e4i o ro as4i rxd e4i rx as4i rx e4i rx legato!(g4i, 7) // bar 14
-                ro rxd d4i rx g4i rx d4i rx g4i o ro d4i o ro gs4i o ro e4i o ro gs4i o ro e4i o ro gs4i o ro e4i o rx g4i o ro legato!(ser!(d4i o), 3) // bar 15
-                rtd ro g4i o ro d4i o ro g4i rx d4i rx gs4i rxd e4i rx gs4i rx e4i rx gs4i rx e4i o ro g4i o ro d4i o ro // bar 16
-                ro g4i o ro d4i o ro g4i o ro d4i o rx as4i o ro ds4i o ro as4i o ro ds4i o rx as4i o ro e4i rx gs4i rx e4i rxd legato!(gs4i, 4) // bar 17
-                rt rx e4i rx gs4i rx e4i rx c4i o ro e4i o rx as4i o ro f4i o ro b4i o ro a4i o ro as3i o ro ds4i o rx e4i o ro // bar 18
-                d4i o ro b4i o ro f4i o ro ds5i rx b5i rx a5i rx f6i rxd a5i rx as5i rx ds5i ro b5i rxd as5i rx b5xd rt // bar 19
-                rxd e6i o rx ds6i o ro a3i o ro e4i o rx b4e xd ro e3i o ro b4i o rx f3i o ro c4i rx a4e xd rx legato!(c3i, 1) // bar 20
-                rtdd rx a4i rx g3i rx d4i rxd g4e x ro d3i o rx g4i o ro a3i o ro e4i o ro b4e xd ro legato!(ser!(e3i o), 8) // bar 21
-                ro rx a4i o ro a3i o ro e4i o ro b4e x rx e3i rx b4i rxd f3i rx c4i rx a4e xd ro c3i o ro legato!(ser!(a4i o), 4) // bar 22
-                rt o ro g3i o rx d4i o ro g4e xd ro d3i o rx g4i o ro a3i o ro e4i o rx cs5e xd rx e3i rx a4i // bar 23
-                rx d4i rx a3i rx ds4i rxd e4i rx as4i ro e4i o ro g4i o rx d4i o ro gs4i o ro as4i o ro g4i o ro ds4i o ro legato!(ser!(e4i o), 5) // bar 24
-                rt ro c4i o rx e4i o ro as4i o ro e4i o ro c4i rx g4i rx d4i rx gs4i rx as4i rx g4i rx ds4i rx e4i o ro legato!(ser!(ds4i o), 2) // bar 25
-                rtdd rx e4i o ro as4i o ro e4i o ro d4i o ro e4i o rx c4i o ro e4i o ro gs4i o ro e4i o rx c4i o ro fs4i rx legato!(d4i, 7) // bar 26
-                ro rx fs4i rxd a4i rx fs4i rx d4i rx fs4i rx d4i rx fs4i o ro a4i o ro fs4i o ro ds4i o ro e4i o ro ds4i o rx legato!(ser!(e4i o), 3) // bar 27
-                rtd ro as4i o ro e4i o ro d4i o ro gs4i o ro e4i o ro gs4i rx b4i rx gs4i rx e4i rxd g4i rx d4i rx gs4i rx // bar 28
-                as4i o ro g4i rx d4i o ro g4i o rx d4i o ro gs4i rx as4i o ro g4i o ro d4i o rx g4i o ro d4i o ro gs4i o rx legato!(as4i, 5) // bar 29
-                rxd rx g4i rx d4i rx g4i rx d4i rx gs4i rxd as4i ro g4i o ro d4i o ro a3i o ro e4i o ro b4e xd ro legato!(ser!(e3i o), 3) // bar 30
-                rtd ro b4i o ro f3i o ro c4i o ro a4e xd ro c3i rx a4i rx g3i rx d4i rx g4e x rx d3i rx legato!(ser!(g4i o), 1) // bar 31
-                ri ro a3i rx e4i rx b4e xd rx e3i rx a4i rx a3i rx e4i rx b4e x rx e3i rx b4i // bar 32
-                rx f3i rx c4i rx a4e x rx c3i rx a4i rx g3i rx d4i o ro g4e xd ro d3i o ro g4i o ro legato!(ser!(a3i o), 6) // bar 33
-                rxd ro e4i o ro b4e xd rx e3i o ro a4i rx a4i o ro f5i rx b5e x rx e4i rx b5i rx f4i rx legato!(b4i, 3) // bar 34
-                rt o rx as5e xd ro c4i o rx a5i rx g4i o ro d5i o ro g5e xd ro d4i rx g5i o rx a4i o ro f5i ro // bar 35
-                ro b5e x rx ds4i rx a5i rx a4i rxd f5i rx b5e x ro e4i o ro b5i o rx f4i o ro b4i o ro legato!(ser!(as5e xd), 6) // bar 36
-                rid o ro c4i o ro a5i o ro g4i o ro d5i o ro g5e x rx d4i rx g5i rx a4i rx f5i rx legato!(ser!(b5e x), 14) // bar 37
-                rt rx ds4i o rx a5i o ro a4i o ro f5i o ro b5e xd rx e4i o ro b5i o rx f4i o ro b4i rx as5e xd // bar 38
-                ro c4i rx a5i rxd g4i rx d5i rx g5e xd rx d4i rx g5i rx a4i o ro f5i o ro b5e xd ro legato!(ser!(ds4i o), 5) // bar 39
-                rt ro a5i o ro a4i o rx f5i o ro b5e xd ro e4i o ro b5i o ro f4i rx b4i rx as5e x rxd c4i rx legato!(a5i, 1) // bar 40
-                rtdd rx g4i rx d5i o ro g5e xd rx g4i o ro gs5i o ro cs5i o ro f5i o rx b5i o ro b5i o rx d6i o ro legato!(ser!(a5i o), 6) // bar 41
-                rxd ro gs4i o ro e4i rxd gs4i rx e4i rx gs4i rx e4i rxd g4i rx d4i rx g4i o ro d4i o ro g4i o ro d4i o ro legato!(ser!(as4i o), 2) // bar 42
-                rtdd ro ds4i o ro as4i o rx ds4i o ro as4i o ro e4i o ro gs4i o ro e4i o ro gs4i rxd e4i rx gs4i rx ds4i rx as4i // bar 43
-                rx e4i rx as4i rx e4i o ro as4i o rx e4i o ro g4i o ro d4i o ro g4i rxd d4i o ro g4i o ro d4i o ro gs4i o rx legato!(ser!(e4i o), 3) // bar 44
-                rtd ro gs4i o ro e4i rx gs4i rx e4i rxd g4i rx d4i rx g4i rx d4i rxd g4i ro d4i o melodyi_seg_0() // bar 45
-                gs4i o ro e4i o ro g4i o ro d4i o rx g4i o ro d4i o ro g4i o ro d4i rx as4i rx ds4i rxd legato!(as4i, 5) // bar 46
-                rxd rx ds4i rx as4i rx e4i rx gs4i o ro e4i o melodyi_seg_0() c4i o rx e4i o ro as4i o ro legato!(ser!(f4i o), 1) // bar 47
-                ri rx b4i o ro a4i o ro as3i rx ds4i rxd e4i rx d4i rx b4i rx f4i rx ds5i rx b5i o ro a5i o ro legato!(ser!(f6i o), 7) // bar 48
-                rx repeat!(1) a5i o ro as5i o ro ds5i o ro b5i o ro as5i o ro b5t rh td // bar 49
-                rhd // bar 50
-                ),
-        // lead (ym)
-        ser!(
-        rw // bar 1
-                rhd idd voice_lead.clone() c3t o e3x g3o c4x legato!(ser!(e4h idd), 8) // bar 2
-                rh td rxd e4edd rx f4x ro g4x ro f4o rxd legato!(ser!(e4hdd tdd), 15) // bar 3
-                rhd i ro voice_lead_2.clone() e3i o ro f3i o rx legato!(g3i, 2) // bar 4
-                rtd rx a3i rx b3i rx c4i rx b3x ro c4x rx b3q ro a3e xd rx g3e xd ro legato!(ser!(d3e xd), 9) // bar 5
-                ri x ro f3e x rx e3q td rxd e3e x rx e3i rx f3i rx g3i rx legato!(a3i, 6) // bar 6
-                rx repeat!(1) b3i rx c4i o ro d4edd o ro e4i rx c4e xd ro b3e xd ro d3e xd rx legato!(ser!(g3e x), 3) // bar 7
-                ridd o rx a3q tdd rx a3e x rx param!(op4_tl=23) e4i o ro f4i o ro g4i o ro a4i o rx b4i o // bar 8
-                ro c5i o ro b4x rx c5x ro b4q rx a4e xd ro g4e x rx d4e x rxd legato!(ser!(f4e x), 15) // bar 9
-                rxd rx e4q td rx e4e xd ro e4i o ro f4i o ro g4i o rx a4i o ro b4i o ro c5i o rx legato!(ser!(e5q tdd), 1) // bar 10
-                rq td ro d5id rx c5x ro d5o rxd c5q tdd rx b4e xd ro legato!(ser!(a4q i), 7) // bar 11
-                rq o ro voice_lead_3.clone() c5i o ro d5i o rx e5edd rx f5i rx g5e x rxd legato!(ser!(d5q td), 12) // bar 12
-                red x rx c5i o ro b4i o ro c5edd o ro d5i o rx e5e xd ro e5e xd // bar 13
-                rx b4e xd ro a4x ro b4x rx a4o rx g4i rxd a4edd o ro b4i rxd c5e xd ro d5e xd ro legato!(ser!(c5e xd), 4) // bar 14
-                ridd o rx d5e xd ro legato!(ser!(e5hd xd), 91) // bar 15
-                ri rx c5i rx d5i rx e5edd o rx f5i o ro g5e xd ro legato!(ser!(d5q tdd), 37) // bar 16
-                rx repeat!(1) c5i o ro b4i o rx c5edd o ro d5i rxd e5e xd ro e5e x rx b4e xd rx legato!(a4x, 1) // bar 17
-                ro repeat!(1) b4x rx a4o rx g4i o ro a4edd o rx b4i o ro c5e xd ro e5e x rxd d5i rx e5xd rx d5xd rx legato!(ser!(c5e x), 7) // bar 18
-                ri xd rx e5qdd xd rx legato!(e5qddd, 54) // bar 19
-                rtd ro param!(instrument="ym", op1_ar=12, op1_dr=6, op1_mult=4, op1_rr=2, op1_sl=2, op1_sr=2, op1_tl=32, op2_ar=10, op2_dr=9, op2_mult=2, op2_rr=6, op2_sl=7, op2_sr=0, op2_tl=31, op3_ar=12, op3_dr=6, op3_mult=4, op3_rr=2, op3_sl=2, op3_sr=2, op3_tl=35, op4_ar=10, op4_dr=9, op4_mult=2, op4_rr=6, op4_sl=7, op4_sr=0, op4_tl=31, ym_algo=4, ym_channel=4, ym_feedback=5) e4i o ro f4i o ro g4i o rx a4i rx b4i rx c5i rxd b4q tdd ro a4e xd // bar 20
-                rx g4e xd ro d4e xd rx f4e xd ro e4q tdd ro e4e x rxd legato!(e4i, 4) // bar 21
-                rt rx f4i rx g4i rx a4i rxd b4i ro c5i o ro d5edd o rx e5i o ro c5e xd ro legato!(ser!(b4e xd), 11) // bar 22
-                ri rx d4e xd ro g4e x rxd a4q tdd rx voice_lead_2.clone() a2e xd ro d3i o rx legato!(ser!(e3i o), 5) // bar 23
-                rt ro f3i o ro g3i o ro a3i o rx c4i o ro b3x ro c4x ro b3q rx a3i rx g3i o rx legato!(a3edd, 21) // bar 24
-                rtdd rx g3i rx f3e x rx g3q td rx d3i o ro e3i o ro f3edd o // bar 25
-                rx g3i o ro f3e xd rx e3t o ro f3t o rx e3t o rx d3e x rx c3e x rxd legato!(d3qddd, 34) // bar 26
-                red x ro d3q tdd ro d3i rx e3i o rx f3edd o ro g3i rx // bar 27
-                f3e x rx e3t o rx f3t o ro e3t o rx d3e x rx c3e xd ro legato!(ser!(d3wd eddd), 48) // bar 28
-                rw // bar 29
-                rq idd rx c3i o ro d3i o rx legato!(ser!(e3hdd td), 59) // bar 30
-                rqdd xd rh t o // bar 31
-                rq i xd voice_lead.clone() c3td e3x g3x c4o legato!(ser!(e4h idd), 74) // bar 32
-                rt ro e4edd o ro f4x rx g4x ro f4o rx legato!(ser!(e4hdd tdd), 83) // bar 33
-                rq t rx voice_lead_2.clone() e3i rx f3i rx g3i rx a3i o ro b3i rx c4i o ro b3x rx c4o rx legato!(b3q, 23) // bar 34
-                ri o rx a3e xd ro g3e xd ro d3e x rx f3e x rxd legato!(ser!(e3q tdd), 36) // bar 35
-                rxd ro e3e xd ro e3i o ro f3i o ro g3i o rx a3i o ro b3i o ro c4i rx d4edd o ro e4i rx legato!(ser!(c4e x), 3) // bar 36
-                ridd o rx b3e x rx d3e x rxd g3e x ro a3q tdd ro legato!(ser!(a3e xd), 11) // bar 37
-                ri rx param!(op4_tl=23) e4i o ro f4i o ro g4i o rx a4i o ro b4i o ro c5i o ro b4x rx c5x ro b4q rx legato!(ser!(a4e x), 16) // bar 38
-                rx rxd g4e x rx d4e xd ro f4e xd rx e4q tdd ro e4e xd rx legato!(ser!(e4i o), 1) // bar 39
-                ri ro f4i rx g4i rx a4i rx b4i rx c5i rxd e5q td ro d5id rx c5o rxd d5x ro legato!(ser!(c5q tdd), 8) // bar 40
-                reddd o rx b4e xd ro a4q tdd rxd voice_lead_3.clone() c5i rx d5i rx legato!(ser!(e5edd o), 13) // bar 41
-                re ro f5i o rx g5e xd ro d5q tdd rx c5i rx b4i o ro legato!(ser!(c5edd o), 19) // bar 42
-                ri x rx d5i rx e5e x rx e5e x rxd b4e x rx a4x ro b4o rx a4x rx g4i o ro legato!(ser!(a4edd o), 25) // bar 43
-                rt ro b4i o ro c5e xd rx d5e xd ro c5e xd rx d5e x rx legato!(ser!(e5hd t), 31) // bar 44
-                rh t o rx c5i o ro d5i o rx e5edd o ro legato!(ser!(f5i o), 6) // bar 45
-                rxd ro g5e xd rx d5q td rx c5i rx b4i rx c5edd rx d5i o rx legato!(ser!(e5e xd), 2) // bar 46
-                re o ro e5e xd ro b4e xd rx a4x ro b4o rxd a4x ro g4i o ro a4edd o rx b4i rx legato!(ser!(c5e xd), 8) // bar 47
-                ri xd rx e5e x rx d5i o ro e5t rx d5xd rx c5e xd ro legato!(e5qddd, 54) // bar 48
-                rtd ro e5qdd xd rxd voice_lead_5.clone() e4i rqd xd // bar 49
-                rhd // bar 50
-                ),
-        // lead2 (ym)
-        ser!(
-        rw // bar 1
-                rhd td voice_lead2.clone() c3t o e3x g3x c4x legato!(ser!(e4h idd o), 15) // bar 2
-                rh e4edd o ro f4o rxd g4o rx f4x ro legato!(ser!(e4hdd td), 24) // bar 3
-                rh eddd rx voice_lead2_2.clone() e3i o rx f3i o ro g3i o ro legato!(ser!(a3i o), 1) // bar 4
-                ri ro b3i o ro c4i o rx b3x ro c4o rx b3q rx a3e x rx g3e x rxd legato!(ser!(d3e x), 17) // bar 5
-                ro rx f3e x rx e3q tdd ro e3e xd ro e3i o ro f3i o ro g3i rx a3i o ro legato!(ser!(b3i o), 5) // bar 6
-                rt rx c4i rx d4edd rx e4i rx c4e x ro b3e xd rx d3e xd ro legato!(ser!(g3e xd), 12) // bar 7
-                rtdd ro a3q tdd rx a3e xd ro e4i rxd f4i rx g4i rx a4i rx b4i rxd legato!(c5i, 7) // bar 8
-                ro rx b4x ro c5x rx b4q ro a4e xd ro g4e xd ro d4e xd rx f4e xd ro legato!(ser!(e4q tdd), 4) // bar 9
-                rq xd rx e4e x rx e4i rx f4i rx g4i o ro a4i o ro b4i o ro c5i o rx legato!(ser!(e5q i), 10) // bar 10
-                reddd ro d5id rx c5o rx d5x ro c5q tdd rx b4e x rxd legato!(ser!(a4q tdd), 15) // bar 11
-                red ro voice_lead2_3.clone() c5i o rx d5i o ro e5edd o ro f5i o rx g5e xd ro legato!(ser!(d5q tdd), 21) // bar 12
-                re x ro c5i rxd b4i rx c5edd rx d5i rx e5e x rx e5e xd rx legato!(ser!(b4e xd), 7) // bar 13
-                rid ro a4x rx b4o rxd a4o rx g4i o ro a4edd o rx b4i o ro c5e xd ro d5e xd rx legato!(ser!(c5e xd), 12) // bar 14
-                rtdd rx d5e x ro e5hd t // bar 15
-                rx c5i o ro d5i rx e5edd rx f5i rxd g5e x rx d5q tdd ro legato!(ser!(c5i o), 5) // bar 16
-                rt ro b4i o rx c5edd o ro d5i o rx e5e xd ro e5e x rxd b4e xd ro a4x rx b4x ro a4o rx // bar 17
-                ro g4i rx a4edd o ro b4i o ro c5e xd rx e5e xd ro d5i o ro e5t ro d5xd rx legato!(ser!(c5e xd), 16) // bar 18
-                rxd rx e5qdd xd ro e5qdd xd rx param!(instrument="ym", op1_ar=12, op1_dr=6, op1_mult=4, op1_rr=2, op1_sl=2, op1_sr=2, op1_tl=32, op2_ar=10, op2_dr=9, op2_mult=2, op2_rr=6, op2_sl=7, op2_sr=0, op2_tl=23, op3_ar=12, op3_dr=6, op3_mult=4, op3_rr=2, op3_sl=2, op3_sr=2, op3_tl=35, op4_ar=10, op4_dr=9, op4_mult=2, op4_rr=6, op4_sl=7, op4_sr=0, op4_tl=23, ym_algo=4, ym_channel=0, ym_feedback=5) legato!(ser!(e4i o), 2) // bar 19
-                rtdd ro f4i o rx g4i o ro a4i o ro b4i o ro c5i o rx b4q tdd rx a4e xd ro legato!(ser!(g4e xd), 7) // bar 20
-                rid rx d4e x rx f4e x rx e4q tdd rx e4e xd ro e4i o ro legato!(ser!(f4i o), 3) // bar 21
-                rtd rx g4i rx a4i o ro b4i o ro c5i rx d5edd rxd e5i rx c5e x rx b4e xd // bar 22
-                ro d4e xd rx g4e xd ro a4q tdd rx voice_lead2_2.clone() a2e xd rx d3i rx e3i rxd legato!(f3i, 3) // bar 23
-                rt o rx g3i rx a3i rx c4i rxd b3x ro c4x ro b3q rx a3i o ro g3i rx a3edd o ro // bar 24
-                g3i o ro f3e xd rx g3q td rx d3i rx e3i rx f3edd rx legato!(ser!(g3i o), 7) // bar 25
-                rx ro f3e xd rx e3t o rx f3t o rx e3t o ro d3e xd rx c3e xd ro legato!(d3qddd, 43) // bar 26
-                re o rx d3q tdd ro d3i o ro e3i rx f3edd o ro g3i o ro legato!(ser!(f3e xd), 9) // bar 27
-                ri x rx e3t o ro f3t o rx e3t o rx d3e xd ro c3e x rx legato!(ser!(d3wd eddd), 56) // bar 28
-                rw // bar 29
-                rq td rx c3i rx d3i rx legato!(ser!(e3hdd td), 68) // bar 30
-                rqd x rh idd // bar 31
-                rq x voice_lead2.clone() c3t o e3x g3x c4o e4h idd o rx legato!(e4edd, 3) // bar 32
-                red o rx f4x ro g4x rx f4o rx legato!(ser!(e4hdd td), 91) // bar 33
-                red xd rx voice_lead2_2.clone() e3i o rx f3i o ro g3i rx a3i rx b3i rx c4i rx b3x ro c4x rx legato!(b3q, 31) // bar 34
-                ro repeat!(1) a3e xd ro g3e xd ro d3e xd rx f3e xd ro e3q tdd rx legato!(ser!(e3e x), 4) // bar 35
-                ridd rx e3i rx f3i rx g3i rx a3i rxd b3i rx c4i ro d4edd o rx e4i o ro legato!(ser!(c4e x), 11) // bar 36
-                rtdd rx b3e xd ro d3e xd ro g3e xd ro a3q td rx a3e x ro // bar 37
-                ro e4i rx f4i o ro g4i o rx a4i o ro b4i o ro c5i o rx b4x ro c5o rxd b4q rx a4e xd ro legato!(ser!(g4e x), 4) // bar 38
-                ridd rx d4e xd rx f4e x rx e4q tdd rx e4e xd ro e4i o ro // bar 39
-                f4i o ro g4i o ro a4i o ro b4i o rx c5i o ro e5q tdd ro d5id rx c5x ro d5o rxd legato!(ser!(c5q tdd), 16) // bar 40
-                re tdd ro b4e xd ro a4q i rx voice_lead2_3.clone() c5i o ro d5i o ro legato!(ser!(e5edd o), 22) // bar 41
-                rtdd rx f5i rx g5e x rxd d5q tdd rx c5i rx b4i o ro legato!(ser!(c5edd o), 27) // bar 42
-                rx ro d5i o ro e5e xd rx e5e xd ro b4e xd ro a4x rx b4o rx a4x ro g4i rx a4edd rxd legato!(b4i, 3) // bar 43
-                rt o rx c5e x rx d5e xd ro c5e xd rx d5e xd ro legato!(ser!(e5hd t), 40) // bar 44
-                rqddd rxd c5i rx d5i rx e5edd o ro f5i o rx legato!(ser!(g5e xd), 4) // bar 45
-                ridd o ro d5q tdd ro c5i o rx b4i o ro c5edd rx d5i rx legato!(ser!(e5e x), 11) // bar 46
-                rtdd rxd e5e x ro b4e xd rx a4x rx b4o rx a4o rx g4i o ro a4edd o rx b4i o rx legato!(ser!(c5e xd), 16) // bar 47
-                rxd ro e5e xd rx d5i rx e5xd rx d5xd rx c5e x rxd e5qdd xd ro legato!(ser!(e5qdd xd), 2) // bar 48
-                rqdd o rx voice_lead2_5.clone() e4i o rqddd // bar 49
-                rhd // bar 50
-                ),
-        // arp (psg)
-        ser!(
-        voice_arp.clone() param!(velocity=93.13) e3tdd rxd a3i rx e4i rx b4e x rx e3i rx b4i ro f3i rx c4i rx a4e x rx c3i rx a4i ro // bar 1
-                ro g3i rx d4i rx g4e x rx d3i rx g4i rx a3i rxd e4i rx b4e x rx e3i rx a4i rx legato!(a3i, 6) // bar 2
-                rx repeat!(1) e4i o ro b4e xd ro e3i o ro b4i o ro f3i o ro c4i o ro a4e xd ro c3i rx a4i rx g3i o ro legato!(d4i, 4) // bar 3
-                rt rx g4e x rx d3i rx g4i rx a3i rx e4i rx b4e x rx e3i rxd param!(velocity=84.67) a4i o ro a4i o ro f5i rx legato!(ser!(b5e xd), 1) // bar 4
-                re x rx e4i rx b5i rx f4i rx b4i rx as5e x rx c4i rxd a5i rx g4i rx d5i rx legato!(ser!(g5e x), 7) // bar 5
-                ri xd rx d4i rx g5i rx a4i rx f5i rx b5e x rx ds4i rx a5i rx a4i rx f5i rxd legato!(ser!(b5e xd), 14) // bar 6
-                rt o ro e4i rx b5i rx f4i rx b4i rx as5e x rx c4i rx a5i rx g4i rx d5i rx g5e xd ro legato!(d4i, 2) // bar 7
-                rtd rx g5i rxd a4i rx f5i rx b5e xd ro ds4i rxd a5i rx a4i rx f5i rx b5e x rxd legato!(e4i, 7) // bar 8
-                ro rx b5i rx f4i rx b4i rx as5e x rx c4i rxd a5i rx g4i rx d5i rx g5e xd ro d4i rx legato!(g5i, 4) // bar 9
-                rt rxd a4i rx f5i rx b5e x rx ds4i rx a5i rx a4i rx f5i rx b5e xd rx e4i rx b5i rx // bar 10
-                f4i rxd b4i rx as5e xd ro c4i rxd a5i rx g4i rx d5i rx g5e x rxd g4i rx gs5i rx legato!(cs5i, 5) // bar 11
-                rxd repeat!(1) f5i rx b5i rx b5i o ro d6i rx a5i rx g4i rxd g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx legato!(g4i, 1) // bar 12
-                rtdd rxd g4i rx g4i rx g4i rx g4i rx a4i rx a4i rx a4i rxd a4i ro a4i rxd a4i rx g4i rx legato!(g4i, 7) // bar 13
-                ro rx g4i rxd g4i rx g4i rx g4i rx a4i rxd a4i rx a4i rx a4i rxd a4i rx a4i rx g4i rx g4i rxd legato!(g4i, 1) // bar 14
-                rtdd rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i // bar 15
-                rx g4i rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rxd legato!(g4i, 4) // bar 16
-                rt rx g4i rx g4i rx a4i rxd a4i rx a4i rx a4i rx a4i rxd a4i rx g4i rx g4i rx g4i rxd g4i ro // bar 17
-                ro g4i rx g4i rx c4i rxd e4i ro as4i rxd f4i rx b4i rx as4i rx as3i rx ds4i rx e4i rxd ds4i rx legato!(ser!(as4i o), 5) // bar 18
-                rt ro f4i rx ds5i rx b5i rx a5i rx f6i rx a5i rxd as5i rx ds5i rx b5i rx as5i ro b5i rxd e6i rx legato!(ser!(d6i o), 2) // bar 19
-                rtdd rx a3i rx e4i rx b4e xd rx e3i rx b4i rx f3i rxd c4i rx a4e x rx c3i rxd legato!(a4i, 6) // bar 20
-                rx repeat!(1) g3i rx d4i rxd g4e x ro d3i rxd g4i rx a3i rx e4i rx b4e xd ro e3i rxd a4i rx legato!(a3i, 2) // bar 21
-                rtd rx e4i rx b4e xd ro e3i rx b4i rxd f3i rx c4i rx a4e x rx c3i rx a4i rx g3i ro // bar 22
-                ro d4i rxd g4e xd ro d3i rx g4i rxd a3i rx e4i rx cs5e xd rx e3i rxd a4i rx d4i rx legato!(a3i, 3) // bar 23
-                rt o rx ds4i rx e4i rxd as4i rx e4i rx g4i rx d4i rx gs4i rx as4i rx g4i rx ds4i rx e4i rx c4i rx // bar 24
-                e4i rxd as4i rx e4i rx c4i rx g4i rx d4i rx gs4i rx as4i rx g4i rx ds4i rx e4i rxd ds4i ro legato!(e4i, 7) // bar 25
-                ro rxd as4i rx e4i rx d4i rx e4i rx c4i rxd e4i rx gs4i rx e4i rx c4i rxd fs4i rx d4i rx fs4i rx legato!(a4i, 2) // bar 26
-                rtd rxd fs4i rx d4i rx fs4i rx d4i rx fs4i rx a4i rx fs4i rx ds4i rx e4i rx ds4i rxd e4i rx as4i // bar 27
-                rx e4i rx d4i rx gs4i rx e4i rx gs4i rx b4i rx gs4i rxd e4i rx g4i rx d4i rx gs4i rx as4i rx legato!(g4i, 5) // bar 28
-                rxd rx d4i rx g4i rx d4i rxd gs4i rx as4i rx g4i rx d4i rx g4i rxd d4i rx gs4i rx as4i rxd g4i rx // bar 29
-                d4i rx g4i rx d4i rx gs4i rx as4i rxd g4i rx d4i ro a3i o ro e4i o ro b4e xd ro e3i o ro legato!(ser!(b4i o), 8) // bar 30
-                ro repeat!(1) f3i o ro c4i o ro a4e xd ro c3i o ro a4i o ro g3i rx d4i rx g4e x rx d3i rx g4i rx legato!(a3i, 6) // bar 31
-                rx repeat!(1) e4i o ro b4e x rx e3i rxd a4i rx a3i o ro e4i rx b4e x rx e3i rx b4i rx f3i rx legato!(c4i, 3) // bar 32
-                rt o rx a4e x rx c3i rx a4i rx g3i rx d4i rx g4e x rx d3i rx g4i rx a3i rx e4i o ro legato!(ser!(b4e xd), 1) // bar 33
-                re x ro e3i o rx a4i o ro a4i o ro f5i rx b5e x rx e4i rx b5i rx f4i rx b4i rxd legato!(ser!(as5e x), 7) // bar 34
-                ri xd ro c4i rx a5i rxd g4i rx d5i rx g5e xd ro d4i rx g5i rx a4i rxd f5i rx legato!(ser!(b5e x), 14) // bar 35
-                rt rx ds4i rx a5i rx a4i rx f5i rxd b5e x rx e4i rx b5i rx f4i rx b4i rx as5e x rx legato!(c4i, 1) // bar 36
-                rtdd rx a5i rx g4i rx d5i rx g5e xd ro d4i rx g5i rx a4i rx f5i rx b5e x rxd ds4i // bar 37
-                rx a5i rx a4i rx f5i rx b5e xd rx e4i rx b5i rx f4i rxd b4i rx as5e xd ro c4i rx legato!(a5i, 4) // bar 38
-                rt rx g4i rxd d5i rx g5e x rxd d4i rx g5i rx a4i rx f5i rx b5e x rx ds4i rx a5i rx // bar 39
-                a4i rx f5i rxd b5e xd ro e4i rx b5i rx f4i rx b4i rxd as5e x rx c4i rx a5i rx legato!(g4i, 6) // bar 40
-                rx repeat!(1) d5i rx g5e xd ro g4i rxd gs5i rx cs5i rx f5i rx b5i rxd b5i o ro d6i rxd a5i rx g4i rx legato!(g4i, 1) // bar 41
-                rtdd rx g4i rxd g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rx g4i rx a4i rx legato!(a4i, 7) // bar 42
-                ro rx a4i rxd a4i rx a4i rx a4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx a4i rx a4i rx legato!(a4i, 3) // bar 43
-                rt o rxd a4i rx a4i ro a4i rxd g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rxd g4i // bar 44
-                rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rxd g4i ro g4i rxd g4i rx g4i rx legato!(g4i, 4) // bar 45
-                rt rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rx a4i rx a4i rx a4i rxd a4i rx // bar 46
-                a4i rx a4i rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx c4i rx e4i rxd as4i rx f4i rx legato!(b4i, 6) // bar 47
-                rx rxd as4i rx as3i rx ds4i rx e4i rxd ds4i rx as4i rx f4i rx ds5i rx b5i rxd a5i ro f6i rx a5i rxd legato!(as5i, 1) // bar 48
-                rtdd rx ds5i rx b5i rx as5i rx b5i rx e6i o rx d6i x rqdd x // bar 49
-                rhd // bar 50
-                ),
-        // arp2 (psg)
-        ser!(
-        voice_arp2.clone() param!(velocity=93.13) a3tdd rxd c4i rx e4i rid g4i rx a3i rx g4i ro a3i rx c4i rid f4i rx f3i rx fs4i ro // bar 1
-                ro b3i rx d4i rid d4i rx g3i rx d4i rx c4i rxd e4i rid g4i rx a3i rx e4i rx legato!(c4i, 6) // bar 2
-                rx repeat!(1) e4i rid g4i o ro a3i rx g4i rx a3i rx c4i rid f4i o ro f3i rx fs4i rx b3i rx legato!(d4i, 4) // bar 3
-                rt rid d4i rx g3i rx d4i rx c4i rx e4i rid g4i rx a3i rxd param!(velocity=84.67) e4i o ro c5i o ro e5i rxd // bar 4
-                ri x g5i rx a4i rx g5i rx as4i rx b4i rid f5i rxd f4i rx g5i rx as4i rx d5i ri o // bar 5
-                rxd d5i rx g4i rx ds5i rx c5i rx e5i rid g5i rx a4i rx e5i rx c5i rx e5i rid o legato!(g5i, 4) // bar 6
-                rt rx a4i rx g5i rx as4i rx b4i rid f5i rx f4i rx g5i rx as4i rx d5i rid d5i rx legato!(g4i, 2) // bar 7
-                rtd rx ds5i rxd c5i rx e5i rid g5i rx a4i rxd e5i rx c5i rx e5i rid o g5i rx legato!(a4i, 7) // bar 8
-                ro rx g5i rx as4i rx b4i rid f5i rx f4i rxd g5i rx as4i rx d5i rid d5i rx g4i rxd legato!(ds5i, 3) // bar 9
-                rt o arp2i_seg_0() g5i rx a4i rx g5i rx // bar 10
-                as4i rxd b4i rid f5i rx f4i rxd g5i rx as4i rx d5i rid o d5i rx g4i rx ds5i rx legato!(cs5i, 5) // bar 11
-                rxd repeat!(1) f5i rx c6i rx e5i o ro as5i rx f5i rx e4i rxd e4i rx e4i rx e4i rx e4i rx e4i rx d4i rx legato!(d4i, 1) // bar 12
-                rtdd rxd d4i rx d4i rx d4i rx d4i rx c4i rx c4i rxd c4i rx c4i ro c4i rxd c4i rx e4i rx legato!(e4i, 7) // bar 13
-                ro rxd e4i rx e4i rx e4i rx e4i rxd c4i rx c4i rx c4i rx c4i rxd c4i rx c4i rx d4i rx d4i rxd legato!(d4i, 1) // bar 14
-                rtdd rx d4i rx d4i rx ds4i rx e4i rx e4i rx e4i rx e4i rx e4i rx e4i rxd d4i rx d4i rx d4i // bar 15
-                rx d4i rx d4i rx ds4i rx e4i rx e4i rxd e4i rx e4i rx e4i rx e4i rx d4i rx d4i rx d4i rxd legato!(d4i, 4) // bar 16
-                rt rx d4i rx d4i rx c4i rxd c4i rx c4i rx c4i rx c4i rxd c4i rx e4i rx e4i rx e4i rxd e4i ro // bar 17
-                ro e4i rx e4i rx a3i rxd c4i ro f4i rxd c4i rx a4i rx f4i rx d3i rx as3i rx d4i rxd as3i rx legato!(ser!(f4i o), 5) // bar 18
-                rt ro ds4i rx b4i rx e5i rx a5i rx as5i rxd gs5i rx f5i rx b4i rx b4i rx ds5i rx e5i rx fs5i rx legato!(ser!(g5i o), 2) // bar 19
-                rtdd rx c4i rx e4i rid o g4i rx a3i rx g4i rx a3i rxd c4i rid f4i rxd f3i rx legato!(fs4i, 6) // bar 20
-                rx repeat!(1) b3i rx d4i rid o d4i rx g3i rx d4i rx c4i rx e4i rid g4i rx a3i rxd e4i rx legato!(c4i, 2) // bar 21
-                rtd rx e4i rid g4i rx a3i rx g4i rxd a3i rx c4i rid f4i rx f3i rx fs4i rx b3i ro // bar 22
-                ro d4i rid o d4i rx g3i rx d4i rxd cs4i rx e4i rid o g4i o ro a3i rxd e4i rx a3i rx legato!(f3i, 3) // bar 23
-                rt o rx a3i rxd d4i rx f4i rx d4i rx d4i rx b3i rx d4i rx g4i rx d4i rx a3i rx d4i rx a3i rx // bar 24
-                ro d4i rx f4i rx d4i rx a3i rx d4i rx b3i rx d4i rx g4i rx d4i rx b3i rxd d4i rx as3i ro legato!(d4i, 7) // bar 25
-                ro rxd f4i rx d4i rx as3i rx c4i rxd g3i rx c4i rx e4i rx c4i rx g3i rxd d4i rx a3i rx d4i rx legato!(fs4i, 2) // bar 26
-                rtd rxd d4i rx a3i rx d4i rx a3i rx d4i rx fs4i rx d4i rx a3i rx d4i rx as3i rxd d4i rx f4i // bar 27
-                rx d4i rx b3i rx e4i rx c4i rx e4i rx gs4i rx e4i rxd c4i rx d4i rx b3i rx d4i rx g4i rx legato!(d4i, 5) // bar 28
-                rxd rx b3i rx d4i rx b3i rxd d4i rx g4i rx d4i rx b3i rx d4i rxd b3i rx d4i rx g4i rxd d4i rx // bar 29
-                b3i rx d4i rx b3i rx d4i rx g4i rxd d4i rx b3i ro c4i o ro e4i o ri xd g4i o ro a3i o ro legato!(ser!(g4i o), 8) // bar 30
-                ro repeat!(1) a3i o ro c4i o ri xd f4i o ro f3i o ro fs4i o ro b3i rx d4i rid d4i rx g3i rx d4i rx legato!(c4i, 6) // bar 31
-                rx repeat!(1) e4i o ri xd g4i rx a3i rxd e4i rx c4i o ro e4i rid g4i rx a3i rx g4i rx a3i rx legato!(c4i, 3) // bar 32
-                rt o rid f4i rx f3i rx fs4i rx b3i rx d4i rid d4i rx g3i rx d4i rx c4i rx e4i rxd // bar 33
-                ri o g4i o ro a3i rxd e4i o ro c5i o ro e5i rid g5i rx a4i rx g5i rx as4i rxd b4i ri o // bar 34
-                rx f5i rx f4i rxd g5i rx as4i rx d5i rid d5i rx g4i rx ds5i rx c5i rxd e5i rid legato!(g5i, 4) // bar 35
-                rt rx a4i rx e5i rx c5i rxd e5i rid g5i rx a4i rx g5i rx as4i rx b4i rid f5i rx legato!(f4i, 1) // bar 36
-                rtdd rx g5i rx as4i rx d5i rid d5i rx g4i rx ds5i rx c5i rx e5i rid o g5i rx a4i // bar 37
-                rx e5i rx c5i rx e5i rid g5i rxd a4i rx g5i rx as4i rxd b4i rid f5i rx f4i rx legato!(g5i, 4) // bar 38
-                rt rxd as4i rx d5i rid d5i rxd g4i rx ds5i arp2i_seg_0() // bar 39
-                g5i rx a4i rx g5i rx as4i rx b4i rid o f5i rx f4i rx g5i rx legato!(as4i, 6) // bar 40
-                rx repeat!(1) d5i rid d5i rx g4i rxd ds5i rx cs5i rx f5i rx c6i rxd e5i o ro as5i rxd f5i rx e4i rx legato!(e4i, 1) // bar 41
-                rtdd rx e4i rxd e4i rx e4i rx e4i rx d4i rxd d4i rx d4i rx d4i rx d4i rx d4i rx c4i rx legato!(c4i, 7) // bar 42
-                ro rx c4i rxd c4i rx c4i rx c4i rx e4i rx e4i rx e4i rxd e4i rx e4i rx e4i rx c4i rx c4i rx legato!(c4i, 3) // bar 43
-                rt o rxd c4i rx c4i ro c4i rxd d4i rx d4i rx d4i rxd d4i rx d4i rx ds4i rx e4i rx e4i rxd e4i // bar 44
-                rx e4i rx e4i rx e4i rxd d4i rx d4i rx d4i rx d4i rx d4i rxd ds4i ro e4i rxd e4i rx e4i rx legato!(e4i, 4) // bar 45
-                rt rx e4i rx e4i rx d4i rx d4i rxd d4i rx d4i rx d4i rx d4i rx c4i rx c4i rxd c4i rx c4i rx // bar 46
-                c4i rx c4i rx e4i rx e4i rx e4i rx e4i rxd e4i rx e4i rx a3i rx c4i rxd f4i rx c4i rx legato!(a4i, 6) // bar 47
-                rx rxd f4i rx d3i rx as3i rx d4i rxd as3i rx f4i rx ds4i rx b4i rx e5i rxd a5i ro as5i rxd gs5i rx legato!(f5i, 1) // bar 48
-                rtdd rx b4i rx b4i rx ds5i rx e5i rx fs5i rxd a5i x rqdd x // bar 49
-                rhd // bar 50
-                ),
-        // harmony3 (ym)
-        ser!(
-        rw // bar 1
-                rw // bar 2
-                voice_harmony3.clone() e5i ro a4i rx b4i o ro c5i o ro a4i rx e4i o ro e5i o ro a4i rx b4i o ro c5i o ro a4i rx e4i rx e5i ro // bar 3
-                ro a4i rx b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx c5i rx a4i o rx e4i o ro voice_harmony3_2.clone() e3i o ro legato!(ser!(f3i o), 6) // bar 4
-                rxd ro g3i o ro a3i o rx b3i o ro c4i o ro b3o rx c4x rx b3q ro a3e x rxd g3e x rx legato!(ser!(d3e x), 2) // bar 5
-                re rx f3e xd ro e3q tdd ro e3e xd ro e3i o ro f3i o ro g3i o ro // bar 6
-                ro a3i rx b3i rx c4i rx d4edd rx e4i ro c4e xd rx b3e xd ro legato!(ser!(d3e xd), 17) // bar 7
-                rx ro g3e xd ro a3q tdd rx a3xd rxd c3i rx d3i rx e3i rx f3i rxd g3i rx legato!(a3i, 7) // bar 8
-                ro rx g3o rx a3x rx g3q ro f3e x rx d3e xd rx b2e xd ro d3e xd ro legato!(ser!(c3q td), 4) // bar 9
-                rq x rxd c3e x rx c3i rx d3i rx e3i rx f3i rxd g3i rx a3i rx legato!(ser!(c4q tdd), 10) // bar 10
-                redd o rx b3id rx a3o rx b3x ro a3q tdd rx e3e x rxd legato!(ser!(e3q tdd), 15) // bar 11
-                red rx voice_harmony3_3.clone() c4i rx d4i rx e4edd o rx f4i rx g4e xd ro legato!(ser!(d4q tdd), 21) // bar 12
-                re x rx c4i rx b3i rx c4edd rx d4i rxd e4e x rx e4e xd ro legato!(ser!(b3e xd), 7) // bar 13
-                rid rx a3i rx g3i rx a3edd o rx b3i rx c4e x rxd d4e x rx legato!(ser!(c4e x), 12) // bar 14
-                rtd rxd d4e x rx e4hd xd // bar 15
-                rx c4i rx d4i rx e4edd rxd f4i rx g4e x rx d4q tdd rx legato!(c4i, 4) // bar 16
-                rt rx b3i rx c4edd o rx d4i rx e4e xd rx e4e x rx b3e x rxd a3i ro // bar 17
-                ro g3i rx a3edd rx b3i rxd c4e xd ro e4e xd ro d4e xd rx legato!(ser!(c4e x), 15) // bar 18
-                rxd rx e4qdd x rxd e4qdd x rx param!(instrument="ym", op1_ar=26, op1_dr=8, op1_mult=3, op1_rr=7, op1_sl=13, op1_sr=5, op1_tl=29, op2_ar=29, op2_dr=5, op2_mult=4, op2_rr=4, op2_sl=4, op2_sr=4, op2_tl=29, op3_ar=28, op3_dr=4, op3_mult=1, op3_rr=6, op3_sl=6, op3_sr=2, op3_tl=34, op4_ar=31, op4_dr=10, op4_mult=1, op4_rr=4, op4_sl=1, op4_sr=6, op4_tl=23, ym_algo=0, ym_channel=3, ym_feedback=7) legato!(ser!(a2i o), 2) // bar 19
-                rtdd rx c3i rx e3i rx b3i rxd g3i rx e3i rx f2i rx a2i rxd e3i rx a3i rx e3i rx c3i rxd legato!(g2i, 6) // bar 20
-                rx repeat!(1) d3i rx g3i rx a3i rxd g3i ro d3i rx a2i rxd e3i rx b3i rx a3i rx b3i rx e3i rx a2i rxd legato!(c3i, 2) // bar 21
-                rtd rx e3i rx b3i rx g3i rx e3i rx f2i rx a2i rxd e3i rx a3i rx e3i rx c3i rx g2i rx d3i ro // bar 22
-                ro g3i rxd a3i rx g3i rx d3i rx a2i rxd e3i rx a3i rx cs4i rxd e4i rx cs4i rx param!(instrument="ym", op1_ar=25, op1_dr=10, op1_mult=1, op1_rr=5, op1_sl=1, op1_sr=0, op1_tl=31, op2_ar=25, op2_dr=11, op2_mult=5, op2_rr=8, op2_sl=5, op2_sr=0, op2_tl=15, op3_ar=28, op3_dr=13, op3_mult=1, op3_rr=6, op3_sl=2, op3_sr=0, op3_tl=47, op4_ar=14, op4_dr=4, op4_mult=1, op4_rr=6, op4_sl=2, op4_sr=0, op4_tl=23, ym_algo=2, ym_channel=3, ym_feedback=7) d4i rxd d4i rt o // bar 23
-                rtdd a3i rx d4i rxd a3i rx e4i rx e4i rid c4i rx e4i rx c4i rx f4i rx f4i rid // bar 24
-                d4i rxd f4i rx d4i rx e4i rx e4i rid c4i rx e4i rx c4i rx d4i rx d4i rid legato!(ser!(as3i o), 7) // bar 25
-                rx repeat!(1) d4i rx as3i rx e4i rx e4i rid o c4i rx e4i rx c4i rx fs4i rx fs4i rid o a3i rx legato!(fs4i, 2) // bar 26
-                rtd rxd a3i rx fs4i rx fs4i rid a3i rx d4i rx a3i rx d4i rx d4i rid o as3i rx d4i // bar 27
-                rx as3i rx e4i rx e4i rid c4i rx e4i rx c4i rxd d4i rx d4i rid b3i rx d4i rx legato!(b3i, 5) // bar 28
-                rxd rx d4i o ro d4i rid o b3i rx d4i rx b3i rx b2e xd rx a2e xd ro b2e x rxd // bar 29
-                g2e x rx f2e x rx g2e x rxd legato!(ser!(c3wdd idd), 67) // bar 30
-                rw // bar 31
-                rq i xd re o voice_harmony3.clone() e5i rx a4i rx b4i rx c5i rx a4i rx e4i rx e5i // bar 32
-                rx a4i rx b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx c5i rx a4i rx e4i o ro e5i rx legato!(a4i, 6) // bar 33
-                rx repeat!(1) b4i o ro c5i o ro a4i o ro e4i o rx voice_harmony3_2.clone() e3i rx f3i o ro g3i rx a3i rx b3i rx c4i rx b3o rx c4x rx legato!(b3q, 16) // bar 34
-                re ro a3e xd ro g3e xd rx d3e xd ro f3e xd ro legato!(ser!(e3q tdd), 30) // bar 35
-                ri o rx e3e x rx e3i rx f3i rxd g3i rx a3i ro b3i o ro c4i rx d4edd o rx legato!(ser!(e4i o), 6) // bar 36
-                rxd ro c4e xd ro b3e xd ro d3e xd ro g3e x rx a3q td rx a3xd ro // bar 37
-                rx c3i ro d3i rxd e3i rx f3i rx g3i rxd a3i rx g3x ro a3o rxd g3q rx f3e xd ro legato!(ser!(d3e x), 4) // bar 38
-                ridd rxd b2e x rx d3e x rxd c3q td rx c3e x rx c3i rx // bar 39
-                d3i rx e3i rxd f3i rx g3i rx a3i rx c4q td rxd b3i xd rx a3x ro b3o rxd legato!(ser!(a3q td), 16) // bar 40
-                re td rx e3e xd rx e3q tdd rx voice_harmony3_3.clone() c4i o ro d4i rxd legato!(ser!(e4edd o), 21) // bar 41
-                ri ro f4i rxd g4e x rx d4q tdd rx c4i rx b3i rx legato!(ser!(c4edd o), 27) // bar 42
-                rx ro d4i rxd e4e xd ro e4e xd ro b3e xd rx a3i rx g3i rx a3edd rx legato!(b3i, 3) // bar 43
-                rt o rx c4e x rx d4e xd rx c4e xd ro d4e xd rx legato!(ser!(e4hd t), 39) // bar 44
-                rqddd o rx c4i rx d4i rxd e4edd rx f4i rx legato!(ser!(g4e xd), 4) // bar 45
-                ridd o ro d4q tdd rx c4i rx b3i rx c4edd rx d4i rxd legato!(ser!(e4e x), 10) // bar 46
-                ri rx e4e x rx b3e xd ro a3i rx g3i rxd a3edd o rx b3i rx legato!(ser!(c4e xd), 16) // bar 47
-                rxd ro e4e xd rx d4e x rxd c4e x rx e4qdd xd rx legato!(ser!(e4qdd xd), 1) // bar 48
-                rqdd x rh td // bar 49
-                rhd // bar 50
-                ),
-        // harmony2 (ym)
-        ser!(
-        rw // bar 1
-                rhdd voice_harmony2.clone() e5i rx legato!(a4i, 6) // bar 2
-                rx repeat!(1) b4i rx c5i rx a4i rx e4i o ro e5i rx a4i rx b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx legato!(b4i, 4) // bar 3
-                rt rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx c5i rx a4i rx e4i rx voice_harmony2_2.clone() a3i o rx c4i o ro e4i rx legato!(b4i, 1) // bar 4
-                rtdd rxd g4i rx e4i rx f3i rx a3i rx e4i rx a4i rx e4i rx c4i rxd g3i rx d4i rx g4i rx legato!(a4i, 7) // bar 5
-                ro rx g4i rx d4i rx a3i rx e4i rx b4i rx a4i rx b4i rx e4i rx a3i rx c4i rx e4i rxd b4i rx legato!(g4i, 4) // bar 6
-                rt rx e4i rx f3i rx a3i rx e4i rx a4i rx e4i rx c4i rx g3i rx d4i rx g4i rx a4i rx g4i rx legato!(d4i, 2) // bar 7
-                rtd rx a3i rx e4i rxd b4i rx a4i rx b4i o ro e4i o ro e3q tdd rxd legato!(ser!(c3e x), 17) // bar 8
-                ro rx a3e x rx f3e xd ro a3e xd ro g3e xd rx d3e xd ro f3e xd ro legato!(ser!(e3q td), 4) // bar 9
-                rq x rxd e3e x rx e3q tdd ro c3e xd rx legato!(ser!(a3edd o), 10) // bar 10
-                re xd rx b3i o ro c4e xd ro b3e xd rx d3e x rx g3e x rxd legato!(ser!(a3qdd xd), 15) // bar 11
-                rq id rx c4edd o rx d4i rx e4e xd ro legato!(ser!(b3q tdd), 21) // bar 12
-                re x rx a3i rx g3i rx a3edd rx b3i rxd c4e x rx b3e xd ro legato!(ser!(g3e xd), 7) // bar 13
-                rid rx f3x ro g3o rxd f3o rx e3i o ro f3edd o rx g3i o ro a3e x rxd b3e x rx legato!(ser!(a3e x), 12) // bar 14
-                rtd rxd b3e x rx c4qdd xd ro g3q tdd // bar 15
-                rx g3e x rx c4edd rxd d4i rx e4e x rx b3q tdd ro legato!(a3i, 5) // bar 16
-                rxd repeat!(1) g3i o ro a3edd o rx b3i o ro c4e xd rx b3e x rx g3e x rxd f3o rx g3x ro f3o rx // bar 17
-                ro e3i rx f3edd rx g3i rxd a3e xd ro as3e xd ro f3i rx a3xd rx f3xd rxd legato!(ser!(d3e x), 15) // bar 18
-                rxd rx e2e xd ro a2t o ro b2t o rx a2t o rx fs2e x rxd gs2i xd gs2o gs2td rx fs2e x ro gs2i x gs2o gs2tdd rxd legato!(ser!(e3i o), 2) // bar 19
-                rtdd rx f3i o ro g3i rx a3i o rx b3i rx c4i o ro b3x rx c4x ro b3q o ro a3e x rxd legato!(ser!(g3e x), 6) // bar 20
-                rid rx d3e x rxd f3e x ro e3q tdd rx e3e xd ro e3i rxd legato!(f3i, 2) // bar 21
-                rtd rx g3i rx a3i rx b3i rx c4i rx d4edd rxd e4i rx c4e x rx b3e xd // bar 22
-                ro d3e xd rx g3e xd ro a3qddd rx f4i re // bar 23
-                rtdd f4i rid o f4i rx g4i re td g4i rid g4i rx a4i rx a4i o ri xd // bar 24
-                a4i rxd a4e xd ro g4i rx g4i o ri xd g4i rx g4e x rx f4i rx f4i rid legato!(ser!(f4i o), 7) // bar 25
-                rx repeat!(1) f4e xd ro g4i o ro g4i o rid g4i o ro g4e xd ro a4i o ro a4i o rid a4i rx legato!(ser!(a4e x), 2) // bar 26
-                re rxd a4i rx a4i rid a4i rx a4e x rx f4i rx f4i o ri xd f4i rxd legato!(ser!(f4e xd), 8) // bar 27
-                ri xd ro g4i rx g4i rid g4i rx g4e x rx g4i rx g4i rid o g4i rx legato!(ser!(g4e x), 15) // bar 28
-                rxd rx g4i o ro g4i o ri xd g4i rxd g4e xd ro g4e xd rx f4e xd ro g4e x rxd // bar 29
-                d4e x rx c4e x rx d4e x rxd legato!(ser!(e4wdd idd), 67) // bar 30
-                rw // bar 31
-                rq i xd rx voice_harmony2.clone() e5i o ro a4i o ro b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx legato!(b4i, 3) // bar 32
-                rt o rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx legato!(c5i, 1) // bar 33
-                rtdd rx a4i rx e4i o ro voice_harmony2_2.clone() a3i o rx c4i o ro e4i rx b4i rx g4i rx e4i rx f3i rx a3i rx e4i rxd legato!(a4i, 7) // bar 34
-                ro repeat!(1) e4i rx c4i o ro g3i rx d4i rxd g4i rx a4i rx g4i rx d4i rx a3i rx e4i rx b4i rxd a4i rx legato!(b4i, 4) // bar 35
-                rt rx e4i rx a3i rx c4i rx e4i rxd b4i rx g4i rx e4i ro f3i rx a3i rxd e4i rx a4i rx e4i rx legato!(c4i, 1) // bar 36
-                rtdd rx g3i rx d4i rx g4i rx a4i rx g4i rx d4i rx a3i rx e4i rx b4i rx a4i rx b4i rx e4i ro // bar 37
-                rx e3q tdd ro c3e xd rx a3e xd ro f3e xd rx a3e xd ro legato!(ser!(g3e x), 4) // bar 38
-                ridd rxd d3e x rx f3e x rxd e3q td rx e3e xd ro legato!(ser!(e3q tdd), 10) // bar 39
-                redd o rx c3e xd ro a3edd rxd b3i rx c4e x rx legato!(ser!(b3e x), 16) // bar 40
-                rx repeat!(1) d3e x rx g3e xd rx a3qddd ro legato!(ser!(c4edd o), 22) // bar 41
-                rtdd rx d4i rxd e4e x rx b3q tdd rx a3i rx g3i rx legato!(ser!(a3edd o), 27) // bar 42
-                rx ro b3i rxd c4e xd ro b3e xd ro g3e xd ro f3o rxd g3o rx f3x rx e3i rx f3edd rx legato!(g3i, 3) // bar 43
-                rt o rx a3e x rx b3e xd rx a3e xd ro b3e xd rx legato!(c4qddd, 39) // bar 44
-                re t o ro g3q tdd rx g3e x rxd c4edd rx d4i rx legato!(ser!(e4e xd), 4) // bar 45
-                ridd o ro b3q tdd rx a3i rx g3i rx a3edd rx b3i rxd legato!(ser!(c4e x), 10) // bar 46
-                ri rx b3e x rx g3e xd ro f3x rx g3o rx f3o rx e3i o rx f3edd o rx g3i o ro legato!(ser!(a3e xd), 16) // bar 47
-                rxd ro as3e xd rx f3i rx a3xd rx f3xd rxd d3e x rx e2e x rx a2t o rx b2t o rx a2t o ro fs2e xd rx legato!(ser!(gs2i xd), 1) // bar 48
-                ri x gs2o gs2tdd ro fs2e xd ro gs2i xd gs2o gs2tdd ro voice_harmony2_3.clone() a3i o rqddd // bar 49
-                rhd // bar 50
-                ),
-        // harmony (ym)
-        ser!(
-        voice_harmony.clone() legato!(ser!(a2wd eddd o), 128) // bar 1
-                rh eddd o as2xd b2t c3i rx legato!(ser!(a3w eddd), 16) // bar 2
-                rw // bar 3
-                ridd rx b3i rx c4i rx a3qdd x rxd c3i o ro e3i o ro a3i rxd // bar 4
-                re t a3i rx c3i rx f3i rx a3i re td a3i rxd c3i rx d3i rx g3i ri o // bar 5
-                rid o g3i rx d3i rx e3i rx a3i re td a3i rx c3i rx e3i rx a3i re o // bar 6
-                rtd a3i rx c3i rx f3i rx a3i re td a3i rx c3i rx d3i rx g3i re td legato!(g3i, 2) // bar 7
-                rtd rx d3i rx e3i rxd a3i rid voice_harmony_2.clone() a3o gs3x g3x fs3o f3x e3x ds3o d3x cs3x c3o b2x rxd a2e x rx b2i rx a2i rxd legato!(ser!(e3e x), 17) // bar 8
-                ro rx f2e x rx a2i rx f2i rx c3e x rxd g2e xd ro b2i rx g2i rx d3e x rx legato!(ser!(a2e x), 4) // bar 9
-                ridd rxd b2i rx a2i rx e3e x rx a2e x rx b2i rx a2i rxd e3e xd ro legato!(ser!(f2e xd), 10) // bar 10
-                ri o rx a2i rx f2i rx c3e xd rx g2e xd ro b2i rx g2i rxd d3e x rx legato!(ser!(a2e x), 15) // bar 11
-                rxd repeat!(1) cs3i rx a2i rx e2i o ro f2i rx c3e xd rid c3e xd ro c3i rx b2e xd rx // bar 12
-                ri x b2e x rx b2i rx a2e x rid a2e x rx a2i rxd g2e xd ri // bar 13
-                rxd g2e xd rx g2i rx f2edd o rx g2i rx a2e x rxd b2e x rx legato!(ser!(a2e x), 12) // bar 14
-                rtd rxd b2e x rx c3edd o ro d3i rx c3e xd ro b2e xd rx legato!(ser!(a2e xd), 18) // bar 15
-                ro repeat!(1) b2e x rx c3e x rid o c3e x rx c3i rx b2e x rid legato!(ser!(b2e xd), 15) // bar 16
-                rt rx b2i rx a2e xd rid a2e xd ro a2i rxd g2e x rid g2e x rx // bar 17
-                ro g2i rx f2edd rx g2i rxd a2e xd ro as2e x rx c3e xd rx legato!(ser!(d3e x), 15) // bar 18
-                rxd rx e3edd o ro a2i rx b2e x rxd gs2e x rx fs2e x ro gs2e x rxd legato!(ser!(a2i o), 2) // bar 19
-                rtdd rx a2i rid a2e xd rx a2i rx f2i rx f2i rid o f2e x rx f2i rxd legato!(g2i, 6) // bar 20
-                rx repeat!(1) g2i rid g2e x rx g2i rx a2i rxd a2i rid a2e xd ro a2i rx a2i o rx legato!(a2i, 2) // bar 21
-                rtd rid a2e xd ro a2i rx f2i rx f2i rid o f2e x rx f2i rx g2i rx g2i ro // bar 22
-                rid g2e xd ro g2i rx a2i rxd a2i rid a2i rxd b2i o ro cs3i rx d3i rxd d3i rt o // bar 23
-                rtdd d3i rx d3e x rxd e3i rx e3i rid e3i rx e3e x rx f3i rx f3i rid // bar 24
-                f3i rxd f3e xd ro g3i rx g3i rid g3i rx g3e x rx as3i rx c4i rxd d4i ro legato!(c4i, 7) // bar 25
-                ro rxd as3i rx d4i rx c4i rx g3i rx e3i rxd f3i rx g3i rx e3i rx d3i rx e3i rxd fs3i rx e3i rx legato!(fs3i, 2) // bar 26
-                rtd rxd a3i rx d4q td rx a3e x rx as3e x rx f3e xd rx legato!(ser!(d3e xd), 8) // bar 27
-                ri xd ro g3e x rx e3e xd ro c3e x rxd g3e x rx d3e x rx legato!(ser!(b2e x), 15) // bar 28
-                rxd rx d3e xd ro g3e xd rx d3e xd ro g3e xd rx a3e xd ro d4e x rxd // bar 29
-                b3e x rx a3e x rx g3e x rxd legato!(ser!(a3wdd idd), 67) // bar 30
-                rw // bar 31
-                rq i xd rx voice_harmony.clone() legato!(ser!(a3w eddd), 83) // bar 32
-                rh i xd rx b3i rx c4i rx legato!(ser!(a3qdd xd), 31) // bar 33
-                redd rx c3i o ro e3i o ro a3i re td a3i rx c3i rx f3i rx a3i ri x // bar 34
-                rid a3i rx c3i rxd d3i rx g3i re td g3i rx d3i rx e3i rx a3i re o // bar 35
-                rtd a3i rx c3i rx e3i rx a3i re tdd a3i ro c3i rx f3i rxd a3i re td legato!(a3i, 1) // bar 36
-                rtdd rx c3i rx d3i rx g3i re td g3i rx d3i rx e3i rx a3i rid o voice_harmony_2.clone() a3o gs3o g3x fs3x f3o e3x ds3o d3o cs3x c3x b2o rx // bar 37
-                rx a2e x rx b2i rx a2i rx e3e xd rx f2e xd ro a2i rxd f2i rx c3e xd ro legato!(ser!(g2e x), 4) // bar 38
-                ridd rxd b2i rx g2i rx d3e x rxd a2e x rx b2i rx a2i rx e3e x rx legato!(ser!(a2e xd), 10) // bar 39
-                ri o ro b2i rxd a2i rx e3e xd ro f2e xd ro a2i rxd f2i rx c3e x rx legato!(ser!(g2e x), 16) // bar 40
-                rx repeat!(1) b2i rx g2i rx d3e xd rx a2e xd ro cs3i rx a2i rxd e2i o ro f2i rxd c3e xd rx // bar 41
-                ri o c3e x rxd c3i rx b2e x rid o b2e x rx b2i rx a2e xd ri // bar 42
-                rxd a2e xd rx a2i rx g2e x rid g2e xd rx g2i rx f2edd rx legato!(g2i, 3) // bar 43
-                rt o rx a2e x rx b2e xd rx a2e xd ro b2e x rxd c3edd o ro d3i ro // bar 44
-                rx c3e xd ro b2e x rxd a2e x rx b2e x rxd c3e x rid legato!(ser!(c3e xd), 14) // bar 45
-                rt o ro c3i rx b2e xd rid b2e xd ro b2i rx a2e x rid a2e x rxd // bar 46
-                a2i rx g2e x rid g2e xd rx g2i rx f2edd o rx g2i rx legato!(ser!(a2e xd), 16) // bar 47
-                rxd rx as2e xd ro c3e x rxd d3e x rx e3edd rxd a2i ro b2e xd rx legato!(ser!(gs2e x), 1) // bar 48
-                re o rx fs2e xd ro gs2e x rxd voice_harmony_3.clone() a2i o rqdd xd // bar 49
-                rhd // bar 50
-                ),
-        // bass (ym)
-        ser!(
-        param!(instrument="ym", op1_ar=10, op1_dr=3, op1_mult=4, op1_rr=3, op1_sl=10, op1_sr=0, op1_tl=20, op2_ar=11, op2_dr=3, op2_mult=0, op2_rr=4, op2_sl=6, op2_sr=1, op2_tl=16, op3_ar=12, op3_dr=9, op3_mult=7, op3_rr=5, op3_sl=10, op3_sr=4, op3_tl=27, op4_ar=15, op4_dr=8, op4_mult=5, op4_rr=7, op4_sl=3, op4_sr=10, op4_tl=13, ym_algo=3, ym_channel=1, ym_feedback=7) comment!("approx timbre") e0o f0xd fs0xd g0xd gs0x repeat!(1) a0t as0t b0t c1x repeat!(1) cs1t o d1t o ds1xd ds1x e1td f1td fs1o fs1t o g1tdd gs1t c_1i o cs_1o d_1o e_1o f_1o fs_1o gs_1o a_1o as_1o b_1o c0o cs0t d0o ds0o e0x f0o fs0x g0o gs0o repeat!(1) a0x as0x b0x c1x cs1xd d1x ds1x ds1o e1xd legato!(f1xd, 2) // bar 1
-                ro fs1xd g1xd gs1x repeat!(1) a1xd as1t b1t c2x c2xd cs2t o d2t o ds2xd ds2x e2td f2td fs2o fs2t o g2td gs2t c_1t o d_1o f_1o g_1o a_1o b_1o cs0o ds0o e0o fs0o g0o gs0o a0o as0o b0o c1o cs1o d1o ds1x e1o f1x fs1o g1x gs1o repeat!(1) a1x as1x b1x c2o re xd // bar 2
-                rw // bar 3
-                rhd voice_bass_2.clone() c3i o rx param!(op2_tl=11, op4_tl=11) c3i o ro c3i o ro voice_bass_3.clone() legato!(d3i, 1) // bar 4
-                rtdd rx voice_bass_4.clone() c3i rxd c3i o ro param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o ro voice_bass_5.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rxd param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx c3i rx voice_bass_3.clone() legato!(d3i, 7) // bar 5
-                ro rx voice_bass_4.clone() c3i rx c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx voice_bass_5.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i rx c3i rxd voice_bass_3.clone() d3i rx voice_bass_4.clone() legato!(c3i, 4) // bar 6
-                rt rx c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx voice_bass_5.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o ro c3i o ro voice_bass_6.clone() c3i rx voice_bass_4.clone() c3i rx legato!(ser!(c3i o), 2) // bar 7
-                rtdd ro param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro e2o ds2o d2o cs2o b1o as1o gs1o g1o f1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_4.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o // bar 8
-                d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx c3i rx voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o // bar 9
-                gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx c3i rx voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_4.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro // bar 10
-                voice_bass_4.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i o ro c3i o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_4.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() legato!(c3i, 5) // bar 11
-                rxd rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_4.clone() c3i ro c3i o rx voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o // bar 12
-                b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o // bar 13
-                d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o // bar 14
-                as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rxd voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o // bar 15
-                d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o // bar 16
-                f2o ds2o d2o c2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o ro // bar 17
-                ro b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o // bar 18
-                fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o g2o f2o e2o d2o cs2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx c3i rx voice_bass_7.clone() b2o as2o a2o gs2o g2o f2o e2o d2o cs2o as2o a2o gs2o g2o f2o e2o d2o cs2o b1o ro gs2o g2o fs2o f2o ds2o d2o cs2o b1o a1o rx voice_bass_8.clone() b1o as1o // bar 19
-                a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_4.clone() c3i o ro c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_4.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd b1o as1o a1o gs1o fs1o f1o // bar 20
-                ds1o d1o rx voice_bass_4.clone() c3i rx c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_4.clone() c3i ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() legato!(c3i, 2) // bar 21
-                rtd rx c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_4.clone() c3i rxd voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i o // bar 22
-                ro c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_6.clone() legato!(c1i, 3) // bar 23
-                rt o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() g1i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() f1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro param!(op2_tl=11, op4_tl=15) f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro d2o cs2o c2o b1o as1o gs1o g1o fs1o e1o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c1i rx // bar 24
-                voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() g1i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() f1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro param!(op2_tl=11, op4_tl=15) f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro d2o cs2o c2o b1o as1o gs1o g1o fs1o e1o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c1i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o // bar 25
-                d2o c2o rx voice_bass_6.clone() g1i o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() f1i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro param!(op2_tl=11, op4_tl=15) e2o ds2o d2o cs2o b1o as1o gs1o g1o f1o ro cs2o c2o b1o as1o gs1o g1o fs1o e1o d1o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c1i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() legato!(g1i, 2) // bar 26
-                rtd rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_4.clone() c1i rx c1i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o rx param!(op2_tl=11, op4_tl=15) f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro d2o cs2o c2o b1o as1o gs1o g1o fs1o e1o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() g1i // bar 27
-                rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() f1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro param!(op2_tl=11, op4_tl=15) f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro d2o cs2o c2o b1o as1o gs1o g1o fs1o e1o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() g1i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o // bar 28
-                f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() f1i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx param!(op2_tl=11, op4_tl=15) e2o ds2o d2o cs2o b1o as1o gs1o g1o f1o ro cs2o c2o b1o as1o gs1o g1o fs1o e1o d1o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd // bar 29
-                voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o rx cs2o c2o b1o as1o gs1o g1o fs1o e1o rid b1o as1o a1o gs1o fs1o f1o ds1o d1o rx param!(op2_tl=11, op4_tl=15) b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx param!(op2_tl=15, op4_tl=19) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro param!(op2_tl=19, op4_tl=23) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro param!(op2_tl=23, op4_tl=27) c3o b2o as2o a2o gs2o fs2o f2o ds2o // bar 30
-                d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro param!(op2_tl=27, op4_tl=31) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro param!(op2_tl=31, op4_tl=35) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rh id o // bar 31
-                rw // bar 32
-                rw // bar 33
-                redd o voice_bass_2.clone() c3i o rx param!(op2_tl=11, op4_tl=11) c3i o ro c3i rx voice_bass_3.clone() d3i rx voice_bass_4.clone() c3i rx c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx voice_bass_5.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i // bar 34
-                rx param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o ro param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o rx c3i o ro voice_bass_3.clone() d3i rx voice_bass_4.clone() c3i rx c3i o ro param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o ro voice_bass_5.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) legato!(c3i, 4) // bar 35
-                rt rx param!(op2_tl=11, op4_tl=11) c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx c3i rxd voice_bass_3.clone() d3i rx voice_bass_4.clone() c3i rx c3i ro param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rxd voice_bass_5.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) legato!(c3i, 1) // bar 36
-                rtdd rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx c3i rx voice_bass_6.clone() c3i rx voice_bass_4.clone() c3i rx c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o // bar 37
-                rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o voice_bass_4.clone() c3i o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_4.clone() c3i rx c3i o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o // bar 38
-                fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx c3i rx voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro // bar 39
-                voice_bass_4.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx c3i rxd voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_4.clone() legato!(c3i, 6) // bar 40
-                rx repeat!(1) voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i o rx c3i o ro voice_bass_6.clone() c3i o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o // bar 41
-                as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o // bar 42
-                ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rxd voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o // bar 43
-                a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rxd voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o // bar 44
-                rx voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() legato!(c3i, 4) // bar 45
-                rt rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i rx // bar 46
-                voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o // bar 47
-                ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o g2o f2o e2o d2o cs2o rx voice_bass_8.clone() c2o // bar 48
-                b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o g2o f2o e2o d2o cs2o ro b2o as2o a2o gs2o g2o f2o e2o d2o cs2o ro a2o gs2o g2o fs2o f2o ds2o d2o cs2o b1o ro param!(op2_tl=8, op4_tl=12) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rqddd // bar 49
-                rhd // bar 50
-                ),
-        // drums (psg)
-        ser!(
-        rw // bar 1
-                rw // bar 2
-                rw // bar 3
-                rw // bar 4
-                rw // bar 5
-                rw // bar 6
-                rw // bar 7
-                rw // bar 8
-                rw // bar 9
-                rw // bar 10
-                rw // bar 11
-                rw // bar 12
-                rw // bar 13
-                rw // bar 14
-                rw // bar 15
-                rw // bar 16
-                rw // bar 17
-                rw // bar 18
-                rw // bar 19
-                rw // bar 20
-                rw // bar 21
-                rw // bar 22
-                rw // bar 23
-                rw // bar 24
-                rw // bar 25
-                rw // bar 26
-                rw // bar 27
-                rw // bar 28
-                rw // bar 29
-                rw // bar 30
-                rw // bar 31
-                rw // bar 32
-                rw // bar 33
-                rw // bar 34
-                rw // bar 35
-                rw // bar 36
-                rw // bar 37
-                rw // bar 38
-                rw // bar 39
-                rw // bar 40
-                rw // bar 41
-                rw // bar 42
-                rw // bar 43
-                rw // bar 44
-                rw // bar 45
-                rw // bar 46
-                rw // bar 47
-                rw // bar 48
-                rqddd voice_drums.clone() param!(velocity=101.6) legato!(ser!(c4w q t), 68) // bar 49
-                rhd // bar 50
-                )
+        par!( // bar 1
+            // melody (psg)
+            ser!(ridd o voice_melody.clone() param!(velocity=76.2) e3i rx a3i rx e4i rx b4e x ro e3i rx b4i rx f3i rx c4i rx a4e x rx legato!(c3i, 4)),
+            // lead (ym)
+            ser!(rw),
+            // lead2 (ym)
+            ser!(rw),
+            // arp (psg)
+            ser!(voice_arp.clone() param!(velocity=93.13) e3tdd rxd a3i rx e4i rx b4e x rx e3i rx b4i ro f3i rx c4i rx a4e x rx c3i rx a4i ro),
+            // arp2 (psg)
+            ser!(voice_arp2.clone() param!(velocity=93.13) a3tdd rxd c4i rx e4i rid g4i rx a3i rx g4i ro a3i rx c4i rid f4i rx f3i rx fs4i ro),
+            // harmony3 (ym)
+            ser!(rw),
+            // harmony2 (ym)
+            ser!(rw),
+            // harmony (ym)
+            ser!(voice_harmony.clone() legato!(ser!(a2wd eddd o), 128)),
+            // bass (ym)
+            ser!(voice_bass.clone() comment!("approx timbre") e0o f0xd fs0xd g0xd gs0x repeat!(1) a0t as0t b0t c1x repeat!(1) cs1t o d1t o ds1xd ds1x e1td f1td fs1o fs1t o g1tdd gs1t c_1i o cs_1o d_1o e_1o f_1o fs_1o gs_1o a_1o as_1o b_1o c0o cs0t d0o ds0o e0x f0o fs0x g0o gs0o repeat!(1) a0x as0x b0x c1x cs1xd d1x ds1x ds1o e1xd legato!(f1xd, 2)),
+            // drums (psg)
+            ser!(rw),
+        ),
+        par!( // bar 2
+            ser!(voice_melody.clone() param!(velocity=76.2) rt rx a4i rx g3i rx d4i rx g4e x rx d3i rxd g4i rx a3i rx e4i rx b4e xd ro e3i rxd),
+            ser!(rhd idd voice_lead.clone() c3t o e3x g3o c4x legato!(ser!(e4h idd), 8)),
+            ser!(rhd td voice_lead2.clone() c3t o e3x g3x c4x legato!(ser!(e4h idd o), 15)),
+            ser!(voice_arp.clone() param!(velocity=93.13) ro g3i rx d4i rx g4e x rx d3i rx g4i rx a3i rxd e4i rx b4e x rx e3i rx a4i rx legato!(a3i, 6)),
+            ser!(voice_arp2.clone() param!(velocity=93.13) ro b3i rx d4i rid d4i rx g3i rx d4i rx c4i rxd e4i rid g4i rx a3i rx e4i rx legato!(c4i, 6)),
+            ser!(rw),
+            ser!(rhdd voice_harmony2.clone() e5i rx legato!(a4i, 6)),
+            ser!(voice_harmony.clone() rh eddd o as2xd b2t c3i rx legato!(ser!(a3w eddd), 16)),
+            ser!(voice_bass.clone() ro fs1xd g1xd gs1x repeat!(1) a1xd as1t b1t c2x c2xd cs2t o d2t o ds2xd ds2x e2td f2td fs2o fs2t o g2td gs2t c_1t o d_1o f_1o g_1o a_1o b_1o cs0o ds0o e0o fs0o g0o gs0o a0o as0o b0o c1o cs1o d1o ds1x e1o f1x fs1o g1x gs1o repeat!(1) a1x as1x b1x c2o re xd),
+            ser!(rw),
+        ),
+        par!( // bar 3
+            ser!(voice_melody.clone() param!(velocity=76.2) a4i ro a3i o ro e4i o ro b4e xd ro e3i o ro b4i o ro f3i o ro c4i o ro a4e xd ro c3i rx a4i o),
+            ser!(voice_lead.clone() rh td rxd e4edd rx f4x ro g4x ro f4o rxd legato!(ser!(e4hdd tdd), 15)),
+            ser!(voice_lead2.clone() rh e4edd o ro f4o rxd g4o rx f4x ro legato!(ser!(e4hdd td), 24)),
+            ser!(voice_arp.clone() param!(velocity=93.13) rx repeat!(1) e4i o ro b4e xd ro e3i o ro b4i o ro f3i o ro c4i o ro a4e xd ro c3i rx a4i rx g3i o ro legato!(d4i, 4)),
+            ser!(voice_arp2.clone() param!(velocity=93.13) rx repeat!(1) e4i rid g4i o ro a3i rx g4i rx a3i rx c4i rid f4i o ro f3i rx fs4i rx b3i rx legato!(d4i, 4)),
+            ser!(voice_harmony3.clone() e5i ro a4i rx b4i o ro c5i o ro a4i rx e4i o ro e5i o ro a4i rx b4i o ro c5i o ro a4i rx e4i rx e5i ro),
+            ser!(voice_harmony2.clone() rx repeat!(1) b4i rx c5i rx a4i rx e4i o ro e5i rx a4i rx b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx legato!(b4i, 4)),
+            ser!(rw),
+            ser!(rw),
+            ser!(rw),
+        ),
+        par!( // bar 4
+            ser!(voice_melody.clone() param!(velocity=76.2) ro g3i rx d4i rx g4e x rx d3i rx g4i rx a3i rx e4i rx b4e xd rx e3i o ro param!(velocity=67.73) a4i rx legato!(ser!(a4i o), 6)),
+            ser!(voice_lead.clone() rhd i ro voice_lead_2.clone() e3i o ro f3i o rx legato!(g3i, 2)),
+            ser!(voice_lead2.clone() rh eddd rx voice_lead2_2.clone() e3i o rx f3i o ro g3i o ro legato!(ser!(a3i o), 1)),
+            ser!(voice_arp.clone() param!(velocity=93.13) rt rx g4e x rx d3i rx g4i rx a3i rx e4i rx b4e x rx e3i rxd param!(velocity=84.67) a4i o ro a4i o ro f5i rx legato!(ser!(b5e xd), 1)),
+            ser!(voice_arp2.clone() param!(velocity=93.13) rt rid d4i rx g3i rx d4i rx c4i rx e4i rid g4i rx a3i rxd param!(velocity=84.67) e4i o ro c5i o ro e5i rxd),
+            ser!(voice_harmony3.clone() ro a4i rx b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx c5i rx a4i o rx e4i o ro voice_harmony3_2.clone() e3i o ro legato!(ser!(f3i o), 6)),
+            ser!(voice_harmony2.clone() rt rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx c5i rx a4i rx e4i rx voice_harmony2_2.clone() a3i o rx c4i o ro e4i rx legato!(b4i, 1)),
+            ser!(voice_harmony.clone() ridd rx b3i rx c4i rx a3qdd x rxd c3i o ro e3i o ro a3i rxd),
+            ser!(voice_bass.clone() rhd voice_bass_2.clone() c3i o rx param!(op2_tl=11, op4_tl=11) c3i o ro c3i o ro voice_bass_3.clone() legato!(d3i, 1)),
+            ser!(rw),
+        ),
+        par!( // bar 5
+            ser!(voice_melody.clone() param!(velocity=67.73) rxd ro f5i o rx b5e xd ro e4i rx b5i o ro f4i o ro b4i rx as5e x rxd c4i rx a5i rx g4i rx legato!(d5i, 2)),
+            ser!(voice_lead_2.clone() rtd rx a3i rx b3i rx c4i rx b3x ro c4x rx b3q ro a3e xd rx g3e xd ro legato!(ser!(d3e xd), 9)),
+            ser!(voice_lead2_2.clone() ri ro b3i o ro c4i o rx b3x ro c4o rx b3q rx a3e x rx g3e x rxd legato!(ser!(d3e x), 17)),
+            ser!(voice_arp.clone() param!(velocity=84.67) re x rx e4i rx b5i rx f4i rx b4i rx as5e x rx c4i rxd a5i rx g4i rx d5i rx legato!(ser!(g5e x), 7)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ri x g5i rx a4i rx g5i rx as4i rx b4i rid f5i rxd f4i rx g5i rx as4i rx d5i ri o),
+            ser!(voice_harmony3_2.clone() rxd ro g3i o ro a3i o rx b3i o ro c4i o ro b3o rx c4x rx b3q ro a3e x rxd g3e x rx legato!(ser!(d3e x), 2)),
+            ser!(voice_harmony2_2.clone() rtdd rxd g4i rx e4i rx f3i rx a3i rx e4i rx a4i rx e4i rx c4i rxd g3i rx d4i rx g4i rx legato!(a4i, 7)),
+            ser!(voice_harmony.clone() re t a3i rx c3i rx f3i rx a3i re td a3i rxd c3i rx d3i rx g3i ri o),
+            ser!(voice_bass_3.clone() rtdd rx voice_bass_4.clone() c3i rxd c3i o ro param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o ro voice_bass_5.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rxd param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx c3i rx voice_bass_3.clone() legato!(d3i, 7)),
+            ser!(rw),
+        ),
+        par!( // bar 6
+            ser!(voice_melody.clone() param!(velocity=67.73) rtd rx g5e xd ro d4i o ro g5i o ro a4i o ro f5i o ro b5e xd ro ds4i o ro a5i o ro a4i o rx f5i o),
+            ser!(voice_lead_2.clone() ri x ro f3e x rx e3q td rxd e3e x rx e3i rx f3i rx g3i rx legato!(a3i, 6)),
+            ser!(voice_lead2_2.clone() ro rx f3e x rx e3q tdd ro e3e xd ro e3i o ro f3i o ro g3i rx a3i o ro legato!(ser!(b3i o), 5)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ri xd rx d4i rx g5i rx a4i rx f5i rx b5e x rx ds4i rx a5i rx a4i rx f5i rxd legato!(ser!(b5e xd), 14)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rxd d5i rx g4i rx ds5i rx c5i rx e5i rid g5i rx a4i rx e5i rx c5i rx e5i rid o legato!(g5i, 4)),
+            ser!(voice_harmony3_2.clone() re rx f3e xd ro e3q tdd ro e3e xd ro e3i o ro f3i o ro g3i o ro),
+            ser!(voice_harmony2_2.clone() ro rx g4i rx d4i rx a3i rx e4i rx b4i rx a4i rx b4i rx e4i rx a3i rx c4i rx e4i rxd b4i rx legato!(g4i, 4)),
+            ser!(voice_harmony.clone() rid o g3i rx d3i rx e3i rx a3i re td a3i rx c3i rx e3i rx a3i re o),
+            ser!(voice_bass_3.clone() ro rx voice_bass_4.clone() c3i rx c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx voice_bass_5.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i rx c3i rxd voice_bass_3.clone() d3i rx voice_bass_4.clone() legato!(c3i, 4)),
+            ser!(rw),
+        ),
+        par!( // bar 7
+            ser!(voice_melody.clone() param!(velocity=67.73) ro b5e x rx e4i rx b5i rx f4i rx b4i rx as5e x rx c4i rx a5i rx g4i o ro d5i o ro legato!(ser!(g5e xd), 7)),
+            ser!(voice_lead_2.clone() rx repeat!(1) b3i rx c4i o ro d4edd o ro e4i rx c4e xd ro b3e xd ro d3e xd rx legato!(ser!(g3e x), 3)),
+            ser!(voice_lead2_2.clone() rt rx c4i rx d4edd rx e4i rx c4e x ro b3e xd rx d3e xd ro legato!(ser!(g3e xd), 12)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt o ro e4i rx b5i rx f4i rx b4i rx as5e x rx c4i rx a5i rx g4i rx d5i rx g5e xd ro legato!(d4i, 2)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt rx a4i rx g5i rx as4i rx b4i rid f5i rx f4i rx g5i rx as4i rx d5i rid d5i rx legato!(g4i, 2)),
+            ser!(voice_harmony3_2.clone() ro a3i rx b3i rx c4i rx d4edd rx e4i ro c4e xd rx b3e xd ro legato!(ser!(d3e xd), 17)),
+            ser!(voice_harmony2_2.clone() rt rx e4i rx f3i rx a3i rx e4i rx a4i rx e4i rx c4i rx g3i rx d4i rx g4i rx a4i rx g4i rx legato!(d4i, 2)),
+            ser!(voice_harmony.clone() rtd a3i rx c3i rx f3i rx a3i re td a3i rx c3i rx d3i rx g3i re td legato!(g3i, 2)),
+            ser!(voice_bass_4.clone() rt rx c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx voice_bass_5.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o ro c3i o ro voice_bass_6.clone() c3i rx voice_bass_4.clone() c3i rx legato!(ser!(c3i o), 2)),
+            ser!(rw),
+        ),
+        par!( // bar 8
+            ser!(voice_melody.clone() param!(velocity=67.73) rid ro d4i o rx g5i o ro a4i rx f5i o ro b5e x rxd ds4i rx a5i rx a4i rx f5i rxd legato!(ser!(b5e xd), 12)),
+            ser!(voice_lead_2.clone() ridd o rx a3q tdd rx a3e x rx param!(op4_tl=23) e4i o ro f4i o ro g4i o ro a4i o rx b4i o),
+            ser!(voice_lead2_2.clone() rtdd ro a3q tdd rx a3e xd ro e4i rxd f4i rx g4i rx a4i rx b4i rxd legato!(c5i, 7)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtd rx g5i rxd a4i rx f5i rx b5e xd ro ds4i rxd a5i rx a4i rx f5i rx b5e x rxd legato!(e4i, 7)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtd rx ds5i rxd c5i rx e5i rid g5i rx a4i rxd e5i rx c5i rx e5i rid o g5i rx legato!(a4i, 7)),
+            ser!(voice_harmony3_2.clone() rx ro g3e xd ro a3q tdd rx a3xd rxd c3i rx d3i rx e3i rx f3i rxd g3i rx legato!(a3i, 7)),
+            ser!(voice_harmony2_2.clone() rtd rx a3i rx e4i rxd b4i rx a4i rx b4i o ro e4i o ro e3q tdd rxd legato!(ser!(c3e x), 17)),
+            ser!(voice_harmony.clone() rtd rx d3i rx e3i rxd a3i rid voice_harmony_2.clone() a3o gs3x g3x fs3o f3x e3x ds3o d3x cs3x c3o b2x rxd a2e x rx b2i rx a2i rxd legato!(ser!(e3e x), 17)),
+            ser!(voice_bass_4.clone() rtdd ro param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro e2o ds2o d2o cs2o b1o as1o gs1o g1o f1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_4.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o),
+            ser!(rw),
+        ),
+        par!( // bar 9
+            ser!(voice_melody.clone() param!(velocity=67.73) rtdd ro e4i rx b5i o ro f4i o ro b4i o ro as5e xd ro c4i o rx a5i o ro g4i o ro d5i o ro g5e xd),
+            ser!(voice_lead_8.clone() ro c5i o ro b4x rx c5x ro b4q rx a4e xd ro g4e x rx d4e x rxd legato!(ser!(f4e x), 15)),
+            ser!(voice_lead2_2.clone() ro rx b4x ro c5x rx b4q ro a4e xd ro g4e xd ro d4e xd rx f4e xd ro legato!(ser!(e4q tdd), 4)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro rx b5i rx f4i rx b4i rx as5e x rx c4i rxd a5i rx g4i rx d5i rx g5e xd ro d4i rx legato!(g5i, 4)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro rx g5i rx as4i rx b4i rid f5i rx f4i rxd g5i rx as4i rx d5i rid d5i rx g4i rxd legato!(ds5i, 3)),
+            ser!(voice_harmony3_2.clone() ro rx g3o rx a3x rx g3q ro f3e x rx d3e xd rx b2e xd ro d3e xd ro legato!(ser!(c3q td), 4)),
+            ser!(voice_harmony2_2.clone() ro rx a3e x rx f3e xd ro a3e xd ro g3e xd rx d3e xd ro f3e xd ro legato!(ser!(e3q td), 4)),
+            ser!(voice_harmony_2.clone() ro rx f2e x rx a2i rx f2i rx c3e x rxd g2e xd ro b2i rx g2i rx d3e x rx legato!(ser!(a2e x), 4)),
+            ser!(voice_bass_7.clone() d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx c3i rx voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o),
+            ser!(rw),
+        ),
+        par!( // bar 10
+            ser!(voice_melody.clone() param!(velocity=67.73) ro d4i o ro g5i rxd a4i rx f5i rx b5e x rx ds4i rx a5i rx a4i o ro f5i o rx b5e xd ro legato!(ser!(e4i o), 5)),
+            ser!(voice_lead_8.clone() rxd rx e4q td rx e4e xd ro e4i o ro f4i o ro g4i o rx a4i o ro b4i o ro c5i o rx legato!(ser!(e5q tdd), 1)),
+            ser!(voice_lead2_2.clone() rq xd rx e4e x rx e4i rx f4i rx g4i o ro a4i o ro b4i o ro c5i o rx legato!(ser!(e5q i), 10)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt rxd a4i rx f5i rx b5e x rx ds4i rx a5i rx a4i rx f5i rx b5e xd rx e4i rx b5i rx),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt o arp2i_seg_0() g5i rx a4i rx g5i rx),
+            ser!(voice_harmony3_2.clone() rq x rxd c3e x rx c3i rx d3i rx e3i rx f3i rxd g3i rx a3i rx legato!(ser!(c4q tdd), 10)),
+            ser!(voice_harmony2_2.clone() rq x rxd e3e x rx e3q tdd ro c3e xd rx legato!(ser!(a3edd o), 10)),
+            ser!(voice_harmony_2.clone() ridd rxd b2i rx a2i rx e3e x rx a2e x rx b2i rx a2i rxd e3e xd ro legato!(ser!(f2e xd), 10)),
+            ser!(voice_bass_8.clone() gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx c3i rx voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_4.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro),
+            ser!(rw),
+        ),
+        par!( // bar 11
+            ser!(voice_melody.clone() param!(velocity=67.73) rt ro b5i o rx f4i o ro b4i o ro as5e xd rx c4i o ro a5i o ro g4i rx d5i rxd g5e xd ro g4i rx),
+            ser!(voice_lead_8.clone() rq td ro d5id rx c5x ro d5o rxd c5q tdd rx b4e xd ro legato!(ser!(a4q i), 7)),
+            ser!(voice_lead2_2.clone() reddd ro d5id rx c5o rx d5x ro c5q tdd rx b4e x rxd legato!(ser!(a4q tdd), 15)),
+            ser!(voice_arp.clone() param!(velocity=84.67) f4i rxd b4i rx as5e xd ro c4i rxd a5i rx g4i rx d5i rx g5e x rxd g4i rx gs5i rx legato!(cs5i, 5)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) as4i rxd b4i rid f5i rx f4i rxd g5i rx as4i rx d5i rid o d5i rx g4i rx ds5i rx legato!(cs5i, 5)),
+            ser!(voice_harmony3_2.clone() redd o rx b3id rx a3o rx b3x ro a3q tdd rx e3e x rxd legato!(ser!(e3q tdd), 15)),
+            ser!(voice_harmony2_2.clone() re xd rx b3i o ro c4e xd ro b3e xd rx d3e x rx g3e x rxd legato!(ser!(a3qdd xd), 15)),
+            ser!(voice_harmony_2.clone() ri o rx a2i rx f2i rx c3e xd rx g2e xd ro b2i rx g2i rxd d3e x rx legato!(ser!(a2e x), 15)),
+            ser!(voice_bass_8.clone() voice_bass_4.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i o ro c3i o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_4.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() legato!(c3i, 5)),
+            ser!(rw),
+        ),
+        par!( // bar 12
+            ser!(voice_melody.clone() param!(velocity=67.73) gs5i rxd cs5i ro f5i o rx b5i o ro b5i o ro d6i o ro a5i o ro gs4i o rx e4i o ro gs4i o ro e4i o ro gs4i o ro legato!(ser!(e4i o), 6)),
+            ser!(voice_lead_8.clone() rq o ro voice_lead_3.clone() c5i o ro d5i o rx e5edd rx f5i rx g5e x rxd legato!(ser!(d5q td), 12)),
+            ser!(voice_lead2_2.clone() red ro voice_lead2_3.clone() c5i o rx d5i o ro e5edd o ro f5i o rx g5e xd ro legato!(ser!(d5q tdd), 21)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rxd repeat!(1) f5i rx b5i rx b5i o ro d6i rx a5i rx g4i rxd g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx legato!(g4i, 1)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rxd repeat!(1) f5i rx c6i rx e5i o ro as5i rx f5i rx e4i rxd e4i rx e4i rx e4i rx e4i rx e4i rx d4i rx legato!(d4i, 1)),
+            ser!(voice_harmony3_2.clone() red rx voice_harmony3_3.clone() c4i rx d4i rx e4edd o rx f4i rx g4e xd ro legato!(ser!(d4q tdd), 21)),
+            ser!(voice_harmony2_2.clone() rq id rx c4edd o rx d4i rx e4e xd ro legato!(ser!(b3q tdd), 21)),
+            ser!(voice_harmony_2.clone() rxd repeat!(1) cs3i rx a2i rx e2i o ro f2i rx c3e xd rid c3e xd ro c3i rx b2e xd rx),
+            ser!(voice_bass_4.clone() rxd rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_4.clone() c3i ro c3i o rx voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o),
+            ser!(rw),
+        ),
+        par!( // bar 13
+            ser!(voice_melody.clone() param!(velocity=67.73) rxd ro g4i o ro d4i rxd g4i rx d4i rx g4i rx d4i rx as4i rx ds4i rx as4i o ro ds4i o rx as4i o ro e4i o ro legato!(ser!(gs4i o), 2)),
+            ser!(voice_lead_3.clone() red x rx c5i o ro b4i o ro c5edd o ro d5i o rx e5e xd ro e5e xd),
+            ser!(voice_lead2_3.clone() re x ro c5i rxd b4i rx c5edd rx d5i rx e5e x rx e5e xd rx legato!(ser!(b4e xd), 7)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd rxd g4i rx g4i rx g4i rx g4i rx a4i rx a4i rx a4i rxd a4i ro a4i rxd a4i rx g4i rx legato!(g4i, 7)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd rxd d4i rx d4i rx d4i rx d4i rx c4i rx c4i rxd c4i rx c4i ro c4i rxd c4i rx e4i rx legato!(e4i, 7)),
+            ser!(voice_harmony3_3.clone() re x rx c4i rx b3i rx c4edd rx d4i rxd e4e x rx e4e xd ro legato!(ser!(b3e xd), 7)),
+            ser!(voice_harmony2_2.clone() re x rx a3i rx g3i rx a3edd rx b3i rxd c4e x rx b3e xd ro legato!(ser!(g3e xd), 7)),
+            ser!(voice_harmony_2.clone() ri x b2e x rx b2i rx a2e x rid a2e x rx a2i rxd g2e xd ri),
+            ser!(voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o),
+            ser!(rw),
+        ),
+        par!( // bar 14
+            ser!(voice_melody.clone() param!(velocity=67.73) rtdd ro e4i o rx gs4i o ro e4i o ro gs4i o ro ds4i o rx as4i o ro e4i o ro as4i rxd e4i rx as4i rx e4i rx legato!(g4i, 7)),
+            ser!(voice_lead_3.clone() rx b4e xd ro a4x ro b4x rx a4o rx g4i rxd a4edd o ro b4i rxd c5e xd ro d5e xd ro legato!(ser!(c5e xd), 4)),
+            ser!(voice_lead2_3.clone() rid ro a4x rx b4o rxd a4o rx g4i o ro a4edd o rx b4i o ro c5e xd ro d5e xd rx legato!(ser!(c5e xd), 12)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro rx g4i rxd g4i rx g4i rx g4i rx a4i rxd a4i rx a4i rx a4i rxd a4i rx a4i rx g4i rx g4i rxd legato!(g4i, 1)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro rxd e4i rx e4i rx e4i rx e4i rxd c4i rx c4i rx c4i rx c4i rxd c4i rx c4i rx d4i rx d4i rxd legato!(d4i, 1)),
+            ser!(voice_harmony3_3.clone() rid rx a3i rx g3i rx a3edd o rx b3i rx c4e x rxd d4e x rx legato!(ser!(c4e x), 12)),
+            ser!(voice_harmony2_2.clone() rid rx f3x ro g3o rxd f3o rx e3i o ro f3edd o rx g3i o ro a3e x rxd b3e x rx legato!(ser!(a3e x), 12)),
+            ser!(voice_harmony_2.clone() rxd g2e xd rx g2i rx f2edd o rx g2i rx a2e x rxd b2e x rx legato!(ser!(a2e x), 12)),
+            ser!(voice_bass_7.clone() d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o),
+            ser!(rw),
+        ),
+        par!( // bar 15
+            ser!(voice_melody.clone() param!(velocity=67.73) ro rxd d4i rx g4i rx d4i rx g4i o ro d4i o ro gs4i o ro e4i o ro gs4i o ro e4i o ro gs4i o ro e4i o rx g4i o ro legato!(ser!(d4i o), 3)),
+            ser!(voice_lead_3.clone() ridd o rx d5e xd ro legato!(ser!(e5hd xd), 91)),
+            ser!(voice_lead2_3.clone() rtdd rx d5e x ro e5hd t),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd rx d4i rx d4i rx ds4i rx e4i rx e4i rx e4i rx e4i rx e4i rx e4i rxd d4i rx d4i rx d4i),
+            ser!(voice_harmony3_3.clone() rtd rxd d4e x rx e4hd xd),
+            ser!(voice_harmony2_2.clone() rtd rxd b3e x rx c4qdd xd ro g3q tdd),
+            ser!(voice_harmony_2.clone() rtd rxd b2e x rx c3edd o ro d3i rx c3e xd ro b2e xd rx legato!(ser!(a2e xd), 18)),
+            ser!(voice_bass_8.clone() as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rxd voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o),
+            ser!(rw),
+        ),
+        par!( // bar 16
+            ser!(voice_melody.clone() param!(velocity=67.73) rtd ro g4i o ro d4i o ro g4i rx d4i rx gs4i rxd e4i rx gs4i rx e4i rx gs4i rx e4i o ro g4i o ro d4i o ro),
+            ser!(voice_lead_3.clone() ri rx c5i rx d5i rx e5edd o rx f5i o ro g5e xd ro legato!(ser!(d5q tdd), 37)),
+            ser!(voice_lead2_3.clone() rx c5i o ro d5i rx e5edd rx f5i rxd g5e x rx d5q tdd ro legato!(ser!(c5i o), 5)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx g4i rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rx g4i rx g4i rx g4i rxd legato!(g4i, 4)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx d4i rx d4i rx ds4i rx e4i rx e4i rxd e4i rx e4i rx e4i rx e4i rx d4i rx d4i rx d4i rxd legato!(d4i, 4)),
+            ser!(voice_harmony3_3.clone() rx c4i rx d4i rx e4edd rxd f4i rx g4e x rx d4q tdd rx legato!(c4i, 4)),
+            ser!(voice_harmony2_2.clone() rx g3e x rx c4edd rxd d4i rx e4e x rx b3q tdd ro legato!(a3i, 5)),
+            ser!(voice_harmony_2.clone() ro repeat!(1) b2e x rx c3e x rid o c3e x rx c3i rx b2e x rid legato!(ser!(b2e xd), 15)),
+            ser!(voice_bass_8.clone() d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o),
+            ser!(rw),
+        ),
+        par!( // bar 17
+            ser!(voice_melody.clone() param!(velocity=67.73) ro g4i o ro d4i o ro g4i o ro d4i o rx as4i o ro ds4i o ro as4i o ro ds4i o rx as4i o ro e4i rx gs4i rx e4i rxd legato!(gs4i, 4)),
+            ser!(voice_lead_3.clone() rx repeat!(1) c5i o ro b4i o rx c5edd o ro d5i rxd e5e xd ro e5e x rx b4e xd rx legato!(a4x, 1)),
+            ser!(voice_lead2_3.clone() rt ro b4i o rx c5edd o ro d5i o rx e5e xd ro e5e x rxd b4e xd ro a4x rx b4x ro a4o rx),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt rx g4i rx g4i rx a4i rxd a4i rx a4i rx a4i rx a4i rxd a4i rx g4i rx g4i rx g4i rxd g4i ro),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt rx d4i rx d4i rx c4i rxd c4i rx c4i rx c4i rx c4i rxd c4i rx e4i rx e4i rx e4i rxd e4i ro),
+            ser!(voice_harmony3_3.clone() rt rx b3i rx c4edd o rx d4i rx e4e xd rx e4e x rx b3e x rxd a3i ro),
+            ser!(voice_harmony2_2.clone() rxd repeat!(1) g3i o ro a3edd o rx b3i o ro c4e xd rx b3e x rx g3e x rxd f3o rx g3x ro f3o rx),
+            ser!(voice_harmony_2.clone() rt rx b2i rx a2e xd rid a2e xd ro a2i rxd g2e x rid g2e x rx),
+            ser!(voice_bass_7.clone() f2o ds2o d2o c2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o ro),
+            ser!(rw),
+        ),
+        par!( // bar 18
+            ser!(voice_melody.clone() param!(velocity=67.73) rt rx e4i rx gs4i rx e4i rx c4i o ro e4i o rx as4i o ro f4i o ro b4i o ro a4i o ro as3i o ro ds4i o rx e4i o ro),
+            ser!(voice_lead_3.clone() ro repeat!(1) b4x rx a4o rx g4i o ro a4edd o rx b4i o ro c5e xd ro e5e x rxd d5i rx e5xd rx d5xd rx legato!(ser!(c5e x), 7)),
+            ser!(voice_lead2_3.clone() ro g4i rx a4edd o ro b4i o ro c5e xd rx e5e xd ro d5i o ro e5t ro d5xd rx legato!(ser!(c5e xd), 16)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro g4i rx g4i rx c4i rxd e4i ro as4i rxd f4i rx b4i rx as4i rx as3i rx ds4i rx e4i rxd ds4i rx legato!(ser!(as4i o), 5)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro e4i rx e4i rx a3i rxd c4i ro f4i rxd c4i rx a4i rx f4i rx d3i rx as3i rx d4i rxd as3i rx legato!(ser!(f4i o), 5)),
+            ser!(voice_harmony3_3.clone() ro g3i rx a3edd rx b3i rxd c4e xd ro e4e xd ro d4e xd rx legato!(ser!(c4e x), 15)),
+            ser!(voice_harmony2_2.clone() ro e3i rx f3edd rx g3i rxd a3e xd ro as3e xd ro f3i rx a3xd rx f3xd rxd legato!(ser!(d3e x), 15)),
+            ser!(voice_harmony_2.clone() ro g2i rx f2edd rx g2i rxd a2e xd ro as2e x rx c3e xd rx legato!(ser!(d3e x), 15)),
+            ser!(voice_bass_7.clone() ro b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o),
+            ser!(rw),
+        ),
+        par!( // bar 19
+            ser!(voice_melody.clone() param!(velocity=67.73) d4i o ro b4i o ro f4i o ro ds5i rx b5i rx a5i rx f6i rxd a5i rx as5i rx ds5i ro b5i rxd as5i rx b5xd rt),
+            ser!(voice_lead_3.clone() ri xd rx e5qdd xd rx legato!(e5qddd, 54)),
+            ser!(voice_lead2_3.clone() rxd rx e5qdd xd ro e5qdd xd rx voice_lead2_4.clone() legato!(ser!(e4i o), 2)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt ro f4i rx ds5i rx b5i rx a5i rx f6i rx a5i rxd as5i rx ds5i rx b5i rx as5i ro b5i rxd e6i rx legato!(ser!(d6i o), 2)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt ro ds4i rx b4i rx e5i rx a5i rx as5i rxd gs5i rx f5i rx b4i rx b4i rx ds5i rx e5i rx fs5i rx legato!(ser!(g5i o), 2)),
+            ser!(voice_harmony3_3.clone() rxd rx e4qdd x rxd e4qdd x rx voice_harmony3_4.clone() legato!(ser!(a2i o), 2)),
+            ser!(voice_harmony2_2.clone() rxd rx e2e xd ro a2t o ro b2t o rx a2t o rx fs2e x rxd gs2i xd gs2o gs2td rx fs2e x ro gs2i x gs2o gs2tdd rxd legato!(ser!(e3i o), 2)),
+            ser!(voice_harmony_2.clone() rxd rx e3edd o ro a2i rx b2e x rxd gs2e x rx fs2e x ro gs2e x rxd legato!(ser!(a2i o), 2)),
+            ser!(voice_bass_7.clone() fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o g2o f2o e2o d2o cs2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx c3i rx voice_bass_7.clone() b2o as2o a2o gs2o g2o f2o e2o d2o cs2o as2o a2o gs2o g2o f2o e2o d2o cs2o b1o ro gs2o g2o fs2o f2o ds2o d2o cs2o b1o a1o rx voice_bass_8.clone() b1o as1o),
+            ser!(rw),
+        ),
+        par!( // bar 20
+            ser!(voice_melody.clone() param!(velocity=67.73) rxd e6i o rx ds6i o ro a3i o ro e4i o rx b4e xd ro e3i o ro b4i o rx f3i o ro c4i rx a4e xd rx legato!(c3i, 1)),
+            ser!(voice_lead_3.clone() rtd ro voice_lead_4.clone() e4i o ro f4i o ro g4i o rx a4i rx b4i rx c5i rxd b4q tdd ro a4e xd),
+            ser!(voice_lead2_4.clone() rtdd ro f4i o rx g4i o ro a4i o ro b4i o ro c5i o rx b4q tdd rx a4e xd ro legato!(ser!(g4e xd), 7)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd rx a3i rx e4i rx b4e xd rx e3i rx b4i rx f3i rxd c4i rx a4e x rx c3i rxd legato!(a4i, 6)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd rx c4i rx e4i rid o g4i rx a3i rx g4i rx a3i rxd c4i rid f4i rxd f3i rx legato!(fs4i, 6)),
+            ser!(voice_harmony3_4.clone() rtdd rx c3i rx e3i rx b3i rxd g3i rx e3i rx f2i rx a2i rxd e3i rx a3i rx e3i rx c3i rxd legato!(g2i, 6)),
+            ser!(voice_harmony2_2.clone() rtdd rx f3i o ro g3i rx a3i o rx b3i rx c4i o ro b3x rx c4x ro b3q o ro a3e x rxd legato!(ser!(g3e x), 6)),
+            ser!(voice_harmony_2.clone() rtdd rx a2i rid a2e xd rx a2i rx f2i rx f2i rid o f2e x rx f2i rxd legato!(g2i, 6)),
+            ser!(voice_bass_8.clone() a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_4.clone() c3i o ro c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_4.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd b1o as1o a1o gs1o fs1o f1o),
+            ser!(rw),
+        ),
+        par!( // bar 21
+            ser!(voice_melody.clone() param!(velocity=67.73) rtdd rx a4i rx g3i rx d4i rxd g4e x ro d3i o rx g4i o ro a3i o ro e4i o ro b4e xd ro legato!(ser!(e3i o), 8)),
+            ser!(voice_lead_4.clone() rx g4e xd ro d4e xd rx f4e xd ro e4q tdd ro e4e x rxd legato!(e4i, 4)),
+            ser!(voice_lead2_4.clone() rid rx d4e x rx f4e x rx e4q tdd rx e4e xd ro e4i o ro legato!(ser!(f4i o), 3)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx repeat!(1) g3i rx d4i rxd g4e x ro d3i rxd g4i rx a3i rx e4i rx b4e xd ro e3i rxd a4i rx legato!(a3i, 2)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx repeat!(1) b3i rx d4i rid o d4i rx g3i rx d4i rx c4i rx e4i rid g4i rx a3i rxd e4i rx legato!(c4i, 2)),
+            ser!(voice_harmony3_4.clone() rx repeat!(1) d3i rx g3i rx a3i rxd g3i ro d3i rx a2i rxd e3i rx b3i rx a3i rx b3i rx e3i rx a2i rxd legato!(c3i, 2)),
+            ser!(voice_harmony2_2.clone() rid rx d3e x rxd f3e x ro e3q tdd rx e3e xd ro e3i rxd legato!(f3i, 2)),
+            ser!(voice_harmony_2.clone() rx repeat!(1) g2i rid g2e x rx g2i rx a2i rxd a2i rid a2e xd ro a2i rx a2i o rx legato!(a2i, 2)),
+            ser!(voice_bass_8.clone() ds1o d1o rx voice_bass_4.clone() c3i rx c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_4.clone() c3i ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() legato!(c3i, 2)),
+            ser!(rw),
+        ),
+        par!( // bar 22
+            ser!(voice_melody.clone() param!(velocity=67.73) ro rx a4i o ro a3i o ro e4i o ro b4e x rx e3i rx b4i rxd f3i rx c4i rx a4e xd ro c3i o ro legato!(ser!(a4i o), 4)),
+            ser!(voice_lead_4.clone() rt rx f4i rx g4i rx a4i rxd b4i ro c5i o ro d5edd o rx e5i o ro c5e xd ro legato!(ser!(b4e xd), 11)),
+            ser!(voice_lead2_4.clone() rtd rx g4i rx a4i o ro b4i o ro c5i rx d5edd rxd e5i rx c5e x rx b4e xd),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtd rx e4i rx b4e xd ro e3i rx b4i rxd f3i rx c4i rx a4e x rx c3i rx a4i rx g3i ro),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtd rx e4i rid g4i rx a3i rx g4i rxd a3i rx c4i rid f4i rx f3i rx fs4i rx b3i ro),
+            ser!(voice_harmony3_4.clone() rtd rx e3i rx b3i rx g3i rx e3i rx f2i rx a2i rxd e3i rx a3i rx e3i rx c3i rx g2i rx d3i ro),
+            ser!(voice_harmony2_2.clone() rtd rx g3i rx a3i rx b3i rx c4i rx d4edd rxd e4i rx c4e x rx b3e xd),
+            ser!(voice_harmony_2.clone() rtd rid a2e xd ro a2i rx f2i rx f2i rid o f2e x rx f2i rx g2i rx g2i ro),
+            ser!(voice_bass_4.clone() rtd rx c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_4.clone() c3i rxd voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i o),
+            ser!(rw),
+        ),
+        par!( // bar 23
+            ser!(voice_melody.clone() param!(velocity=67.73) rt o ro g3i o rx d4i o ro g4e xd ro d3i o rx g4i o ro a3i o ro e4i o rx cs5e xd rx e3i rx a4i),
+            ser!(voice_lead_4.clone() ri rx d4e xd ro g4e x rxd a4q tdd rx voice_lead_2.clone() a2e xd ro d3i o rx legato!(ser!(e3i o), 5)),
+            ser!(voice_lead2_4.clone() ro d4e xd rx g4e xd ro a4q tdd rx voice_lead2_2.clone() a2e xd rx d3i rx e3i rxd legato!(f3i, 3)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro d4i rxd g4e xd ro d3i rx g4i rxd a3i rx e4i rx cs5e xd rx e3i rxd a4i rx d4i rx legato!(a3i, 3)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro d4i rid o d4i rx g3i rx d4i rxd cs4i rx e4i rid o g4i o ro a3i rxd e4i rx a3i rx legato!(f3i, 3)),
+            ser!(voice_harmony3_4.clone() ro g3i rxd a3i rx g3i rx d3i rx a2i rxd e3i rx a3i rx cs4i rxd e4i rx cs4i rx voice_harmony3_5.clone() d4i rxd d4i rt o),
+            ser!(voice_harmony2_2.clone() ro d3e xd rx g3e xd ro a3qddd rx f4i re),
+            ser!(voice_harmony_2.clone() rid g2e xd ro g2i rx a2i rxd a2i rid a2i rxd b2i o ro cs3i rx d3i rxd d3i rt o),
+            ser!(voice_bass_4.clone() ro c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_6.clone() legato!(c1i, 3)),
+            ser!(rw),
+        ),
+        par!( // bar 24
+            ser!(voice_melody.clone() param!(velocity=67.73) rx d4i rx a3i rx ds4i rxd e4i rx as4i ro e4i o ro g4i o rx d4i o ro gs4i o ro as4i o ro g4i o ro ds4i o ro legato!(ser!(e4i o), 5)),
+            ser!(voice_lead_2.clone() rt ro f3i o ro g3i o ro a3i o rx c4i o ro b3x ro c4x ro b3q rx a3i rx g3i o rx legato!(a3edd, 21)),
+            ser!(voice_lead2_2.clone() rt o rx g3i rx a3i rx c4i rxd b3x ro c4x ro b3q rx a3i o ro g3i rx a3edd o ro),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt o rx ds4i rx e4i rxd as4i rx e4i rx g4i rx d4i rx gs4i rx as4i rx g4i rx ds4i rx e4i rx c4i rx),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt o rx a3i rxd d4i rx f4i rx d4i rx d4i rx b3i rx d4i rx g4i rx d4i rx a3i rx d4i rx a3i rx),
+            ser!(voice_harmony3_5.clone() rtdd a3i rx d4i rxd a3i rx e4i rx e4i rid c4i rx e4i rx c4i rx f4i rx f4i rid),
+            ser!(voice_harmony2_2.clone() rtdd f4i rid o f4i rx g4i re td g4i rid g4i rx a4i rx a4i o ri xd),
+            ser!(voice_harmony_2.clone() rtdd d3i rx d3e x rxd e3i rx e3i rid e3i rx e3e x rx f3i rx f3i rid),
+            ser!(voice_bass_6.clone() rt o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() g1i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() f1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro param!(op2_tl=11, op4_tl=15) f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro d2o cs2o c2o b1o as1o gs1o g1o fs1o e1o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c1i rx),
+            ser!(rw),
+        ),
+        par!( // bar 25
+            ser!(voice_melody.clone() param!(velocity=67.73) rt ro c4i o rx e4i o ro as4i o ro e4i o ro c4i rx g4i rx d4i rx gs4i rx as4i rx g4i rx ds4i rx e4i o ro legato!(ser!(ds4i o), 2)),
+            ser!(voice_lead_2.clone() rtdd rx g3i rx f3e x rx g3q td rx d3i o ro e3i o ro f3edd o),
+            ser!(voice_lead2_2.clone() g3i o ro f3e xd rx g3q td rx d3i rx e3i rx f3edd rx legato!(ser!(g3i o), 7)),
+            ser!(voice_arp.clone() param!(velocity=84.67) e4i rxd as4i rx e4i rx c4i rx g4i rx d4i rx gs4i rx as4i rx g4i rx ds4i rx e4i rxd ds4i ro legato!(e4i, 7)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro d4i rx f4i rx d4i rx a3i rx d4i rx b3i rx d4i rx g4i rx d4i rx b3i rxd d4i rx as3i ro legato!(d4i, 7)),
+            ser!(voice_harmony3_5.clone() d4i rxd f4i rx d4i rx e4i rx e4i rid c4i rx e4i rx c4i rx d4i rx d4i rid legato!(ser!(as3i o), 7)),
+            ser!(voice_harmony2_2.clone() a4i rxd a4e xd ro g4i rx g4i o ri xd g4i rx g4e x rx f4i rx f4i rid legato!(ser!(f4i o), 7)),
+            ser!(voice_harmony_2.clone() f3i rxd f3e xd ro g3i rx g3i rid g3i rx g3e x rx as3i rx c4i rxd d4i ro legato!(c4i, 7)),
+            ser!(voice_bass_6.clone() voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() g1i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() f1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro param!(op2_tl=11, op4_tl=15) f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro d2o cs2o c2o b1o as1o gs1o g1o fs1o e1o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c1i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o),
+            ser!(rw),
+        ),
+        par!( // bar 26
+            ser!(voice_melody.clone() param!(velocity=67.73) rtdd rx e4i o ro as4i o ro e4i o ro d4i o ro e4i o rx c4i o ro e4i o ro gs4i o ro e4i o rx c4i o ro fs4i rx legato!(d4i, 7)),
+            ser!(voice_lead_2.clone() rx g3i o ro f3e xd rx e3t o ro f3t o rx e3t o rx d3e x rx c3e x rxd legato!(d3qddd, 34)),
+            ser!(voice_lead2_2.clone() rx ro f3e xd rx e3t o rx f3t o rx e3t o ro d3e xd rx c3e xd ro legato!(d3qddd, 43)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro rxd as4i rx e4i rx d4i rx e4i rx c4i rxd e4i rx gs4i rx e4i rx c4i rxd fs4i rx d4i rx fs4i rx legato!(a4i, 2)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro rxd f4i rx d4i rx as3i rx c4i rxd g3i rx c4i rx e4i rx c4i rx g3i rxd d4i rx a3i rx d4i rx legato!(fs4i, 2)),
+            ser!(voice_harmony3_5.clone() rx repeat!(1) d4i rx as3i rx e4i rx e4i rid o c4i rx e4i rx c4i rx fs4i rx fs4i rid o a3i rx legato!(fs4i, 2)),
+            ser!(voice_harmony2_2.clone() rx repeat!(1) f4e xd ro g4i o ro g4i o rid g4i o ro g4e xd ro a4i o ro a4i o rid a4i rx legato!(ser!(a4e x), 2)),
+            ser!(voice_harmony_2.clone() ro rxd as3i rx d4i rx c4i rx g3i rx e3i rxd f3i rx g3i rx e3i rx d3i rx e3i rxd fs3i rx e3i rx legato!(fs3i, 2)),
+            ser!(voice_bass_7.clone() d2o c2o rx voice_bass_6.clone() g1i o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() f1i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro param!(op2_tl=11, op4_tl=15) e2o ds2o d2o cs2o b1o as1o gs1o g1o f1o ro cs2o c2o b1o as1o gs1o g1o fs1o e1o d1o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c1i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() legato!(g1i, 2)),
+            ser!(rw),
+        ),
+        par!( // bar 27
+            ser!(voice_melody.clone() param!(velocity=67.73) ro rx fs4i rxd a4i rx fs4i rx d4i rx fs4i rx d4i rx fs4i o ro a4i o ro fs4i o ro ds4i o ro e4i o ro ds4i o rx legato!(ser!(e4i o), 3)),
+            ser!(voice_lead_2.clone() red x ro d3q tdd ro d3i rx e3i o rx f3edd o ro g3i rx),
+            ser!(voice_lead2_2.clone() re o rx d3q tdd ro d3i o ro e3i rx f3edd o ro g3i o ro legato!(ser!(f3e xd), 9)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtd rxd fs4i rx d4i rx fs4i rx d4i rx fs4i rx a4i rx fs4i rx ds4i rx e4i rx ds4i rxd e4i rx as4i),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtd rxd d4i rx a3i rx d4i rx a3i rx d4i rx fs4i rx d4i rx a3i rx d4i rx as3i rxd d4i rx f4i),
+            ser!(voice_harmony3_5.clone() rtd rxd a3i rx fs4i rx fs4i rid a3i rx d4i rx a3i rx d4i rx d4i rid o as3i rx d4i),
+            ser!(voice_harmony2_2.clone() re rxd a4i rx a4i rid a4i rx a4e x rx f4i rx f4i o ri xd f4i rxd legato!(ser!(f4e xd), 8)),
+            ser!(voice_harmony_2.clone() rtd rxd a3i rx d4q td rx a3e x rx as3e x rx f3e xd rx legato!(ser!(d3e xd), 8)),
+            ser!(voice_bass_6.clone() rtd rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_4.clone() c1i rx c1i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o rx param!(op2_tl=11, op4_tl=15) f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro d2o cs2o c2o b1o as1o gs1o g1o fs1o e1o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() g1i),
+            ser!(rw),
+        ),
+        par!( // bar 28
+            ser!(voice_melody.clone() param!(velocity=67.73) rtd ro as4i o ro e4i o ro d4i o ro gs4i o ro e4i o ro gs4i rx b4i rx gs4i rx e4i rxd g4i rx d4i rx gs4i rx),
+            ser!(voice_lead_2.clone() f3e x rx e3t o rx f3t o ro e3t o rx d3e x rx c3e xd ro legato!(ser!(d3wd eddd), 48)),
+            ser!(voice_lead2_2.clone() ri x rx e3t o ro f3t o rx e3t o rx d3e xd ro c3e x rx legato!(ser!(d3wd eddd), 56)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx e4i rx d4i rx gs4i rx e4i rx gs4i rx b4i rx gs4i rxd e4i rx g4i rx d4i rx gs4i rx as4i rx legato!(g4i, 5)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx d4i rx b3i rx e4i rx c4i rx e4i rx gs4i rx e4i rxd c4i rx d4i rx b3i rx d4i rx g4i rx legato!(d4i, 5)),
+            ser!(voice_harmony3_5.clone() rx as3i rx e4i rx e4i rid c4i rx e4i rx c4i rxd d4i rx d4i rid b3i rx d4i rx legato!(b3i, 5)),
+            ser!(voice_harmony2_2.clone() ri xd ro g4i rx g4i rid g4i rx g4e x rx g4i rx g4i rid o g4i rx legato!(ser!(g4e x), 15)),
+            ser!(voice_harmony_2.clone() ri xd ro g3e x rx e3e xd ro c3e x rxd g3e x rx d3e x rx legato!(ser!(b2e x), 15)),
+            ser!(voice_bass_6.clone() rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() f1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro param!(op2_tl=11, op4_tl=15) f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro d2o cs2o c2o b1o as1o gs1o g1o fs1o e1o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c1i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() g1i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o),
+            ser!(rw),
+        ),
+        par!( // bar 29
+            ser!(voice_melody.clone() param!(velocity=67.73) as4i o ro g4i rx d4i o ro g4i o rx d4i o ro gs4i rx as4i o ro g4i o ro d4i o rx g4i o ro d4i o ro gs4i o rx legato!(as4i, 5)),
+            ser!(rw),
+            ser!(rw),
+            ser!(voice_arp.clone() param!(velocity=84.67) rxd rx d4i rx g4i rx d4i rxd gs4i rx as4i rx g4i rx d4i rx g4i rxd d4i rx gs4i rx as4i rxd g4i rx),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rxd rx b3i rx d4i rx b3i rxd d4i rx g4i rx d4i rx b3i rx d4i rxd b3i rx d4i rx g4i rxd d4i rx),
+            ser!(voice_harmony3_5.clone() rxd rx d4i o ro d4i rid o b3i rx d4i rx b3i rx b2e xd rx a2e xd ro b2e x rxd),
+            ser!(voice_harmony2_2.clone() rxd rx g4i o ro g4i o ri xd g4i rxd g4e xd ro g4e xd rx f4e xd ro g4e x rxd),
+            ser!(voice_harmony_2.clone() rxd rx d3e xd ro g3e xd rx d3e xd ro g3e xd rx a3e xd ro d4e x rxd),
+            ser!(voice_bass_8.clone() f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() f1i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx param!(op2_tl=11, op4_tl=15) e2o ds2o d2o cs2o b1o as1o gs1o g1o f1o ro cs2o c2o b1o as1o gs1o g1o fs1o e1o d1o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd),
+            ser!(rw),
+        ),
+        par!( // bar 30
+            ser!(voice_melody.clone() param!(velocity=67.73) rxd rx g4i rx d4i rx g4i rx d4i rx gs4i rxd as4i ro g4i o ro d4i o ro a3i o ro e4i o ro b4e xd ro legato!(ser!(e3i o), 3)),
+            ser!(voice_lead_2.clone() rq idd rx c3i o ro d3i o rx legato!(ser!(e3hdd td), 59)),
+            ser!(voice_lead2_2.clone() rq td rx c3i rx d3i rx legato!(ser!(e3hdd td), 68)),
+            ser!(voice_arp.clone() param!(velocity=84.67) d4i rx g4i rx d4i rx gs4i rx as4i rxd g4i rx d4i ro a3i o ro e4i o ro b4e xd ro e3i o ro legato!(ser!(b4i o), 8)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) b3i rx d4i rx b3i rx d4i rx g4i rxd d4i rx b3i ro c4i o ro e4i o ri xd g4i o ro a3i o ro legato!(ser!(g4i o), 8)),
+            ser!(voice_harmony3_5.clone() g2e x rx f2e x rx g2e x rxd legato!(ser!(c3wdd idd), 67)),
+            ser!(voice_harmony2_2.clone() d4e x rx c4e x rx d4e x rxd legato!(ser!(e4wdd idd), 67)),
+            ser!(voice_harmony_2.clone() b3e x rx a3e x rx g3e x rxd legato!(ser!(a3wdd idd), 67)),
+            ser!(voice_bass_7.clone() voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o rx cs2o c2o b1o as1o gs1o g1o fs1o e1o rid b1o as1o a1o gs1o fs1o f1o ds1o d1o rx param!(op2_tl=11, op4_tl=15) b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx param!(op2_tl=15, op4_tl=19) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro param!(op2_tl=19, op4_tl=23) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro param!(op2_tl=23, op4_tl=27) c3o b2o as2o a2o gs2o fs2o f2o ds2o),
+            ser!(rw),
+        ),
+        par!( // bar 31
+            ser!(voice_melody.clone() param!(velocity=67.73) rtd ro b4i o ro f3i o ro c4i o ro a4e xd ro c3i rx a4i rx g3i rx d4i rx g4e x rx d3i rx legato!(ser!(g4i o), 1)),
+            ser!(rqdd xd rh t o),
+            ser!(rqd x rh idd),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro repeat!(1) f3i o ro c4i o ro a4e xd ro c3i o ro a4i o ro g3i rx d4i rx g4e x rx d3i rx g4i rx legato!(a3i, 6)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro repeat!(1) a3i o ro c4i o ri xd f4i o ro f3i o ro fs4i o ro b3i rx d4i rid d4i rx g3i rx d4i rx legato!(c4i, 6)),
+            ser!(rw),
+            ser!(rw),
+            ser!(rw),
+            ser!(param!(instrument="ym", op1_ar=31, op1_dr=8, op1_mult=4, op1_rr=6, op1_sl=13, op1_sr=16, op1_tl=0, op2_ar=31, op2_dr=17, op2_mult=2, op2_rr=9, op2_sl=3, op2_sr=15, op2_tl=23, op3_ar=31, op3_dr=21, op3_mult=4, op3_rr=5, op3_sl=8, op3_sr=21, op3_tl=14, op4_ar=31, op4_dr=16, op4_mult=2, op4_rr=8, op4_sl=10, op4_sr=19, op4_tl=27, ym_algo=4, ym_channel=1, ym_feedback=6) d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro param!(op2_tl=27, op4_tl=31) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro param!(op2_tl=31, op4_tl=35) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rh id o),
+            ser!(rw),
+        ),
+        par!( // bar 32
+            ser!(voice_melody.clone() param!(velocity=67.73) ri ro a3i rx e4i rx b4e xd rx e3i rx a4i rx a3i rx e4i rx b4e x rx e3i rx b4i),
+            ser!(voice_lead_2.clone() rq i xd voice_lead.clone() c3td e3x g3x c4o legato!(ser!(e4h idd), 74)),
+            ser!(voice_lead2_2.clone() rq x voice_lead2.clone() c3t o e3x g3x c4o e4h idd o rx legato!(e4edd, 3)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx repeat!(1) e4i o ro b4e x rx e3i rxd a4i rx a3i o ro e4i rx b4e x rx e3i rx b4i rx f3i rx legato!(c4i, 3)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx repeat!(1) e4i o ri xd g4i rx a3i rxd e4i rx c4i o ro e4i rid g4i rx a3i rx g4i rx a3i rx legato!(c4i, 3)),
+            ser!(voice_harmony3_5.clone() rq i xd re o voice_harmony3.clone() e5i rx a4i rx b4i rx c5i rx a4i rx e4i rx e5i),
+            ser!(voice_harmony2_2.clone() rq i xd rx voice_harmony2.clone() e5i o ro a4i o ro b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx legato!(b4i, 3)),
+            ser!(voice_harmony_2.clone() rq i xd rx voice_harmony.clone() legato!(ser!(a3w eddd), 83)),
+            ser!(rw),
+            ser!(rw),
+        ),
+        par!( // bar 33
+            ser!(voice_melody.clone() param!(velocity=67.73) rx f3i rx c4i rx a4e x rx c3i rx a4i rx g3i rx d4i o ro g4e xd ro d3i o ro g4i o ro legato!(ser!(a3i o), 6)),
+            ser!(voice_lead.clone() rt ro e4edd o ro f4x rx g4x ro f4o rx legato!(ser!(e4hdd tdd), 83)),
+            ser!(voice_lead2.clone() red o rx f4x ro g4x rx f4o rx legato!(ser!(e4hdd td), 91)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt o rx a4e x rx c3i rx a4i rx g3i rx d4i rx g4e x rx d3i rx g4i rx a3i rx e4i o ro legato!(ser!(b4e xd), 1)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt o rid f4i rx f3i rx fs4i rx b3i rx d4i rid d4i rx g3i rx d4i rx c4i rx e4i rxd),
+            ser!(voice_harmony3.clone() rx a4i rx b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx c5i rx a4i rx e4i o ro e5i rx legato!(a4i, 6)),
+            ser!(voice_harmony2.clone() rt o rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx c5i rx a4i rx e4i rx e5i rx a4i rx b4i rx legato!(c5i, 1)),
+            ser!(voice_harmony.clone() rh i xd rx b3i rx c4i rx legato!(ser!(a3qdd xd), 31)),
+            ser!(rw),
+            ser!(rw),
+        ),
+        par!( // bar 34
+            ser!(voice_melody.clone() param!(velocity=67.73) rxd ro e4i o ro b4e xd rx e3i o ro a4i rx a4i o ro f5i rx b5e x rx e4i rx b5i rx f4i rx legato!(b4i, 3)),
+            ser!(voice_lead.clone() rq t rx voice_lead_2.clone() e3i rx f3i rx g3i rx a3i o ro b3i rx c4i o ro b3x rx c4o rx legato!(b3q, 23)),
+            ser!(voice_lead2.clone() red xd rx voice_lead2_2.clone() e3i o rx f3i o ro g3i rx a3i rx b3i rx c4i rx b3x ro c4x rx legato!(b3q, 31)),
+            ser!(voice_arp.clone() param!(velocity=84.67) re x ro e3i o rx a4i o ro a4i o ro f5i rx b5e x rx e4i rx b5i rx f4i rx b4i rxd legato!(ser!(as5e x), 7)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ri o g4i o ro a3i rxd e4i o ro c5i o ro e5i rid g5i rx a4i rx g5i rx as4i rxd b4i ri o),
+            ser!(voice_harmony3.clone() rx repeat!(1) b4i o ro c5i o ro a4i o ro e4i o rx voice_harmony3_2.clone() e3i rx f3i o ro g3i rx a3i rx b3i rx c4i rx b3o rx c4x rx legato!(b3q, 16)),
+            ser!(voice_harmony2.clone() rtdd rx a4i rx e4i o ro voice_harmony2_2.clone() a3i o rx c4i o ro e4i rx b4i rx g4i rx e4i rx f3i rx a3i rx e4i rxd legato!(a4i, 7)),
+            ser!(voice_harmony.clone() redd rx c3i o ro e3i o ro a3i re td a3i rx c3i rx f3i rx a3i ri x),
+            ser!(param!(instrument="ym", op1_ar=31, op1_dr=8, op1_mult=4, op1_rr=6, op1_sl=13, op1_sr=16, op1_tl=0, op2_ar=31, op2_dr=17, op2_mult=2, op2_rr=9, op2_sl=3, op2_sr=15, op2_tl=31, op3_ar=31, op3_dr=21, op3_mult=4, op3_rr=5, op3_sl=8, op3_sr=21, op3_tl=14, op4_ar=31, op4_dr=16, op4_mult=2, op4_rr=8, op4_sl=10, op4_sr=19, op4_tl=35, ym_algo=4, ym_channel=1, ym_feedback=6) redd o voice_bass_2.clone() c3i o rx param!(op2_tl=11, op4_tl=11) c3i o ro c3i rx voice_bass_3.clone() d3i rx voice_bass_4.clone() c3i rx c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx voice_bass_5.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i),
+            ser!(rw),
+        ),
+        par!( // bar 35
+            ser!(voice_melody.clone() param!(velocity=67.73) rt o rx as5e xd ro c4i o rx a5i rx g4i o ro d5i o ro g5e xd ro d4i rx g5i o rx a4i o ro f5i ro),
+            ser!(voice_lead_2.clone() ri o rx a3e xd ro g3e xd ro d3e x rx f3e x rxd legato!(ser!(e3q tdd), 36)),
+            ser!(voice_lead2_2.clone() ro repeat!(1) a3e xd ro g3e xd ro d3e xd rx f3e xd ro e3q tdd rx legato!(ser!(e3e x), 4)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ri xd ro c4i rx a5i rxd g4i rx d5i rx g5e xd ro d4i rx g5i rx a4i rxd f5i rx legato!(ser!(b5e x), 14)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx f5i rx f4i rxd g5i rx as4i rx d5i rid d5i rx g4i rx ds5i rx c5i rxd e5i rid legato!(g5i, 4)),
+            ser!(voice_harmony3_2.clone() re ro a3e xd ro g3e xd rx d3e xd ro f3e xd ro legato!(ser!(e3q tdd), 30)),
+            ser!(voice_harmony2_2.clone() ro repeat!(1) e4i rx c4i o ro g3i rx d4i rxd g4i rx a4i rx g4i rx d4i rx a3i rx e4i rx b4i rxd a4i rx legato!(b4i, 4)),
+            ser!(voice_harmony.clone() rid a3i rx c3i rxd d3i rx g3i re td g3i rx d3i rx e3i rx a3i re o),
+            ser!(voice_bass_4.clone() rx param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o ro param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o rx c3i o ro voice_bass_3.clone() d3i rx voice_bass_4.clone() c3i rx c3i o ro param!(op2_tl=7, op4_tl=7) c3i o ro param!(op2_tl=11, op4_tl=11) c3i o ro voice_bass_5.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) legato!(c3i, 4)),
+            ser!(rw),
+        ),
+        par!( // bar 36
+            ser!(voice_melody.clone() param!(velocity=67.73) ro b5e x rx ds4i rx a5i rx a4i rxd f5i rx b5e x ro e4i o ro b5i o rx f4i o ro b4i o ro legato!(ser!(as5e xd), 6)),
+            ser!(voice_lead_2.clone() rxd ro e3e xd ro e3i o ro f3i o ro g3i o rx a3i o ro b3i o ro c4i rx d4edd o ro e4i rx legato!(ser!(c4e x), 3)),
+            ser!(voice_lead2_2.clone() ridd rx e3i rx f3i rx g3i rx a3i rxd b3i rx c4i ro d4edd o rx e4i o ro legato!(ser!(c4e x), 11)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt rx ds4i rx a5i rx a4i rx f5i rxd b5e x rx e4i rx b5i rx f4i rx b4i rx as5e x rx legato!(c4i, 1)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt rx a4i rx e5i rx c5i rxd e5i rid g5i rx a4i rx g5i rx as4i rx b4i rid f5i rx legato!(f4i, 1)),
+            ser!(voice_harmony3_2.clone() ri o rx e3e x rx e3i rx f3i rxd g3i rx a3i ro b3i o ro c4i rx d4edd o rx legato!(ser!(e4i o), 6)),
+            ser!(voice_harmony2_2.clone() rt rx e4i rx a3i rx c4i rx e4i rxd b4i rx g4i rx e4i ro f3i rx a3i rxd e4i rx a4i rx e4i rx legato!(c4i, 1)),
+            ser!(voice_harmony.clone() rtd a3i rx c3i rx e3i rx a3i re tdd a3i ro c3i rx f3i rxd a3i re td legato!(a3i, 1)),
+            ser!(voice_bass_2.clone() rt rx param!(op2_tl=11, op4_tl=11) c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx c3i rxd voice_bass_3.clone() d3i rx voice_bass_4.clone() c3i rx c3i ro param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rxd voice_bass_5.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) legato!(c3i, 1)),
+            ser!(rw),
+        ),
+        par!( // bar 37
+            ser!(voice_melody.clone() param!(velocity=67.73) rid o ro c4i o ro a5i o ro g4i o ro d5i o ro g5e x rx d4i rx g5i rx a4i rx f5i rx legato!(ser!(b5e x), 14)),
+            ser!(voice_lead_2.clone() ridd o rx b3e x rx d3e x rxd g3e x ro a3q tdd ro legato!(ser!(a3e xd), 11)),
+            ser!(voice_lead2_2.clone() rtdd rx b3e xd ro d3e xd ro g3e xd ro a3q td rx a3e x ro),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd rx a5i rx g4i rx d5i rx g5e xd ro d4i rx g5i rx a4i rx f5i rx b5e x rxd ds4i),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd rx g5i rx as4i rx d5i rid d5i rx g4i rx ds5i rx c5i rx e5i rid o g5i rx a4i),
+            ser!(voice_harmony3_2.clone() rxd ro c4e xd ro b3e xd ro d3e xd ro g3e x rx a3q td rx a3xd ro),
+            ser!(voice_harmony2_2.clone() rtdd rx g3i rx d4i rx g4i rx a4i rx g4i rx d4i rx a3i rx e4i rx b4i rx a4i rx b4i rx e4i ro),
+            ser!(voice_harmony.clone() rtdd rx c3i rx d3i rx g3i re td g3i rx d3i rx e3i rx a3i rid o voice_harmony_2.clone() a3o gs3o g3x fs3x f3o e3x ds3o d3o cs3x c3x b2o rx),
+            ser!(voice_bass_4.clone() rtdd rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx c3i rx voice_bass_6.clone() c3i rx voice_bass_4.clone() c3i rx c3i rx param!(op2_tl=7, op4_tl=7) c3i rx param!(op2_tl=11, op4_tl=11) c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro f2o e2o ds2o d2o cs2o b1o as1o gs1o g1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o),
+            ser!(rw),
+        ),
+        par!( // bar 38
+            ser!(voice_melody.clone() param!(velocity=67.73) rt rx ds4i o rx a5i o ro a4i o ro f5i o ro b5e xd rx e4i o ro b5i o rx f4i o ro b4i rx as5e xd),
+            ser!(voice_lead_2.clone() ri rx param!(op4_tl=23) e4i o ro f4i o ro g4i o rx a4i o ro b4i o ro c5i o ro b4x rx c5x ro b4q rx legato!(ser!(a4e x), 16)),
+            ser!(voice_lead2_2.clone() ro e4i rx f4i o ro g4i o rx a4i o ro b4i o ro c5i o rx b4x ro c5o rxd b4q rx a4e xd ro legato!(ser!(g4e x), 4)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx a5i rx a4i rx f5i rx b5e xd rx e4i rx b5i rx f4i rxd b4i rx as5e xd ro c4i rx legato!(a5i, 4)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx e5i rx c5i rx e5i rid g5i rxd a4i rx g5i rx as4i rxd b4i rid f5i rx f4i rx legato!(g5i, 4)),
+            ser!(voice_harmony3_2.clone() rx c3i ro d3i rxd e3i rx f3i rx g3i rxd a3i rx g3x ro a3o rxd g3q rx f3e xd ro legato!(ser!(d3e x), 4)),
+            ser!(voice_harmony2_2.clone() rx e3q tdd ro c3e xd rx a3e xd ro f3e xd rx a3e xd ro legato!(ser!(g3e x), 4)),
+            ser!(voice_harmony_2.clone() rx a2e x rx b2i rx a2i rx e3e xd rx f2e xd ro a2i rxd f2i rx c3e xd ro legato!(ser!(g2e x), 4)),
+            ser!(voice_bass_7.clone() rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o voice_bass_4.clone() c3i o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_4.clone() c3i rx c3i o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o),
+            ser!(rw),
+        ),
+        par!( // bar 39
+            ser!(voice_melody.clone() param!(velocity=67.73) ro c4i rx a5i rxd g4i rx d5i rx g5e xd rx d4i rx g5i rx a4i o ro f5i o ro b5e xd ro legato!(ser!(ds4i o), 5)),
+            ser!(voice_lead_8.clone() rx rxd g4e x rx d4e xd ro f4e xd rx e4q tdd ro e4e xd rx legato!(ser!(e4i o), 1)),
+            ser!(voice_lead2_2.clone() ridd rx d4e xd rx f4e x rx e4q tdd rx e4e xd ro e4i o ro),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt rx g4i rxd d5i rx g5e x rxd d4i rx g5i rx a4i rx f5i rx b5e x rx ds4i rx a5i rx),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt rxd as4i rx d5i rid d5i rxd g4i rx ds5i rx c5i rx e5i rid g5i rx a4i rx e5i rx),
+            ser!(voice_harmony3_2.clone() ridd rxd b2e x rx d3e x rxd c3q td rx c3e x rx c3i rx),
+            ser!(voice_harmony2_2.clone() ridd rxd d3e x rx f3e x rxd e3q td rx e3e xd ro legato!(ser!(e3q tdd), 10)),
+            ser!(voice_harmony_2.clone() ridd rxd b2i rx g2i rx d3e x rxd a2e x rx b2i rx a2i rx e3e x rx legato!(ser!(a2e xd), 10)),
+            ser!(voice_bass_8.clone() fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx c3i rx voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro),
+            ser!(rw),
+        ),
+        par!( // bar 40
+            ser!(voice_melody.clone() param!(velocity=67.73) rt ro a5i o ro a4i o rx f5i o ro b5e xd ro e4i o ro b5i o ro f4i rx b4i rx as5e x rxd c4i rx legato!(a5i, 1)),
+            ser!(voice_lead_8.clone() ri ro f4i rx g4i rx a4i rx b4i rx c5i rxd e5q td ro d5id rx c5o rxd d5x ro legato!(ser!(c5q tdd), 8)),
+            ser!(voice_lead2_2.clone() f4i o ro g4i o ro a4i o ro b4i o rx c5i o ro e5q tdd ro d5id rx c5x ro d5o rxd legato!(ser!(c5q tdd), 16)),
+            ser!(voice_arp.clone() param!(velocity=84.67) a4i rx f5i rxd b5e xd ro e4i rx b5i rx f4i rx b4i rxd as5e x rx c4i rx a5i rx legato!(g4i, 6)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) c5i rx e5i rid o g5i rx a4i rx g5i rx as4i rx b4i rid o f5i rx f4i rx g5i rx legato!(as4i, 6)),
+            ser!(voice_harmony3_2.clone() d3i rx e3i rxd f3i rx g3i rx a3i rx c4q td rxd b3i xd rx a3x ro b3o rxd legato!(ser!(a3q td), 16)),
+            ser!(voice_harmony2_2.clone() redd o rx c3e xd ro a3edd rxd b3i rx c4e x rx legato!(ser!(b3e x), 16)),
+            ser!(voice_harmony_2.clone() ri o ro b2i rxd a2i rx e3e xd ro f2e xd ro a2i rxd f2i rx c3e x rx legato!(ser!(g2e x), 16)),
+            ser!(voice_bass_8.clone() voice_bass_4.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_4.clone() c3i rx c3i rxd voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_4.clone() legato!(c3i, 6)),
+            ser!(rw),
+        ),
+        par!( // bar 41
+            ser!(voice_melody.clone() param!(velocity=67.73) rtdd rx g4i rx d5i o ro g5e xd rx g4i o ro gs5i o ro cs5i o ro f5i o rx b5i o ro b5i o rx d6i o ro legato!(ser!(a5i o), 6)),
+            ser!(voice_lead_8.clone() reddd o rx b4e xd ro a4q tdd rxd voice_lead_3.clone() c5i rx d5i rx legato!(ser!(e5edd o), 13)),
+            ser!(voice_lead2_2.clone() re tdd ro b4e xd ro a4q i rx voice_lead2_3.clone() c5i o ro d5i o ro legato!(ser!(e5edd o), 22)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx repeat!(1) d5i rx g5e xd ro g4i rxd gs5i rx cs5i rx f5i rx b5i rxd b5i o ro d6i rxd a5i rx g4i rx legato!(g4i, 1)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx repeat!(1) d5i rid d5i rx g4i rxd ds5i rx cs5i rx f5i rx c6i rxd e5i o ro as5i rxd f5i rx e4i rx legato!(e4i, 1)),
+            ser!(voice_harmony3_2.clone() re td rx e3e xd rx e3q tdd rx voice_harmony3_3.clone() c4i o ro d4i rxd legato!(ser!(e4edd o), 21)),
+            ser!(voice_harmony2_2.clone() rx repeat!(1) d3e x rx g3e xd rx a3qddd ro legato!(ser!(c4edd o), 22)),
+            ser!(voice_harmony_2.clone() rx repeat!(1) b2i rx g2i rx d3e xd rx a2e xd ro cs3i rx a2i rxd e2i o ro f2i rxd c3e xd rx),
+            ser!(voice_bass_4.clone() rx repeat!(1) voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_4.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_4.clone() c3i o rx c3i o ro voice_bass_6.clone() c3i o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o),
+            ser!(rw),
+        ),
+        par!( // bar 42
+            ser!(voice_melody.clone() param!(velocity=67.73) rxd ro gs4i o ro e4i rxd gs4i rx e4i rx gs4i rx e4i rxd g4i rx d4i rx g4i o ro d4i o ro g4i o ro d4i o ro legato!(ser!(as4i o), 2)),
+            ser!(voice_lead_3.clone() re ro f5i o rx g5e xd ro d5q tdd rx c5i rx b4i o ro legato!(ser!(c5edd o), 19)),
+            ser!(voice_lead2_3.clone() rtdd rx f5i rx g5e x rxd d5q tdd rx c5i rx b4i o ro legato!(ser!(c5edd o), 27)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd rx g4i rxd g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rx g4i rx a4i rx legato!(a4i, 7)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd rx e4i rxd e4i rx e4i rx e4i rx d4i rxd d4i rx d4i rx d4i rx d4i rx d4i rx c4i rx legato!(c4i, 7)),
+            ser!(voice_harmony3_3.clone() ri ro f4i rxd g4e x rx d4q tdd rx c4i rx b3i rx legato!(ser!(c4edd o), 27)),
+            ser!(voice_harmony2_2.clone() rtdd rx d4i rxd e4e x rx b3q tdd rx a3i rx g3i rx legato!(ser!(a3edd o), 27)),
+            ser!(voice_harmony_2.clone() ri o c3e x rxd c3i rx b2e x rid o b2e x rx b2i rx a2e xd ri),
+            ser!(voice_bass_8.clone() as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o),
+            ser!(rw),
+        ),
+        par!( // bar 43
+            ser!(voice_melody.clone() param!(velocity=67.73) rtdd ro ds4i o ro as4i o rx ds4i o ro as4i o ro e4i o ro gs4i o ro e4i o ro gs4i rxd e4i rx gs4i rx ds4i rx as4i),
+            ser!(voice_lead_3.clone() ri x rx d5i rx e5e x rx e5e x rxd b4e x rx a4x ro b4o rx a4x rx g4i o ro legato!(ser!(a4edd o), 25)),
+            ser!(voice_lead2_3.clone() rx ro d5i o ro e5e xd rx e5e xd ro b4e xd ro a4x rx b4o rx a4x ro g4i rx a4edd rxd legato!(b4i, 3)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro rx a4i rxd a4i rx a4i rx a4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx a4i rx a4i rx legato!(a4i, 3)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro rx c4i rxd c4i rx c4i rx c4i rx e4i rx e4i rx e4i rxd e4i rx e4i rx e4i rx c4i rx c4i rx legato!(c4i, 3)),
+            ser!(voice_harmony3_3.clone() rx ro d4i rxd e4e xd ro e4e xd ro b3e xd rx a3i rx g3i rx a3edd rx legato!(b3i, 3)),
+            ser!(voice_harmony2_2.clone() rx ro b3i rxd c4e xd ro b3e xd ro g3e xd ro f3o rxd g3o rx f3x rx e3i rx f3edd rx legato!(g3i, 3)),
+            ser!(voice_harmony_2.clone() rxd a2e xd rx a2i rx g2e x rid g2e xd rx g2i rx f2edd rx legato!(g2i, 3)),
+            ser!(voice_bass_8.clone() ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rxd voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o),
+            ser!(rw),
+        ),
+        par!( // bar 44
+            ser!(voice_melody.clone() param!(velocity=67.73) rx e4i rx as4i rx e4i o ro as4i o rx e4i o ro g4i o ro d4i o ro g4i rxd d4i o ro g4i o ro d4i o ro gs4i o rx legato!(ser!(e4i o), 3)),
+            ser!(voice_lead_3.clone() rt ro b4i o ro c5e xd rx d5e xd ro c5e xd rx d5e x rx legato!(ser!(e5hd t), 31)),
+            ser!(voice_lead2_3.clone() rt o rx c5e x rx d5e xd ro c5e xd rx d5e xd ro legato!(ser!(e5hd t), 40)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt o rxd a4i rx a4i ro a4i rxd g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rxd g4i),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt o rxd c4i rx c4i ro c4i rxd d4i rx d4i rx d4i rxd d4i rx d4i rx ds4i rx e4i rx e4i rxd e4i),
+            ser!(voice_harmony3_3.clone() rt o rx c4e x rx d4e xd rx c4e xd ro d4e xd rx legato!(ser!(e4hd t), 39)),
+            ser!(voice_harmony2_2.clone() rt o rx a3e x rx b3e xd rx a3e xd ro b3e xd rx legato!(c4qddd, 39)),
+            ser!(voice_harmony_2.clone() rt o rx a2e x rx b2e xd rx a2e xd ro b2e x rxd c3edd o ro d3i ro),
+            ser!(voice_bass_7.clone() a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rxd voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o),
+            ser!(rw),
+        ),
+        par!( // bar 45
+            ser!(voice_melody.clone() param!(velocity=67.73) rtd ro gs4i o ro e4i rx gs4i rx e4i rxd g4i rx d4i rx g4i rx d4i rxd g4i ro d4i o ro gs4i o rx e4i o),
+            ser!(voice_lead_3.clone() rh t o rx c5i o ro d5i o rx e5edd o ro legato!(ser!(f5i o), 6)),
+            ser!(voice_lead2_3.clone() rqddd rxd c5i rx d5i rx e5edd o ro f5i o rx legato!(ser!(g5e xd), 4)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rxd g4i ro g4i rxd g4i rx g4i rx legato!(g4i, 4)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx e4i rx e4i rx e4i rxd d4i rx d4i rx d4i rx d4i rx d4i rxd ds4i ro e4i rxd e4i rx e4i rx legato!(e4i, 4)),
+            ser!(voice_harmony3_3.clone() rqddd o rx c4i rx d4i rxd e4edd rx f4i rx legato!(ser!(g4e xd), 4)),
+            ser!(voice_harmony2_2.clone() re t o ro g3q tdd rx g3e x rxd c4edd rx d4i rx legato!(ser!(e4e xd), 4)),
+            ser!(voice_harmony_2.clone() rx c3e xd ro b2e x rxd a2e x rx b2e x rxd c3e x rid legato!(ser!(c3e xd), 14)),
+            ser!(voice_bass_7.clone() rx voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() legato!(c3i, 4)),
+            ser!(rw),
+        ),
+        par!( // bar 46
+            ser!(voice_melody.clone() param!(velocity=67.73) ro gs4i o ro e4i o ro gs4i o ro e4i o ro g4i o ro d4i o rx g4i o ro d4i o ro g4i o ro d4i rx as4i rx ds4i rxd legato!(as4i, 5)),
+            ser!(voice_lead_3.clone() rxd ro g5e xd rx d5q td rx c5i rx b4i rx c5edd rx d5i o rx legato!(ser!(e5e xd), 2)),
+            ser!(voice_lead2_3.clone() ridd o ro d5q tdd ro c5i o rx b4i o ro c5edd rx d5i rx legato!(ser!(e5e x), 11)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx g4i rx g4i rx a4i rx a4i rx a4i rxd a4i rx),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt rx e4i rx e4i rx d4i rx d4i rxd d4i rx d4i rx d4i rx d4i rx c4i rx c4i rxd c4i rx c4i rx),
+            ser!(voice_harmony3_3.clone() ridd o ro d4q tdd rx c4i rx b3i rx c4edd rx d4i rxd legato!(ser!(e4e x), 10)),
+            ser!(voice_harmony2_2.clone() ridd o ro b3q tdd rx a3i rx g3i rx a3edd rx b3i rxd legato!(ser!(c4e x), 10)),
+            ser!(voice_harmony_2.clone() rt o ro c3i rx b2e xd rid b2e xd ro b2i rx a2e x rid a2e x rxd),
+            ser!(voice_bass_6.clone() rt rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_6.clone() c3i rx),
+            ser!(rw),
+        ),
+        par!( // bar 47
+            ser!(voice_melody.clone() param!(velocity=67.73) rxd rx ds4i rx as4i rx e4i rx gs4i o ro e4i o melodyi_seg_0() c4i o rx e4i o ro as4i o ro legato!(ser!(f4i o), 1)),
+            ser!(voice_lead_3.clone() re o ro e5e xd ro b4e xd rx a4x ro b4o rxd a4x ro g4i o ro a4edd o rx b4i rx legato!(ser!(c5e xd), 8)),
+            ser!(voice_lead2_3.clone() rtdd rxd e5e x ro b4e xd rx a4x rx b4o rx a4o rx g4i o ro a4edd o rx b4i o rx legato!(ser!(c5e xd), 16)),
+            ser!(voice_arp.clone() param!(velocity=84.67) a4i rx a4i rx g4i rx g4i rx g4i rx g4i rxd g4i rx g4i rx c4i rx e4i rxd as4i rx f4i rx legato!(b4i, 6)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) c4i rx c4i rx e4i rx e4i rx e4i rx e4i rxd e4i rx e4i rx a3i rx c4i rxd f4i rx c4i rx legato!(a4i, 6)),
+            ser!(voice_harmony3_3.clone() ri rx e4e x rx b3e xd ro a3i rx g3i rxd a3edd o rx b3i rx legato!(ser!(c4e xd), 16)),
+            ser!(voice_harmony2_2.clone() ri rx b3e x rx g3e xd ro f3x rx g3o rx f3o rx e3i o rx f3edd o rx g3i o ro legato!(ser!(a3e xd), 16)),
+            ser!(voice_harmony_2.clone() a2i rx g2e x rid g2e xd rx g2i rx f2edd o rx g2i rx legato!(ser!(a2e xd), 16)),
+            ser!(voice_bass_6.clone() voice_bass_7.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_8.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_6.clone() c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o),
+            ser!(rw),
+        ),
+        par!( // bar 48
+            ser!(voice_melody.clone() param!(velocity=67.73) ri rx b4i o ro a4i o ro as3i rx ds4i rxd e4i rx d4i rx b4i rx f4i rx ds5i rx b5i o ro a5i o ro legato!(ser!(f6i o), 7)),
+            ser!(voice_lead_3.clone() ri xd rx e5e x rx d5i o ro e5t rx d5xd rx c5e xd ro legato!(e5qddd, 54)),
+            ser!(voice_lead2_3.clone() rxd ro e5e xd rx d5i rx e5xd rx d5xd rx c5e x rxd e5qdd xd ro legato!(ser!(e5qdd xd), 2)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx rxd as4i rx as3i rx ds4i rx e4i rxd ds4i rx as4i rx f4i rx ds5i rx b5i rxd a5i ro f6i rx a5i rxd legato!(as5i, 1)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx rxd f4i rx d3i rx as3i rx d4i rxd as3i rx f4i rx ds4i rx b4i rx e5i rxd a5i ro as5i rxd gs5i rx legato!(f5i, 1)),
+            ser!(voice_harmony3_3.clone() rxd ro e4e xd rx d4e x rxd c4e x rx e4qdd xd rx legato!(ser!(e4qdd xd), 1)),
+            ser!(voice_harmony2_2.clone() rxd ro as3e xd rx f3i rx a3xd rx f3xd rxd d3e x rx e2e x rx a2t o rx b2t o rx a2t o ro fs2e xd rx legato!(ser!(gs2i xd), 1)),
+            ser!(voice_harmony_2.clone() rxd rx as2e xd ro c3e x rxd d3e x rx e3edd rxd a2i ro b2e xd rx legato!(ser!(gs2e x), 1)),
+            ser!(voice_bass_7.clone() ds2o d2o c2o ro voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_6.clone() c3i rx voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_7.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_6.clone() c3i rx voice_bass_7.clone() b2o as2o a2o gs2o g2o f2o e2o d2o cs2o rx voice_bass_8.clone() c2o),
+            ser!(rw),
+        ),
+        par!( // bar 49
+            ser!(voice_melody.clone() param!(velocity=67.73) rx repeat!(1) a5i o ro as5i o ro ds5i o ro b5i o ro as5i o ro b5t rh td),
+            ser!(voice_lead_3.clone() rtd ro e5qdd xd rxd voice_lead_5.clone() e4i rqd xd),
+            ser!(voice_lead2_3.clone() rqdd o rx voice_lead2_5.clone() e4i o rqddd),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd rx ds5i rx b5i rx as5i rx b5i rx e6i o rx d6i x rqdd x),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd rx b4i rx b4i rx ds5i rx e5i rx fs5i rxd a5i x rqdd x),
+            ser!(rqdd x rh td),
+            ser!(voice_harmony2_2.clone() ri x gs2o gs2tdd ro fs2e xd ro gs2i xd gs2o gs2tdd ro voice_harmony2_3.clone() a3i o rqddd),
+            ser!(voice_harmony_2.clone() re o rx fs2e xd ro gs2e x rxd voice_harmony_3.clone() a2i o rqdd xd),
+            ser!(voice_bass_8.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_6.clone() c3i rx c3i o ro voice_bass_7.clone() b2o as2o a2o gs2o g2o f2o e2o d2o cs2o ro b2o as2o a2o gs2o g2o f2o e2o d2o cs2o ro a2o gs2o g2o fs2o f2o ds2o d2o cs2o b1o ro param!(op2_tl=8, op4_tl=12) c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rqddd),
+            ser!(rqddd voice_drums.clone() param!(velocity=101.6) legato!(ser!(c4w q t), 68)),
+        ),
+        par!( // bar 50
+            ser!(rhd),
+            ser!(rhd),
+            ser!(rhd),
+            ser!(rhd),
+            ser!(rhd),
+            ser!(rhd),
+            ser!(rhd),
+            ser!(rhd),
+            ser!(rhd),
+            ser!(rhd),
+        )
     )
 }
 
@@ -594,14 +680,24 @@ pub fn loop_alisia_stage1() -> Note {
     // voices
     let voice_melody: Note = ser!(param!(instrument="psg", sn_channel=2));
     let voice_lead_5: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=17, ym_algo=3, ym_channel=4, ym_feedback=3));
+    let voice_lead_6: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=0, op1_mult=8, op1_rr=10, op1_sl=0, op1_sr=0, op1_tl=46, op2_ar=31, op2_dr=0, op2_mult=4, op2_rr=10, op2_sl=0, op2_sr=0, op2_tl=30, op3_ar=31, op3_dr=0, op3_mult=2, op3_rr=10, op3_sl=0, op3_sr=0, op3_tl=30, op4_ar=31, op4_dr=0, op4_mult=2, op4_rr=10, op4_sl=0, op4_sr=0, op4_tl=30, ym_algo=6, ym_channel=4, ym_feedback=7));
+    let voice_lead_7: Note = ser!(param!(instrument="ym", op1_ar=16, op1_dr=8, op1_mult=2, op1_rr=7, op1_sl=3, op1_sr=0, op1_tl=31, op2_ar=18, op2_dr=8, op2_mult=2, op2_rr=7, op2_sl=2, op2_sr=0, op2_tl=26, op3_ar=15, op3_dr=2, op3_mult=1, op3_rr=7, op3_sl=3, op3_sr=0, op3_tl=27, op4_ar=18, op4_dr=3, op4_mult=1, op4_rr=7, op4_sl=3, op4_sr=6, op4_tl=22, ym_algo=4, ym_channel=4, ym_feedback=7));
     let voice_lead2_5: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=9, ym_algo=3, ym_channel=0, ym_feedback=3));
+    let voice_lead2_6: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=0, op1_mult=8, op1_rr=10, op1_sl=0, op1_sr=0, op1_tl=46, op2_ar=31, op2_dr=0, op2_mult=4, op2_rr=10, op2_sl=0, op2_sr=0, op2_tl=22, op3_ar=31, op3_dr=0, op3_mult=2, op3_rr=10, op3_sl=0, op3_sr=0, op3_tl=22, op4_ar=31, op4_dr=0, op4_mult=2, op4_rr=10, op4_sl=0, op4_sr=0, op4_tl=22, ym_algo=6, ym_channel=0, ym_feedback=7));
+    let voice_lead2_7: Note = ser!(param!(instrument="ym", op1_ar=16, op1_dr=8, op1_mult=2, op1_rr=7, op1_sl=3, op1_sr=0, op1_tl=31, op2_ar=18, op2_dr=8, op2_mult=2, op2_rr=7, op2_sl=2, op2_sr=0, op2_tl=18, op3_ar=15, op3_dr=2, op3_mult=1, op3_rr=7, op3_sl=3, op3_sr=0, op3_tl=27, op4_ar=18, op4_dr=3, op4_mult=1, op4_rr=7, op4_sl=3, op4_sr=6, op4_tl=14, ym_algo=4, ym_channel=0, ym_feedback=7));
     let voice_arp: Note = ser!(param!(instrument="psg", sn_channel=0));
     let voice_arp2: Note = ser!(param!(instrument="psg", sn_channel=1));
     let voice_harmony3_6: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=20, ym_algo=3, ym_channel=3, ym_feedback=3));
+    let voice_harmony3_7: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=23, op1_mult=10, op1_rr=8, op1_sl=14, op1_sr=10, op1_tl=30, op2_ar=25, op2_dr=14, op2_mult=2, op2_rr=8, op2_sl=15, op2_sr=11, op2_tl=34, op3_ar=25, op3_dr=20, op3_mult=6, op3_rr=8, op3_sl=14, op3_sr=11, op3_tl=34, op4_ar=25, op4_dr=14, op4_mult=2, op4_rr=8, op4_sl=15, op4_sr=12, op4_tl=19, ym_algo=4, ym_channel=3, ym_feedback=7));
     let voice_harmony3_8: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=6, op1_mult=7, op1_rr=1, op1_sl=0, op1_sr=6, op1_tl=38, op2_ar=31, op2_dr=6, op2_mult=9, op2_rr=1, op2_sl=0, op2_sr=6, op2_tl=55, op3_ar=31, op3_dr=12, op3_mult=1, op3_rr=1, op3_sl=0, op3_sr=6, op3_tl=37, op4_ar=31, op4_dr=12, op4_mult=1, op4_rr=5, op4_sl=0, op4_sr=6, op4_tl=41, ym_algo=2, ym_channel=3, ym_feedback=0));
+    let voice_harmony3_9: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=24, ym_algo=3, ym_channel=3, ym_feedback=3));
+    let voice_harmony3_10: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=23, op1_mult=10, op1_rr=8, op1_sl=14, op1_sr=10, op1_tl=30, op2_ar=25, op2_dr=14, op2_mult=2, op2_rr=8, op2_sl=15, op2_sr=11, op2_tl=38, op3_ar=25, op3_dr=20, op3_mult=6, op3_rr=8, op3_sl=14, op3_sr=11, op3_tl=34, op4_ar=25, op4_dr=14, op4_mult=2, op4_rr=8, op4_sl=15, op4_sr=12, op4_tl=23, ym_algo=4, ym_channel=3, ym_feedback=7));
     let voice_harmony2_3: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=9, ym_algo=3, ym_channel=2, ym_feedback=3));
+    let voice_harmony2_4: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=10, op1_mult=1, op1_rr=5, op1_sl=1, op1_sr=0, op1_tl=31, op2_ar=25, op2_dr=11, op2_mult=5, op2_rr=8, op2_sl=5, op2_sr=0, op2_tl=15, op3_ar=28, op3_dr=13, op3_mult=1, op3_rr=6, op3_sl=2, op3_sr=0, op3_tl=47, op4_ar=14, op4_dr=4, op4_mult=1, op4_rr=6, op4_sl=2, op4_sr=0, op4_tl=15, ym_algo=2, ym_channel=2, ym_feedback=7));
     let voice_harmony2_5: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=6, op1_mult=7, op1_rr=1, op1_sl=0, op1_sr=6, op1_tl=38, op2_ar=31, op2_dr=6, op2_mult=9, op2_rr=1, op2_sl=0, op2_sr=6, op2_tl=55, op3_ar=31, op3_dr=12, op3_mult=1, op3_rr=1, op3_sl=0, op3_sr=6, op3_tl=37, op4_ar=31, op4_dr=12, op4_mult=1, op4_rr=5, op4_sl=0, op4_sr=6, op4_tl=25, ym_algo=2, ym_channel=2, ym_feedback=0));
     let voice_harmony2_6: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=8, ym_algo=3, ym_channel=2, ym_feedback=3));
+    let voice_harmony2_7: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=21, ym_algo=3, ym_channel=2, ym_feedback=3));
+    let voice_harmony2_8: Note = ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=17, ym_algo=3, ym_channel=2, ym_feedback=3));
     let voice_harmony_3: Note = ser!(param!(instrument="ym", op1_ar=23, op1_dr=16, op1_mult=2, op1_rr=9, op1_sl=10, op1_sr=7, op1_tl=25, op2_ar=29, op2_dr=6, op2_mult=3, op2_rr=9, op2_sl=2, op2_sr=6, op2_tl=33, op3_ar=26, op3_dr=9, op3_mult=0, op3_rr=7, op3_sl=1, op3_sr=0, op3_tl=28, op4_ar=26, op4_dr=6, op4_mult=1, op4_rr=8, op4_sl=5, op4_sr=5, op4_tl=18, ym_algo=2, ym_channel=5, ym_feedback=7));
     let voice_bass_9: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=8, op1_mult=4, op1_rr=6, op1_sl=13, op1_sr=16, op1_tl=0, op2_ar=31, op2_dr=17, op2_mult=2, op2_rr=9, op2_sl=3, op2_sr=15, op2_tl=8, op3_ar=31, op3_dr=21, op3_mult=4, op3_rr=5, op3_sl=8, op3_sr=21, op3_tl=14, op4_ar=31, op4_dr=16, op4_mult=2, op4_rr=8, op4_sl=10, op4_sr=19, op4_tl=12, ym_algo=4, ym_channel=1, ym_feedback=6));
     let voice_bass_10: Note = ser!(param!(instrument="ym", op1_ar=31, op1_dr=28, op1_mult=15, op1_rr=6, op1_sl=0, op1_sr=0, op1_tl=0, op2_ar=31, op2_dr=25, op2_mult=2, op2_rr=8, op2_sl=3, op2_sr=12, op2_tl=11, op3_ar=31, op3_dr=12, op3_mult=15, op3_rr=8, op3_sl=15, op3_sr=8, op3_tl=0, op4_ar=31, op4_dr=25, op4_mult=9, op4_rr=12, op4_sl=5, op4_sr=19, op4_tl=14, ym_algo=4, ym_channel=1, ym_feedback=7));
@@ -610,247 +706,269 @@ pub fn loop_alisia_stage1() -> Note {
     let voice_bass_13: Note = ser!(param!(instrument="ym", op1_ar=30, op1_dr=5, op1_mult=4, op1_rr=6, op1_sl=13, op1_sr=16, op1_tl=1, op2_ar=31, op2_dr=17, op2_mult=2, op2_rr=9, op2_sl=3, op2_sr=15, op2_tl=8, op3_ar=31, op3_dr=18, op3_mult=2, op3_rr=5, op3_sl=8, op3_sr=18, op3_tl=4, op4_ar=31, op4_dr=16, op4_mult=0, op4_rr=8, op4_sl=10, op4_sr=19, op4_tl=21, ym_algo=4, ym_channel=1, ym_feedback=6));
     let voice_bass_14: Note = ser!(param!(instrument="ym", op1_ar=29, op1_dr=18, op1_mult=1, op1_rr=6, op1_sl=5, op1_sr=0, op1_tl=6, op2_ar=31, op2_dr=26, op2_mult=1, op2_rr=6, op2_sl=2, op2_sr=22, op2_tl=8, op3_ar=31, op3_dr=27, op3_mult=2, op3_rr=6, op3_sl=5, op3_sr=8, op3_tl=13, op4_ar=31, op4_dr=14, op4_mult=1, op4_rr=6, op4_sl=12, op4_sr=17, op4_tl=8, ym_algo=3, ym_channel=1, ym_feedback=7));
     let voice_drums: Note = ser!(param!(instrument="psg", sn_channel=3));
-    par!(
+    ser!(
         param!(tempo=116.955444),
-        // melody (psg)
-        ser!(
-        rw // bar 1
-                rw // bar 2
-                rw // bar 3
-                rw // bar 4
-                rw // bar 5
-                rqd t voice_melody.clone() param!(velocity=8.47) d6o param!(velocity=50.8) e6i o ds4i o ro a5i o ro a4i o ro f5i o ro f4i o ro b4i o rx legato!(ser!(b5e xd), 5) // bar 6
-                ridd ro f4i o ro e5i o ro as4i rx b4i rx g4i rx d5i rxd b5e x rx as4i ro g5i o rx g4i rx legato!(ser!(ds5i o), 2) // bar 7
-                rtdd ro e4i o ro as4i o rx a5e xd ro b4i o ro e5xd rqdd xd param!(velocity=8.47) g4o param!(velocity=50.8) legato!(gs4i, 6) // bar 8
-                rx ro ds4i rxd a5i rx a4i rx f5i rxd f4i ro b4i o ro b5e xd rx f4i o ro e5i o ro as4i o ro b4i o ro legato!(ser!(g4i o), 3) // bar 9
-                rtd ro d5i o ro b5e xd ro as4i o ro g5i rxd g4i rx d5i rx a4i rx f5i rx b5e x rx ds4i o ro // bar 10
-                ro a5xd rhddd t // bar 11
-                rw // bar 12
-                rw // bar 13
-                rw // bar 14
-                rw // bar 15
-                rw // bar 16
-                rw // bar 17
-                rw // bar 18
-                rw // bar 19
-                rw // bar 20
-                reddd // bar 21
-                ),
-        // lead (ym)
-        ser!(
-        ri o voice_lead_5.clone() f4i rx param!(op4_tl=21) f4i rx param!(op4_tl=17) g4i ro param!(op4_tl=21) g4i o rx param!(op4_tl=17) a4i o ro param!(op4_tl=21) a4i o ro param!(op4_tl=17) b4t ro c5t ro legato!(ser!(b4qdd xd), 49) // bar 1
-                ri x ro g4t o gs4t o a4i o ro g4q i fs4t o f4t o e4t o ds4xd rxd c4t o cs4t o d4i o ro legato!(ser!(f4edd o), 16) // bar 2
-                rid o ro e4edd o ro c4t o cs4t o d4i o rx e4i o ro f4i rx param!(op4_tl=21) f4i rx param!(op4_tl=17) g4i rx param!(op4_tl=21) g4i rx param!(op4_tl=17) a4i rx param!(op4_tl=21) legato!(a4i, 3) // bar 3
-                rt o rx param!(op4_tl=17) b4xd rxd c5xd ro d5t o ds5t o e5q i ds5t o d5t ro c5t o cs5t o d5i o ro c5edd o rx // bar 4
-                cs5t o d5ed ro b4e xd rx b4edd rx a4edd o ro gs4xd rx g4xd rx fs4t rx legato!(f4xd, 1) // bar 5
-                rx rid param!(instrument="ym", op1_ar=31, op1_dr=0, op1_mult=8, op1_rr=10, op1_sl=0, op1_sr=0, op1_tl=46, op2_ar=31, op2_dr=0, op2_mult=4, op2_rr=10, op2_sl=0, op2_sr=0, op2_tl=30, op3_ar=31, op3_dr=0, op3_mult=2, op3_rr=10, op3_sl=0, op3_sr=0, op3_tl=30, op4_ar=31, op4_dr=0, op4_mult=2, op4_rr=10, op4_sl=0, op4_sr=0, op4_tl=30, ym_algo=6, ym_channel=4, ym_feedback=7) e3i o rx f3i o ro g3i o ro a3i o ro b3i rx c4i o ro legato!(ser!(b3h t o), 53) // bar 6
-                re rx a3e x rid g3i o ro a3i o ro b3i o rx b3i o ro c4i o ro d4i o ro legato!(ser!(c4h td), 19) // bar 7
-                rqd xd rx e3e xd ri xd e3i rxd f3i rx g3i rx a3i o ro legato!(ser!(b3e xd), 4) // bar 8
-                ridd o rx c4i o ro d4t ro ds4xd rx e4qd o rx d4e xd ro legato!(c4edd, 20) // bar 9
-                ri rxd d4edd rx b3e x rx a3q i g3t o f3t o e3t o d3t rx param!(instrument="ym", op1_ar=16, op1_dr=8, op1_mult=2, op1_rr=7, op1_sl=3, op1_sr=0, op1_tl=31, op2_ar=18, op2_dr=8, op2_mult=2, op2_rr=7, op2_sl=2, op2_sr=0, op2_tl=26, op3_ar=15, op3_dr=2, op3_mult=1, op3_rr=7, op3_sl=3, op3_sr=0, op3_tl=27, op4_ar=18, op4_dr=3, op4_mult=1, op4_rr=7, op4_sl=3, op4_sr=6, op4_tl=22, ym_algo=4, ym_channel=4, ym_feedback=7) legato!(ser!(c4i o), 6) // bar 10
-                rxd ro d4i o ro e4i o rx f4e xd ro legato!(ser!(g4h ed o), 83) // bar 11
-                rtd rx d4e xd ro c4i rx b3i o ro c4i o rx d4e x rx e4edd o ro f4e x ro // bar 12
-                ro e4edd rx b3edd rx a3t b3o rx a3o rx g3i o ro a3edd o ro legato!(ser!(b3edd o), 17) // bar 13
-                rid rx c4e xd ro d4edd rx e4edd o rx f4e x rx legato!(ser!(g4h idd o), 13) // bar 14
-                rh x rx d4qdd x rx // bar 15
-                ro c4i rx d4i rx e4i rx f4e x rx legato!(ser!(g4h ed o), 77) // bar 16
-                rid ro d4e xd rx c4i o ro b3i o ro c4i rx d4e x rx e4edd rxd legato!(ser!(f4e x), 13) // bar 17
-                rt o rx e4edd o ro b3edd o rx a3xd b3x ro a3x rx g3i o ro a3edd rx legato!(b3edd, 10) // bar 18
-                re x rx c4e x rx d4edd rx e4edd o ro f4e xd rx legato!(e4qddd, 7) // bar 19
-                rqd t o ro e4idd d4t c4xd legato!(ser!(b3h e), 53) // bar 20
-                red xd ro voice_lead_5.clone() e4x // bar 21
-                ),
-        // lead2 (ym)
-        ser!(
-        voice_lead2_5.clone() f4i o ro param!(op4_tl=13) f4i rx param!(op4_tl=9) g4i rx param!(op4_tl=13) g4i rx param!(op4_tl=9) a4i rxd param!(op4_tl=13) a4i rx param!(op4_tl=9) b4xd rx c5xd rx legato!(ser!(b4qdd x), 57) // bar 1
-                ro repeat!(1) g4t o gs4t o a4i rxd g4q i fs4t o f4t o e4t o ds4xd rx c4t o cs4t o d4i rx legato!(f4edd, 25) // bar 2
-                rxd repeat!(1) e4edd rx c4t o cs4t o d4i o ro e4i o ro f4i o ro param!(op4_tl=13) f4i rx param!(op4_tl=9) g4i rx param!(op4_tl=13) g4i o rx param!(op4_tl=9) a4i o ro param!(op4_tl=13) a4i rx param!(op4_tl=9) legato!(b4xd, 1) // bar 3
-                rx repeat!(1) c5xd rx d5t o ds5t o e5q i ds5t o d5xd rx c5t o cs5t o d5i rx c5edd rx cs5t o legato!(d5ed, 4) // bar 4
-                re t ro b4e xd rx b4edd o ro a4edd rxd gs4xd rx g4xd rx fs4xd rx f4xd rtdd // bar 5
-                rtd param!(instrument="ym", op1_ar=31, op1_dr=0, op1_mult=8, op1_rr=10, op1_sl=0, op1_sr=0, op1_tl=46, op2_ar=31, op2_dr=0, op2_mult=4, op2_rr=10, op2_sl=0, op2_sr=0, op2_tl=22, op3_ar=31, op3_dr=0, op3_mult=2, op3_rr=10, op3_sl=0, op3_sr=0, op3_tl=22, op4_ar=31, op4_dr=0, op4_mult=2, op4_rr=10, op4_sl=0, op4_sr=0, op4_tl=22, ym_algo=6, ym_channel=0, ym_feedback=7) e3i rx f3i rxd g3i rx a3i ro b3i o rx c4i rx legato!(ser!(b3h td), 61) // bar 6
-                ri o ro a3e xd ri xd g3i rx a3i rx b3i rx b3i rxd c4i rx d4i rx legato!(ser!(c4h t o), 27) // bar 7
-                rq i x rx e3e xd rid e3i o ro f3i o ro g3i o ro a3i rxd legato!(ser!(b3e x), 12) // bar 8
-                rtd rx c4i rx d4xd rxd ds4xd rx e4qd o ro d4e xd rx legato!(ser!(c4edd o), 28) // bar 9
-                ro repeat!(1) d4edd o ro b3e x rx a3q i o g3t o f3t o e3t o d3xd rx param!(instrument="ym", op1_ar=16, op1_dr=8, op1_mult=2, op1_rr=7, op1_sl=3, op1_sr=0, op1_tl=31, op2_ar=18, op2_dr=8, op2_mult=2, op2_rr=7, op2_sl=2, op2_sr=0, op2_tl=18, op3_ar=15, op3_dr=2, op3_mult=1, op3_rr=7, op3_sl=3, op3_sr=0, op3_tl=27, op4_ar=18, op4_dr=3, op4_mult=1, op4_rr=7, op4_sl=3, op4_sr=6, op4_tl=14, ym_algo=4, ym_channel=0, ym_feedback=7) c4i o ro legato!(ser!(d4i o), 5) // bar 10
-                rt ro e4i o rx f4e xd ro g4h ed o rx legato!(ser!(d4e x), 1) // bar 11
-                re o rxd c4i rx b3i rx c4i rx d4e x rx e4edd o ro f4e xd ro legato!(ser!(e4edd o), 8) // bar 12
-                re t o ro b3edd o rx a3xd b3x ro a3o rxd g3i rx a3edd rx legato!(b3edd, 25) // bar 13
-                rxd rx c4e xd ro d4edd o rx e4edd o ro f4e xd ro legato!(ser!(g4h idd o), 22) // bar 14
-                rqdd o rx d4qdd xd rx legato!(ser!(c4i o), 8) // bar 15
-                ro repeat!(1) d4i rx e4i o ro f4e xd ro legato!(ser!(g4h ed o), 86) // bar 16
-                rxd rx d4e xd ro c4i o ro b3i o ro c4i o ro d4e xd rx e4edd o ro f4e x rx legato!(e4edd, 2) // bar 17
-                red x rxd b3edd o ro a3xd b3o rxd a3o rx g3i rx a3edd o ro legato!(ser!(b3edd o), 19) // bar 18
-                ri x ro c4e xd ro d4edd o rx e4edd rx f4e x rx legato!(ser!(e4qdd xd), 16) // bar 19
-                rq i xd rx e4idd d4t c4o rx legato!(ser!(b3h idd o), 62) // bar 20
-                re o rx voice_lead2_5.clone() e4i o rx // bar 21
-                ),
-        // arp (psg)
-        ser!(
-        voice_arp.clone() param!(velocity=67.73) a3e td rq tdd param!(velocity=84.67) a3q i x red o // bar 1
-                rxd f3e t c3h t o rx d3e t legato!(ser!(g3e t o), 14) // bar 2
-                rtdd re xd a3i x e3i x g3i x e3q re xd a3e t o // bar 3
-                ri o a3eddd o redd o f3e t legato!(d3qd, 39) // bar 4
-                ri o rx g3eddd o param!(velocity=67.73) e3qddd o param!(velocity=84.67) a3xd a4xd param!(velocity=76.2) gs4t f4xd e4xd param!(velocity=67.73) d4t ro param!(velocity=84.67) legato!(c4i, 4) // bar 5
-                rt rx a3i rxd e4i rx b4e x rx e3i rx a4i rx a3i rx e4i rx f3i rx c4i rxd as4e xd ro // bar 6
-                f3i rx e4i rx a3i rx c4i rx g3i rx d4i rxd as4e x rx b3i rx g4i rx g3i rx d4i rx legato!(e3i, 7) // bar 7
-                ro rx b3i rx gs4e xd rx b3i rx e4i rx g3i rxd b3i rx a3i rx e4i rx b4e x rxd e3i rx legato!(a4i, 2) // bar 8
-                rtd rxd a3i rx e4i rx f3i rx c4i rx as4e xd ro f3i rxd e4i rx a3i rx c4i rx g3i rx d4i // bar 9
-                rx as4e xd ro b3i rx g4i o ro g3i rxd d4i rx a3i rx e4i rx b4e x rx e3i rx a4i o ro legato!(a3i, 5) // bar 10
-                rxd repeat!(1) e4i o ro c4e xd ro c4e xd rx c4i rx c4i rx c4xd rx c4xd rx c4i rx b3e x rxd legato!(ser!(b3e x), 10) // bar 11
-                ri rx b3i rx b3i rx b3xd rx b3xd rxd b3i rx a3e x ro a3e x rx a3i rx a3i rx a3xd rx a3xd rxd legato!(a3i, 7) // bar 12
-                ro rx g3e x rx g3e x rx g3i rx g3i rx g3xd rx g3xd rx g3i rx f3e x rx f3e x rx legato!(f3i, 5) // bar 13
-                rxd rx f3i rx f3xd rx f3xd rx f3i rxd g3e xd ro g3e x rx g3i rxd g3i rx g3xd rx g3xd rx g3i rx legato!(ser!(g3e x), 11) // bar 14
-                rtdd rx g3e x rxd g3i rx g3i rx g3xd rx g3xd rx g3i rx g3e x rx g3e x rx g3i rx g3i // bar 15
-                rx g3xd rx g3t rx g3i rx c4e x rx c4e x rx c4i rx c4i rx c4xd rx c4xd rx c4i rx b3e x rx legato!(ser!(b3e xd), 5) // bar 16
-                ridd ro b3i rx b3i rx b3xd rx b3xd rxd b3i rx a3e xd ro a3e x rx a3i rx a3i rx a3xd rx a3xd rxd legato!(a3i, 1) // bar 17
-                rtdd rx g3e x rx g3e x rx g3i rxd g3i ro g3xd rx g3xd rx g3i rx f3e x rx f3e x ro // bar 18
-                ro f3i rxd f3i rx f3xd ro f3t rx f3i rx f3e x rx f3e x rx f3i rx f3i rx f3xd rx f3xd rxd f3i rx legato!(ser!(gs3e x), 5) // bar 19
-                rid o rx gs3e xd ro gs3i rx gs3i rxd gs3xd rx gs3xd rx gs3i rx e3e xd ro e3e x rx e3i rxd legato!(e3i, 1) // bar 20
-                rtdd rx e3xd rx e3xd rxd e3i x // bar 21
-                ),
-        // arp2 (psg)
-        ser!(
-        voice_arp2.clone() param!(velocity=67.73) e4e td rq tdd param!(velocity=84.67) e4q i x red o // bar 1
-                rxd c4e t g3h t o rx a3e t legato!(ser!(ds4e t o), 14) // bar 2
-                rtdd re xd e4i x b3i x d4i x b3q re xd e4e t o // bar 3
-                ri o e4eddd o redd o c4e t legato!(a3qd, 39) // bar 4
-                ri o rxd d4eddd o param!(velocity=67.73) b3qddd o param!(velocity=84.67) e4xd f5xd param!(velocity=76.2) d5t ds5xd cs5xd param!(velocity=67.73) c5t param!(velocity=84.67) legato!(b4i, 4) // bar 5
-                rt rx b4i rxd gs5i rx d6e x rx a4i rx c6i rx e5i rx g5i rx a4i rx fs5i rxd c6e xd ro // bar 6
-                a4i rx as5i rx b4i rx g5i rx as4i rxd g5i rx d6e x rx ds5i rx b5i rx as4i rx g5i rx legato!(g4i, 7) // bar 7
-                ro rx f5i rx as5e xd rx e5i rx a5i rx b4i rxd e5i rx b4i rx gs5i rxd d6e x rx a4i rx legato!(c6i, 2) // bar 8
-                rtd rxd e5i rx g5i rx a4i rxd fs5i ro c6e xd ro a4i rxd as5i rx b4i rx g5i rx as4i rx g5i // bar 9
-                rx d6e xd ro ds5i rx b5i rx as4i rxd gs5i rx b4i rx gs5i rx d6e x rx a4i rx c6i o ro legato!(e5i, 5) // bar 10
-                rxd repeat!(1) gs5i rx e5e xd rx e5e x rx e5i rx e5i rx e5xd rx e5xd rx e5i rx d5e x rxd legato!(ser!(d5e x), 10) // bar 11
-                ri rx d5i rx d5i rx d5xd rx d5xd rxd ds5i rx c5e x ro c5e x rx c5i rx c5i rx c5xd rx c5xd rxd legato!(c5i, 7) // bar 12
-                ro rx b4e x rx b4e x rx b4i rx b4i rx b4xd rx b4xd rx as4i rx a4e x rx a4e x rx legato!(a4i, 5) // bar 13
-                rxd rx a4i rx a4xd rx a4xd rxd as4i rx b4e xd ro b4e x rx b4i rxd b4i rx b4xd rx b4xd rx b4i rx legato!(ser!(c5e x), 11) // bar 14
-                rtdd rx c5e x rxd c5i rx c5i rx c5xd rx c5xd rx c5i rx b4e x rx b4e x rx b4i rx b4i // bar 15
-                rx b4xd rx b4t rx b4i rx e5e x rx e5e x rx e5i rx e5i rx e5xd rx e5xd rx e5i rx d5e x rx legato!(ser!(d5e xd), 5) // bar 16
-                ridd ro d5i rx d5i rx d5xd rx d5xd rxd ds5i rx c5e x rx c5e x rx c5i rx c5i rx c5xd rx c5xd rxd legato!(c5i, 1) // bar 17
-                rtdd rx b4e x rx b4e x rx b4i rxd b4i ro b4xd rx b4xd rx as4i rx a4e x rx a4e x ro // bar 18
-                ro a4i rxd a4i rx a4xd rx a4t ro a4i rx as4e x rx as4e x rx as4i rx as4i rx as4xd rx as4xd rxd b4i rx legato!(ser!(b4e x), 5) // bar 19
-                rid o rx b4e xd ro b4i rx b4i rxd b4xd rx b4xd rx as4i rx gs4e xd ro gs4e x rx gs4i rxd legato!(gs4i, 1) // bar 20
-                rtdd rx gs4xd rx gs4xd rxd a4i x // bar 21
-                ),
-        // harmony3 (ym)
-        ser!(
-        rt o voice_harmony3_6.clone() e4i o ro f4i rx param!(op4_tl=24) f4i rx param!(op4_tl=20) g4i rxd param!(op4_tl=24) g4i rx param!(op4_tl=20) a4i rx param!(op4_tl=24) a4i rx param!(op4_tl=20) b4xd rx c5xd rx legato!(ser!(b4qdd x), 42) // bar 1
-                re rx g4t o gs4t o a4i o ro g4q i fs4t o f4t o e4t o ds4xd rx c4t o cs4t o d4i rxd legato!(f4edd, 9) // bar 2
-                re xd rx e4edd o ro c4t o cs4t o d4i o ro e4i rx f4i rx param!(op4_tl=24) f4i o rx param!(op4_tl=20) g4i o ro param!(op4_tl=24) g4i rx param!(op4_tl=20) legato!(a4i, 6) // bar 3
-                rx repeat!(1) param!(op4_tl=24) a4i o ro param!(op4_tl=20) b4xd rx c5xd rx d5t o ds5t o e5q i ds5t o d5xd rx c5t o cs5t o d5i rx legato!(ser!(c5edd o), 24) // bar 4
-                rt o ro cs5t o d5ed rx b4e xd ro b4edd o rx a4edd rx gs4xd rxd param!(instrument="ym", op1_ar=25, op1_dr=23, op1_mult=10, op1_rr=8, op1_sl=14, op1_sr=10, op1_tl=30, op2_ar=25, op2_dr=14, op2_mult=2, op2_rr=8, op2_sl=15, op2_sr=11, op2_tl=34, op3_ar=25, op3_dr=20, op3_mult=6, op3_rr=8, op3_sl=14, op3_sr=11, op3_tl=34, op4_ar=25, op4_dr=14, op4_mult=2, op4_rr=8, op4_sl=15, op4_sr=12, op4_tl=19, ym_algo=4, ym_channel=3, ym_feedback=7) legato!(e5i, 4) // bar 5
-                rt rx a4i rxd param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rx param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx a4t ro param!(op2_tl=34, op4_tl=19) e5i rx a4i o ro param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rxd param!(op2_tl=38, op4_tl=23) b4i rx // bar 6
-                param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx a4t ro param!(op2_tl=34, op4_tl=19) e5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rxd param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd ro a4xd rxd param!(op2_tl=34, op4_tl=19) e5i rx legato!(a4i, 7) // bar 7
-                ro rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rxd param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx a4xd rxd param!(op2_tl=34, op4_tl=19) e5i o ro a4i rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rxd param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx legato!(a4i, 2) // bar 8
-                rtd rx param!(op2_tl=38, op4_tl=23) a4xd rxd a4xd rx param!(op2_tl=34, op4_tl=19) e5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rx param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rxd a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx a4t ro param!(op2_tl=34, op4_tl=19) e5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4i // bar 9
-                rx param!(op2_tl=34, op4_tl=19) b4i rx param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4t ro a4xd rxd param!(op2_tl=34, op4_tl=19) e5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rx param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx // bar 10
-                a4xd redd voice_harmony3_8.clone() e4i o ro g4i o rx c5e xd ro g4e xd ro e4i o ro g3i o ro d4i rxd legato!(g4i, 5) // bar 11
-                rxd rx b4e x rx d5i rx g4i rx d4i rx a3i o ro e4i o ro a4i o ro c5e xd ro e5i o ro a4i o ro legato!(ser!(e4i o), 3) // bar 12
-                rtd ro g3i o ro d4i o rx g4i o ro d5e x rx b4i rx g4i rx e4i rx f3i rx c4i rx f4i rx legato!(ser!(a4e xd), 10) // bar 13
-                ri o ro e5i rx c5i o ro a4i o ro g4i o rx g3i o ro b3i o ro d4e xd ro b4i rx g4i o rx d4i rx voice_harmony3_6.clone() d4t o legato!(ser!(ds4t o), 1) // bar 14
-                rt e4q i ds4t o d4t o cs4xd rxd legato!(ser!(d4h idd o), 68) // bar 15
-                ri xd red x voice_harmony3_8.clone() e4i o ro g4i o rx c5e x rx g4e x rx e4i rx g3i rx d4i rx // bar 16
-                g4i o ro b4e xd ro d5i rx g4i o rx d4i o ro a3i o ro e4i rx a4i o ro c5e xd ro e5i rx legato!(a4i, 7) // bar 17
-                ro rxd e4i rx g3i rx d4i rx g4i rx d5e x rx b4i o ro g4i o ro e4i o ro f3i o ro c4i o ro f4i o ro legato!(ser!(a4e xd), 4) // bar 18
-                ridd o ro c5e xd rx e5i o ro f5i o ro d5e x rx as4e x rx f4i rx d4xd rxd param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=24, ym_algo=3, ym_channel=3, ym_feedback=3) legato!(ser!(e2qdd xd), 15) // bar 19
-                rq id re o g5xd rx gs5xd rx a5xd rx as5xd rx legato!(ser!(b5qdd xd), 47) // bar 20
-                rid rx a5xd rid o // bar 21
-                ),
-        // harmony2 (ym)
-        ser!(
-        voice_harmony2_3.clone() a3i rxd param!(op4_tl=17) a3i rx param!(op4_tl=21) a3i rq param!(op4_tl=9) a3i rx f3i rx f3i rx param!(op4_tl=17) f3i rx param!(op4_tl=21) f3i re xd // bar 1
-                rxd param!(op4_tl=9) c3e x rx d3i o ro d3i rx param!(op4_tl=17) d3i rx param!(op4_tl=21) d3i rq param!(op4_tl=9) d3i rxd g3i rx a3i rx param!(op4_tl=17) legato!(a3i, 4) // bar 2
-                rt rx param!(op4_tl=21) a3i rid param!(op4_tl=9) e3i rx g3i rx e3i rx a3i rx a3i rxd param!(op4_tl=17) a3i rx param!(op4_tl=21) a3i rid param!(op4_tl=9) a3i rx param!(op4_tl=17) a3i rxd // bar 3
-                ri o param!(op4_tl=9) f3i rx f3i rx param!(op4_tl=17) f3i rx param!(op4_tl=21) f3i re td param!(op4_tl=9) d3e x rx g3i rx g3i rx param!(op4_tl=17) g3i rx param!(op4_tl=21) g3i ro // bar 4
-                ri xd param!(op4_tl=9) e3i rx param!(op4_tl=17) e3i rxd param!(op4_tl=9) e3i rx e4edd o ro e4eddd o ds4t o d4t o cs4t o c4xd rxd param!(instrument="ym", op1_ar=25, op1_dr=10, op1_mult=1, op1_rr=5, op1_sl=1, op1_sr=0, op1_tl=31, op2_ar=25, op2_dr=11, op2_mult=5, op2_rr=8, op2_sl=5, op2_sr=0, op2_tl=15, op3_ar=28, op3_dr=13, op3_mult=1, op3_rr=6, op3_sl=2, op3_sr=0, op3_tl=47, op4_ar=14, op4_dr=4, op4_mult=1, op4_rr=6, op4_sl=2, op4_sr=0, op4_tl=15, ym_algo=2, ym_channel=2, ym_feedback=7) legato!(e4qddd, 4) // bar 5
-                rqdd ro c4e xd ro a4qd o rx // bar 6
-                f4i o ro a4e x rx g4edd rx a4edd rxd b4e x rx legato!(c5qddd, 17) // bar 7
-                rq i xd ro e4e xd rx c5edd o ro a4edd o rx legato!(ser!(e4e x), 2) // bar 8
-                re rxd g4qdd xd rx f4e x rx legato!(ser!(e4edd o), 28) // bar 9
-                ro repeat!(1) d4edd o ro b3e x rxd a3q td rq t o // bar 10
-                re voice_harmony2_5.clone() e4i o ro g4i rx c5e xd rx g4e xd ro e4i rx g3i rx d4i rx g4i rx legato!(ser!(b4e x), 11) // bar 11
-                rtdd rxd d5i rx g4i rx d4i rx a3i rxd e4i ro a4i rx c5e x rx e5i rx a4i rx e4i o ro g3i // bar 12
-                rx d4i rxd g4i rx d5e x rx b4i rx g4i rx e4i rx f3i rx c4i rx f4i rx a4e x rx legato!(e5i, 5) // bar 13
-                rxd rx c5i rx a4i rx g4i rx g3i rxd b3i rx d4e xd ro b4i rx g4i rx d4i rxd voice_harmony2_6.clone() d4t o ds4t o legato!(ser!(e4q i), 11) // bar 14
-                redd o ds4t o d4t o cs4t o c4t o b3t o as3xd rxd legato!(ser!(g3h idd o), 68) // bar 15
-                ri xd rid voice_harmony2_5.clone() e4i rx g4i rx c5e x rx g4e x rx e4i rx g3i rx d4i rx g4i rx legato!(ser!(b4e xd), 5) // bar 16
-                ridd ro d5i rx g4i rx d4i rx a3i rxd e4i rx a4i rx c5e xd ro e5i rx a4i rx e4i rxd legato!(g3i, 1) // bar 17
-                rtdd rx d4i rx g4i rx d5e x rx b4i rxd g4i ro e4i rx f3i rx c4i rx f4i rx a4e x ro // bar 18
-                ro c5e xd ro e5i o rx f5i rx d5e x rx as4e x rx f4i rx d4i rx as3i rxd voice_harmony2_6.clone() legato!(ser!(gs2qdd xd), 15) // bar 19
-                rq id ro g5xd rx gs5xd rxd a5xd rx as5t ro b5qdd xd ro legato!(a5xd, 2) // bar 20
-                ro rxd g5xd rx f5xd rx e5xd rx param!(op4_tl=9) a3i o rx // bar 21
-                ),
-        // harmony (ym)
-        ser!(
-        voice_harmony_3.clone() a2i rqd t o a2i rx f2i rx f2i rq tdd // bar 1
-                rxd c2e x rx d2i rx d2i rqd t o d2i rx g2i rx a2i rtd // bar 2
-                red x e2i rx g2i rx e2i rx a2i rxd a2i rq a2i rid o // bar 3
-                ri o f2i rx f2i rq i x d2e x rxd g2i ro g2i re t o // bar 4
-                ri xd e2i rid o e2i rx param!(op4_tl=34) a2i o ro param!(op4_tl=30) a2i rx param!(op4_tl=26) a2i rx param!(op4_tl=22) a2i rxd param!(op4_tl=18) a2i rx a2i rx a3xd g3t f3t e3xd d3xd c3x rx legato!(a2i, 4) // bar 5
-                rt rx a2i rxd a2i rx a2i rx a2i rx a2i o ro a2i o ro a2xd rx a2t ro f2i rx f2i o ro f2i rxd f2i rx f2i rx // bar 6
-                f2i rx g2i o ro a2i rx g2i rx g2i rx g2i rx g2i rxd g2i rx g2i rx d2i rx d2i rx e2i rx legato!(e2i, 7) // bar 7
-                ro rx e2i rx e2i rxd g2i rx e2i rx b2i rx g2i rxd a2i o ro a2i rx a2i rx a2i rxd a2i rx a2i rx legato!(a2i, 2) // bar 8
-                rtd rxd a2xd rx a2xd rx f2i rx f2i rx f2i rx f2i rx f2i rx f2i rxd f2i o ro f2i rx g2i o ro g2i rx g2i // bar 9
-                rx g2i o ro g2i rx g2i rx g2i o ro g2i rxd a2i rx a2i rx c3i rx a2i rx e3i rx a2i rx b2i o ro legato!(d3i, 5) // bar 10
-                rxd repeat!(1) c3i o ro c3e xd ro c3e xd rx c3i rx c3i rx c3xd rx c3xd rx b2i rx b2e x rxd legato!(ser!(b2e x), 10) // bar 11
-                ri rx b2i rx b2i rx b2xd rx b2xd rx a2i rxd a2e x ro a2e x rx a2i rx a2i rx a2t ro a2xd rxd legato!(g2i, 7) // bar 12
-                ro rx g2e x rx g2xd rx g2t ro b2i rx g2i rx d3i rx b2i rx f2i rx f2e x rx f2e x rx legato!(g2i, 5) // bar 13
-                rxd rx a2i rx f2i rx g2i rxd g2e xd ro g2i rx b2i rx g2i rx d3i rxd g2i rx c3i rx legato!(ser!(c3e x), 11) // bar 14
-                rtdd rx c3e x rx d3i rxd c3i rx f2i rx g2i rx gs2e x rx a2e x rx as2i rx b2i // bar 15
-                rx d3i rx c3i o rx c3e x rx c3e x rx c3i rx c3i rx c3xd rx c3xd rx b2i rx b2e x rx legato!(ser!(b2e xd), 5) // bar 16
-                ridd ro b2i rx b2i rx b2xd rx b2xd rxd a2i rx a2e xd ro a2e xd ro a2i rx a2i rx a2xd rx a2xd rxd legato!(g2i, 1) // bar 17
-                rtdd rx g2e x rx g2xd rx g2xd rx b2i rx g2i rxd d3i ro b2i rx f2i rx f2e x rx f2e x ro // bar 18
-                ro f2i rxd g2i ro a2i rxd as2i rx as2e x rx as2e x rx as2i rx f2i rx d2i rxd e2i rx legato!(ser!(e2e x), 5) // bar 19
-                rid o rx e2e xd ro e2i rx e2i rxd e2xd rx e2xd rx gs2i rx gs2i rx gs2i rx gs2i rx b2i rx gs2i rxd legato!(d3i, 1) // bar 20
-                rtdd rx e2i rxd a2i rx // bar 21
-                ),
-        // bass (ym)
-        ser!(
-        voice_bass_9.clone() comment!("approx timbre") c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o re td voice_bass_10.clone() e3i rx voice_bass_11.clone() e3i rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rq td // bar 1
-                rxd b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o as0o gs0o f0o d0o as_1o f_1o c_1x gs2o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o re td voice_bass_10.clone() e3i rx voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_13.clone() fs2o f2o e2o ds2o cs2o ro param!(op2_tl=12, op4_tl=25) g2o fs2o f2o e2o ds2o cs2o ro param!(op2_tl=16, op4_tl=29) fs2o // bar 2
-                f2o e2o ds2o cs2o rx param!(op2_tl=20, op4_tl=33) fs2o f2o e2o ds2o cs2o ro param!(op2_tl=24, op4_tl=37) g2o fs2o f2o e2o ds2o cs2o ro param!(op2_tl=28, op4_tl=41) fs2o f2o e2o ds2o cs2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o re td voice_bass_10.clone() e3i rx voice_bass_13.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o legato!(ser!(gs3i xd), 3) // bar 3
-                ri ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rq i o voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_13.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx b2o as2o a2o gs2o fs2o rx param!(op2_tl=12, op4_tl=25) b2o as2o // bar 4
-                a2o gs2o fs2o rx param!(op2_tl=16, op4_tl=29) c3o b2o as2o a2o gs2o fs2o voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_14.clone() b2x as2o a2o gs2o ro c3o b2x as2o a2o gs2o rx c3o b2x as2o a2o gs2o fs2x f2o e2o ds2o rx g2o fs2x f2o e2o ds2o ro g2o fs2x f2o e2o ds2o voice_bass_9.clone() b2o as2o a2o gs2o fs2o rx c3o b2o as2o a2o gs2o fs2o ro c3o b2o as2o a2o gs2o rx voice_bass_13.clone() b2o as2o a2o gs2o fs2o ro c3o b2o as2o a2o gs2o fs2o ro b2o as2o a2o gs2o fs2o rx voice_bass_12.clone() b1x as1o a1o gs1o // bar 5
-                fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_11.clone() e3i rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o as0o gs0o f0o d0o as_1o f_1o c_1x gs2o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_11.clone() e3i rx // bar 6
-                voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx b1o as1o a1o gs1o fs1o f1o ds1o // bar 7
-                d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o ro b2o as2o a2o gs2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o as0o gs0o f0o // bar 8
-                d0o as_1o f_1o c_1x gs2o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_11.clone() e3i rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o // bar 9
-                d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o ro c3o b2o as2o a2o ro c3o b2o as2o a2o ro c3o b2o as2o a2o ro voice_bass_14.clone() gs2o repeat!(1) g2o fs2o ro gs2o repeat!(1) g2o fs2o ro e2x ds2o d2o ro // bar 10
-                e2x ds2o d2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd // bar 11
-                voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o // bar 12
-                d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_11.clone() e3i rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro b1o as1o a1o gs1o fs1o // bar 13
-                f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o // bar 14
-                as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o ro c3o b2o as2o a2o ro c3o b2o as2o a2o ro c3o b2o as2o a2o ro voice_bass_14.clone() a2o gs2o repeat!(1) g2o ro a2o gs2o repeat!(1) // bar 15
-                g2o ro a2o gs2o repeat!(1) g2o ro a2o gs2o repeat!(1) g2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o // bar 16
-                ds1o d1o c1o rx voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o // bar 17
-                a1o gs1o fs1o f1o ds1o d1o rxd b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o // bar 18
-                ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_11.clone() e3i rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o // bar 19
-                fs1o f1o ds1o d1o voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_9.clone() b2o as2o a2o gs2o ro b2o as2o a2o gs2o ro b2o as2o a2o gs2o ro b2o as2o a2o gs2o ro voice_bass_14.clone() gs2o repeat!(1) g2o fs2o ro gs2o repeat!(1) g2o fs2o ro gs2o repeat!(1) g2o fs2o ro gs2o repeat!(1) g2o fs2o ro e2x ds2o d2o ro e2x ds2o d2o ro e2x ds2o d2o ro e2x ds2o d2o ro voice_bass_9.clone() b2o as2o // bar 20
-                a2o rxd b2o as2o a2o rx b2o as2o a2o rx b2o as2o a2o rx b2x as2o a2o gs2o fs2o f2o ds2o d2o rx // bar 21
-                ),
-        // drums (psg)
-        ser!(
-        rw // bar 1
-                rhd i voice_drums.clone() param!(velocity=101.6) legato!(ser!(c4wdd e t), 24) // bar 2
-                rw // bar 3
-                rh edd rq t // bar 4
-                rq i x param!(velocity=84.67) legato!(ser!(c4w i o), 86) // bar 5
-                rqd xd rh id o // bar 6
-                rw // bar 7
-                rh o param!(velocity=101.6) c4qdd rtdd // bar 8
-                rw // bar 9
-                rw // bar 10
-                rtd c4qdd xd rqddd xd // bar 11
-                rw // bar 12
-                rw // bar 13
-                rw // bar 14
-                rhddd legato!(ser!(c4h e), 8) // bar 15
-                rh i rqdd // bar 16
-                rw // bar 17
-                rw // bar 18
-                rhdd o legato!(ser!(c4qddd o), 15) // bar 19
-                rq idd rh e o legato!(ser!(c4eddd o), 1) // bar 20
-                reddd // bar 21
-                )
+        par!( // bar 1
+            // melody (psg)
+            ser!(rw),
+            // lead (ym)
+            ser!(ri o voice_lead_5.clone() f4i rx param!(op4_tl=21) f4i rx param!(op4_tl=17) g4i ro param!(op4_tl=21) g4i o rx param!(op4_tl=17) a4i o ro param!(op4_tl=21) a4i o ro param!(op4_tl=17) b4t ro c5t ro legato!(ser!(b4qdd xd), 49)),
+            // lead2 (ym)
+            ser!(voice_lead2_5.clone() f4i o ro param!(op4_tl=13) f4i rx param!(op4_tl=9) g4i rx param!(op4_tl=13) g4i rx param!(op4_tl=9) a4i rxd param!(op4_tl=13) a4i rx param!(op4_tl=9) b4xd rx c5xd rx legato!(ser!(b4qdd x), 57)),
+            // arp (psg)
+            ser!(voice_arp.clone() param!(velocity=67.73) a3e td rq tdd param!(velocity=84.67) a3q i x red o),
+            // arp2 (psg)
+            ser!(voice_arp2.clone() param!(velocity=67.73) e4e td rq tdd param!(velocity=84.67) e4q i x red o),
+            // harmony3 (ym)
+            ser!(rt o voice_harmony3_6.clone() e4i o ro f4i rx param!(op4_tl=24) f4i rx param!(op4_tl=20) g4i rxd param!(op4_tl=24) g4i rx param!(op4_tl=20) a4i rx param!(op4_tl=24) a4i rx param!(op4_tl=20) b4xd rx c5xd rx legato!(ser!(b4qdd x), 42)),
+            // harmony2 (ym)
+            ser!(voice_harmony2_3.clone() a3i rxd param!(op4_tl=17) a3i rx param!(op4_tl=21) a3i rq param!(op4_tl=9) a3i rx f3i rx f3i rx param!(op4_tl=17) f3i rx param!(op4_tl=21) f3i re xd),
+            // harmony (ym)
+            ser!(voice_harmony_3.clone() a2i rqd t o a2i rx f2i rx f2i rq tdd),
+            // bass (ym)
+            ser!(voice_bass_9.clone() comment!("approx timbre") c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o re td voice_bass_10.clone() e3i rx voice_bass_11.clone() e3i rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rq td),
+            // drums (psg)
+            ser!(rw),
+        ),
+        par!( // bar 2
+            ser!(rw),
+            ser!(voice_lead_5.clone() ri x ro g4t o gs4t o a4i o ro g4q i fs4t o f4t o e4t o ds4xd rxd c4t o cs4t o d4i o ro legato!(ser!(f4edd o), 16)),
+            ser!(voice_lead2_5.clone() ro repeat!(1) g4t o gs4t o a4i rxd g4q i fs4t o f4t o e4t o ds4xd rx c4t o cs4t o d4i rx legato!(f4edd, 25)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rxd f3e t c3h t o rx d3e t legato!(ser!(g3e t o), 14)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rxd c4e t g3h t o rx a3e t legato!(ser!(ds4e t o), 14)),
+            ser!(voice_harmony3_6.clone() re rx g4t o gs4t o a4i o ro g4q i fs4t o f4t o e4t o ds4xd rx c4t o cs4t o d4i rxd legato!(f4edd, 9)),
+            ser!(voice_harmony2_7.clone() rxd param!(op4_tl=9) c3e x rx d3i o ro d3i rx param!(op4_tl=17) d3i rx param!(op4_tl=21) d3i rq param!(op4_tl=9) d3i rxd g3i rx a3i rx param!(op4_tl=17) legato!(a3i, 4)),
+            ser!(voice_harmony_3.clone() rxd c2e x rx d2i rx d2i rqd t o d2i rx g2i rx a2i rtd),
+            ser!(voice_bass_12.clone() rxd b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o as0o gs0o f0o d0o as_1o f_1o c_1x gs2o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o re td voice_bass_10.clone() e3i rx voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_13.clone() fs2o f2o e2o ds2o cs2o ro param!(op2_tl=12, op4_tl=25) g2o fs2o f2o e2o ds2o cs2o ro param!(op2_tl=16, op4_tl=29) fs2o),
+            ser!(rhd i voice_drums.clone() param!(velocity=101.6) legato!(ser!(c4wdd e t), 24)),
+        ),
+        par!( // bar 3
+            ser!(rw),
+            ser!(voice_lead_5.clone() rid o ro e4edd o ro c4t o cs4t o d4i o rx e4i o ro f4i rx param!(op4_tl=21) f4i rx param!(op4_tl=17) g4i rx param!(op4_tl=21) g4i rx param!(op4_tl=17) a4i rx param!(op4_tl=21) legato!(a4i, 3)),
+            ser!(voice_lead2_5.clone() rxd repeat!(1) e4edd rx c4t o cs4t o d4i o ro e4i o ro f4i o ro param!(op4_tl=13) f4i rx param!(op4_tl=9) g4i rx param!(op4_tl=13) g4i o rx param!(op4_tl=9) a4i o ro param!(op4_tl=13) a4i rx param!(op4_tl=9) legato!(b4xd, 1)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd re xd a3i x e3i x g3i x e3q re xd a3e t o),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd re xd e4i x b3i x d4i x b3q re xd e4e t o),
+            ser!(voice_harmony3_6.clone() re xd rx e4edd o ro c4t o cs4t o d4i o ro e4i rx f4i rx param!(op4_tl=24) f4i o rx param!(op4_tl=20) g4i o ro param!(op4_tl=24) g4i rx param!(op4_tl=20) legato!(a4i, 6)),
+            ser!(voice_harmony2_8.clone() rt rx param!(op4_tl=21) a3i rid param!(op4_tl=9) e3i rx g3i rx e3i rx a3i rx a3i rxd param!(op4_tl=17) a3i rx param!(op4_tl=21) a3i rid param!(op4_tl=9) a3i rx param!(op4_tl=17) a3i rxd),
+            ser!(voice_harmony_3.clone() red x e2i rx g2i rx e2i rx a2i rxd a2i rq a2i rid o),
+            ser!(param!(instrument="ym", op1_ar=30, op1_dr=5, op1_mult=4, op1_rr=6, op1_sl=13, op1_sr=16, op1_tl=1, op2_ar=31, op2_dr=17, op2_mult=2, op2_rr=9, op2_sl=3, op2_sr=15, op2_tl=16, op3_ar=31, op3_dr=18, op3_mult=2, op3_rr=5, op3_sl=8, op3_sr=18, op3_tl=4, op4_ar=31, op4_dr=16, op4_mult=0, op4_rr=8, op4_sl=10, op4_sr=19, op4_tl=29, ym_algo=4, ym_channel=1, ym_feedback=6) f2o e2o ds2o cs2o rx param!(op2_tl=20, op4_tl=33) fs2o f2o e2o ds2o cs2o ro param!(op2_tl=24, op4_tl=37) g2o fs2o f2o e2o ds2o cs2o ro param!(op2_tl=28, op4_tl=41) fs2o f2o e2o ds2o cs2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o re td voice_bass_10.clone() e3i rx voice_bass_13.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o legato!(ser!(gs3i xd), 3)),
+            ser!(rw),
+        ),
+        par!( // bar 4
+            ser!(rw),
+            ser!(param!(instrument="ym", op1_ar=25, op1_dr=28, op1_mult=6, op1_rr=1, op1_sl=3, op1_sr=5, op1_tl=20, op2_ar=24, op2_dr=1, op2_mult=4, op2_rr=4, op2_sl=15, op2_sr=1, op2_tl=20, op3_ar=25, op3_dr=27, op3_mult=1, op3_rr=4, op3_sl=2, op3_sr=1, op3_tl=14, op4_ar=20, op4_dr=28, op4_mult=2, op4_rr=6, op4_sl=3, op4_sr=5, op4_tl=21, ym_algo=3, ym_channel=4, ym_feedback=3) rt o rx param!(op4_tl=17) b4xd rxd c5xd ro d5t o ds5t o e5q i ds5t o d5t ro c5t o cs5t o d5i o ro c5edd o rx),
+            ser!(voice_lead2_5.clone() rx repeat!(1) c5xd rx d5t o ds5t o e5q i ds5t o d5xd rx c5t o cs5t o d5i rx c5edd rx cs5t o legato!(d5ed, 4)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ri o a3eddd o redd o f3e t legato!(d3qd, 39)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ri o e4eddd o redd o c4e t legato!(a3qd, 39)),
+            ser!(voice_harmony3_6.clone() rx repeat!(1) param!(op4_tl=24) a4i o ro param!(op4_tl=20) b4xd rx c5xd rx d5t o ds5t o e5q i ds5t o d5xd rx c5t o cs5t o d5i rx legato!(ser!(c5edd o), 24)),
+            ser!(voice_harmony2_8.clone() ri o param!(op4_tl=9) f3i rx f3i rx param!(op4_tl=17) f3i rx param!(op4_tl=21) f3i re td param!(op4_tl=9) d3e x rx g3i rx g3i rx param!(op4_tl=17) g3i rx param!(op4_tl=21) g3i ro),
+            ser!(voice_harmony_3.clone() ri o f2i rx f2i rq i x d2e x rxd g2i ro g2i re t o),
+            ser!(voice_bass_13.clone() ri ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rq i o voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_13.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx b2o as2o a2o gs2o fs2o rx param!(op2_tl=12, op4_tl=25) b2o as2o),
+            ser!(rh edd rq t),
+        ),
+        par!( // bar 5
+            ser!(rw),
+            ser!(voice_lead_5.clone() cs5t o d5ed ro b4e xd rx b4edd rx a4edd o ro gs4xd rx g4xd rx fs4t rx legato!(f4xd, 1)),
+            ser!(voice_lead2_5.clone() re t ro b4e xd rx b4edd o ro a4edd rxd gs4xd rx g4xd rx fs4xd rx f4xd rtdd),
+            ser!(voice_arp.clone() param!(velocity=84.67) ri o rx g3eddd o param!(velocity=67.73) e3qddd o param!(velocity=84.67) a3xd a4xd param!(velocity=76.2) gs4t f4xd e4xd param!(velocity=67.73) d4t ro param!(velocity=84.67) legato!(c4i, 4)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ri o rxd d4eddd o param!(velocity=67.73) b3qddd o param!(velocity=84.67) e4xd f5xd param!(velocity=76.2) d5t ds5xd cs5xd param!(velocity=67.73) c5t param!(velocity=84.67) legato!(b4i, 4)),
+            ser!(voice_harmony3_6.clone() rt o ro cs5t o d5ed rx b4e xd ro b4edd o rx a4edd rx gs4xd rxd voice_harmony3_7.clone() legato!(e5i, 4)),
+            ser!(voice_harmony2_7.clone() ri xd param!(op4_tl=9) e3i rx param!(op4_tl=17) e3i rxd param!(op4_tl=9) e3i rx e4edd o ro e4eddd o ds4t o d4t o cs4t o c4xd rxd voice_harmony2_4.clone() legato!(e4qddd, 4)),
+            ser!(voice_harmony_3.clone() ri xd e2i rid o e2i rx param!(op4_tl=34) a2i o ro param!(op4_tl=30) a2i rx param!(op4_tl=26) a2i rx param!(op4_tl=22) a2i rxd param!(op4_tl=18) a2i rx a2i rx a3xd g3t f3t e3xd d3xd c3x rx legato!(a2i, 4)),
+            ser!(param!(instrument="ym", op1_ar=30, op1_dr=5, op1_mult=4, op1_rr=6, op1_sl=13, op1_sr=16, op1_tl=1, op2_ar=31, op2_dr=17, op2_mult=2, op2_rr=9, op2_sl=3, op2_sr=15, op2_tl=12, op3_ar=31, op3_dr=18, op3_mult=2, op3_rr=5, op3_sl=8, op3_sr=18, op3_tl=4, op4_ar=31, op4_dr=16, op4_mult=0, op4_rr=8, op4_sl=10, op4_sr=19, op4_tl=25, ym_algo=4, ym_channel=1, ym_feedback=6) a2o gs2o fs2o rx param!(op2_tl=16, op4_tl=29) c3o b2o as2o a2o gs2o fs2o voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_14.clone() b2x as2o a2o gs2o ro c3o b2x as2o a2o gs2o rx c3o b2x as2o a2o gs2o fs2x f2o e2o ds2o rx g2o fs2x f2o e2o ds2o ro g2o fs2x f2o e2o ds2o voice_bass_9.clone() b2o as2o a2o gs2o fs2o rx c3o b2o as2o a2o gs2o fs2o ro c3o b2o as2o a2o gs2o rx voice_bass_13.clone() b2o as2o a2o gs2o fs2o ro c3o b2o as2o a2o gs2o fs2o ro b2o as2o a2o gs2o fs2o rx voice_bass_12.clone() b1x as1o a1o gs1o),
+            ser!(voice_drums.clone() param!(velocity=101.6) rq i x param!(velocity=84.67) legato!(ser!(c4w i o), 86)),
+        ),
+        par!( // bar 6
+            ser!(rqd t voice_melody.clone() param!(velocity=8.47) d6o param!(velocity=50.8) e6i o ds4i o ro a5i o ro a4i o ro f5i o ro f4i o ro b4i o rx legato!(ser!(b5e xd), 5)),
+            ser!(voice_lead_5.clone() rx rid voice_lead_6.clone() e3i o rx f3i o ro g3i o ro a3i o ro b3i rx c4i o ro legato!(ser!(b3h t o), 53)),
+            ser!(voice_lead2_5.clone() rtd voice_lead2_6.clone() e3i rx f3i rxd g3i rx a3i ro b3i o rx c4i rx legato!(ser!(b3h td), 61)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rt rx a3i rxd e4i rx b4e x rx e3i rx a4i rx a3i rx e4i rx f3i rx c4i rxd as4e xd ro),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rt rx b4i rxd gs5i rx d6e x rx a4i rx c6i rx e5i rx g5i rx a4i rx fs5i rxd c6e xd ro),
+            ser!(voice_harmony3_7.clone() rt rx a4i rxd param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rx param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx a4t ro param!(op2_tl=34, op4_tl=19) e5i rx a4i o ro param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rxd param!(op2_tl=38, op4_tl=23) b4i rx),
+            ser!(voice_harmony2_4.clone() rqdd ro c4e xd ro a4qd o rx),
+            ser!(voice_harmony_3.clone() rt rx a2i rxd a2i rx a2i rx a2i rx a2i o ro a2i o ro a2xd rx a2t ro f2i rx f2i o ro f2i rxd f2i rx f2i rx),
+            ser!(voice_bass_12.clone() fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_11.clone() e3i rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o as0o gs0o f0o d0o as_1o f_1o c_1x gs2o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_11.clone() e3i rx),
+            ser!(rqd xd rh id o),
+        ),
+        par!( // bar 7
+            ser!(voice_melody.clone() param!(velocity=50.8) ridd ro f4i o ro e5i o ro as4i rx b4i rx g4i rx d5i rxd b5e x rx as4i ro g5i o rx g4i rx legato!(ser!(ds5i o), 2)),
+            ser!(voice_lead_6.clone() re rx a3e x rid g3i o ro a3i o ro b3i o rx b3i o ro c4i o ro d4i o ro legato!(ser!(c4h td), 19)),
+            ser!(voice_lead2_6.clone() ri o ro a3e xd ri xd g3i rx a3i rx b3i rx b3i rxd c4i rx d4i rx legato!(ser!(c4h t o), 27)),
+            ser!(voice_arp.clone() param!(velocity=84.67) f3i rx e4i rx a3i rx c4i rx g3i rx d4i rxd as4e x rx b3i rx g4i rx g3i rx d4i rx legato!(e3i, 7)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) a4i rx as5i rx b4i rx g5i rx as4i rxd g5i rx d6e x rx ds5i rx b5i rx as4i rx g5i rx legato!(g4i, 7)),
+            ser!(voice_harmony3_10.clone() param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx a4t ro param!(op2_tl=34, op4_tl=19) e5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rxd param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd ro a4xd rxd param!(op2_tl=34, op4_tl=19) e5i rx legato!(a4i, 7)),
+            ser!(voice_harmony2_4.clone() f4i o ro a4e x rx g4edd rx a4edd rxd b4e x rx legato!(c5qddd, 17)),
+            ser!(voice_harmony_3.clone() f2i rx g2i o ro a2i rx g2i rx g2i rx g2i rx g2i rxd g2i rx g2i rx d2i rx d2i rx e2i rx legato!(e2i, 7)),
+            ser!(voice_bass_11.clone() voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx b1o as1o a1o gs1o fs1o f1o ds1o),
+            ser!(rw),
+        ),
+        par!( // bar 8
+            ser!(voice_melody.clone() param!(velocity=50.8) rtdd ro e4i o ro as4i o rx a5e xd ro b4i o ro e5xd rqdd xd param!(velocity=8.47) g4o param!(velocity=50.8) legato!(gs4i, 6)),
+            ser!(voice_lead_6.clone() rqd xd rx e3e xd ri xd e3i rxd f3i rx g3i rx a3i o ro legato!(ser!(b3e xd), 4)),
+            ser!(voice_lead2_6.clone() rq i x rx e3e xd rid e3i o ro f3i o ro g3i o ro a3i rxd legato!(ser!(b3e x), 12)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro rx b3i rx gs4e xd rx b3i rx e4i rx g3i rxd b3i rx a3i rx e4i rx b4e x rxd e3i rx legato!(a4i, 2)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro rx f5i rx as5e xd rx e5i rx a5i rx b4i rxd e5i rx b4i rx gs5i rxd d6e x rx a4i rx legato!(c6i, 2)),
+            ser!(voice_harmony3_7.clone() ro rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rxd param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx a4xd rxd param!(op2_tl=34, op4_tl=19) e5i o ro a4i rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rxd param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx legato!(a4i, 2)),
+            ser!(voice_harmony2_4.clone() rq i xd ro e4e xd rx c5edd o ro a4edd o rx legato!(ser!(e4e x), 2)),
+            ser!(voice_harmony_3.clone() ro rx e2i rx e2i rxd g2i rx e2i rx b2i rx g2i rxd a2i o ro a2i rx a2i rx a2i rxd a2i rx a2i rx legato!(a2i, 2)),
+            ser!(voice_bass_12.clone() d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro b2o as2o a2o gs2o ro b2o as2o a2o gs2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o as0o gs0o f0o),
+            ser!(voice_drums.clone() param!(velocity=84.67) rh o param!(velocity=101.6) c4qdd rtdd),
+        ),
+        par!( // bar 9
+            ser!(voice_melody.clone() param!(velocity=50.8) rx ro ds4i rxd a5i rx a4i rx f5i rxd f4i ro b4i o ro b5e xd rx f4i o ro e5i o ro as4i o ro b4i o ro legato!(ser!(g4i o), 3)),
+            ser!(voice_lead_6.clone() ridd o rx c4i o ro d4t ro ds4xd rx e4qd o rx d4e xd ro legato!(c4edd, 20)),
+            ser!(voice_lead2_6.clone() rtd rx c4i rx d4xd rxd ds4xd rx e4qd o ro d4e xd rx legato!(ser!(c4edd o), 28)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtd rxd a3i rx e4i rx f3i rx c4i rx as4e xd ro f3i rxd e4i rx a3i rx c4i rx g3i rx d4i),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtd rxd e5i rx g5i rx a4i rxd fs5i ro c6e xd ro a4i rxd as5i rx b4i rx g5i rx as4i rx g5i),
+            ser!(voice_harmony3_7.clone() rtd rx param!(op2_tl=38, op4_tl=23) a4xd rxd a4xd rx param!(op2_tl=34, op4_tl=19) e5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rx param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rxd a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx a4t ro param!(op2_tl=34, op4_tl=19) e5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4i),
+            ser!(voice_harmony2_4.clone() re rxd g4qdd xd rx f4e x rx legato!(ser!(e4edd o), 28)),
+            ser!(voice_harmony_3.clone() rtd rxd a2xd rx a2xd rx f2i rx f2i rx f2i rx f2i rx f2i rx f2i rxd f2i o ro f2i rx g2i o ro g2i rx g2i),
+            ser!(voice_bass_12.clone() d0o as_1o f_1o c_1x gs2o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rxd voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_11.clone() e3i rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o),
+            ser!(rw),
+        ),
+        par!( // bar 10
+            ser!(voice_melody.clone() param!(velocity=50.8) rtd ro d5i o ro b5e xd ro as4i o ro g5i rxd g4i rx d5i rx a4i rx f5i rx b5e x rx ds4i o ro),
+            ser!(voice_lead_6.clone() ri rxd d4edd rx b3e x rx a3q i g3t o f3t o e3t o d3t rx voice_lead_7.clone() legato!(ser!(c4i o), 6)),
+            ser!(voice_lead2_6.clone() ro repeat!(1) d4edd o ro b3e x rx a3q i o g3t o f3t o e3t o d3xd rx voice_lead2_7.clone() c4i o ro legato!(ser!(d4i o), 5)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx as4e xd ro b3i rx g4i o ro g3i rxd d4i rx a3i rx e4i rx b4e x rx e3i rx a4i o ro legato!(a3i, 5)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx d6e xd ro ds5i rx b5i rx as4i rxd gs5i rx b4i rx gs5i rx d6e x rx a4i rx c6i o ro legato!(e5i, 5)),
+            ser!(voice_harmony3_10.clone() rx param!(op2_tl=34, op4_tl=19) b4i rx param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4t ro a4xd rxd param!(op2_tl=34, op4_tl=19) e5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4i rx param!(op2_tl=34, op4_tl=19) b4i rx param!(op2_tl=38, op4_tl=23) b4i rx param!(op2_tl=34, op4_tl=19) c5i rx a4i rx param!(op2_tl=38, op4_tl=23) a4xd rx),
+            ser!(voice_harmony2_4.clone() ro repeat!(1) d4edd o ro b3e x rxd a3q td rq t o),
+            ser!(voice_harmony_3.clone() rx g2i o ro g2i rx g2i rx g2i o ro g2i rxd a2i rx a2i rx c3i rx a2i rx e3i rx a2i rx b2i o ro legato!(d3i, 5)),
+            ser!(voice_bass_9.clone() d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o ro c3o b2o as2o a2o ro c3o b2o as2o a2o ro c3o b2o as2o a2o ro voice_bass_14.clone() gs2o repeat!(1) g2o fs2o ro gs2o repeat!(1) g2o fs2o ro e2x ds2o d2o ro),
+            ser!(rw),
+        ),
+        par!( // bar 11
+            ser!(voice_melody.clone() param!(velocity=50.8) ro a5xd rhddd t),
+            ser!(voice_lead_7.clone() rxd ro d4i o ro e4i o rx f4e xd ro legato!(ser!(g4h ed o), 83)),
+            ser!(voice_lead2_7.clone() rt ro e4i o rx f4e xd ro g4h ed o rx legato!(ser!(d4e x), 1)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rxd repeat!(1) e4i o ro c4e xd ro c4e xd rx c4i rx c4i rx c4xd rx c4xd rx c4i rx b3e x rxd legato!(ser!(b3e x), 10)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rxd repeat!(1) gs5i rx e5e xd rx e5e x rx e5i rx e5i rx e5xd rx e5xd rx e5i rx d5e x rxd legato!(ser!(d5e x), 10)),
+            ser!(voice_harmony3_10.clone() a4xd redd voice_harmony3_8.clone() e4i o ro g4i o rx c5e xd ro g4e xd ro e4i o ro g3i o ro d4i rxd legato!(g4i, 5)),
+            ser!(voice_harmony2_4.clone() re voice_harmony2_5.clone() e4i o ro g4i rx c5e xd rx g4e xd ro e4i rx g3i rx d4i rx g4i rx legato!(ser!(b4e x), 11)),
+            ser!(voice_harmony_3.clone() rxd repeat!(1) c3i o ro c3e xd ro c3e xd rx c3i rx c3i rx c3xd rx c3xd rx b2i rx b2e x rxd legato!(ser!(b2e x), 10)),
+            ser!(voice_bass_14.clone() e2x ds2o d2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd),
+            ser!(voice_drums.clone() param!(velocity=101.6) rtd c4qdd xd rqddd xd),
+        ),
+        par!( // bar 12
+            ser!(rw),
+            ser!(voice_lead_7.clone() rtd rx d4e xd ro c4i rx b3i o ro c4i o rx d4e x rx e4edd o ro f4e x ro),
+            ser!(voice_lead2_7.clone() re o rxd c4i rx b3i rx c4i rx d4e x rx e4edd o ro f4e xd ro legato!(ser!(e4edd o), 8)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ri rx b3i rx b3i rx b3xd rx b3xd rxd b3i rx a3e x ro a3e x rx a3i rx a3i rx a3xd rx a3xd rxd legato!(a3i, 7)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ri rx d5i rx d5i rx d5xd rx d5xd rxd ds5i rx c5e x ro c5e x rx c5i rx c5i rx c5xd rx c5xd rxd legato!(c5i, 7)),
+            ser!(voice_harmony3_8.clone() rxd rx b4e x rx d5i rx g4i rx d4i rx a3i o ro e4i o ro a4i o ro c5e xd ro e5i o ro a4i o ro legato!(ser!(e4i o), 3)),
+            ser!(voice_harmony2_5.clone() rtdd rxd d5i rx g4i rx d4i rx a3i rxd e4i ro a4i rx c5e x rx e5i rx a4i rx e4i o ro g3i),
+            ser!(voice_harmony_3.clone() ri rx b2i rx b2i rx b2xd rx b2xd rx a2i rxd a2e x ro a2e x rx a2i rx a2i rx a2t ro a2xd rxd legato!(g2i, 7)),
+            ser!(voice_bass_12.clone() voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o),
+            ser!(rw),
+        ),
+        par!( // bar 13
+            ser!(rw),
+            ser!(voice_lead_7.clone() ro e4edd rx b3edd rx a3t b3o rx a3o rx g3i o ro a3edd o ro legato!(ser!(b3edd o), 17)),
+            ser!(voice_lead2_7.clone() re t o ro b3edd o rx a3xd b3x ro a3o rxd g3i rx a3edd rx legato!(b3edd, 25)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro rx g3e x rx g3e x rx g3i rx g3i rx g3xd rx g3xd rx g3i rx f3e x rx f3e x rx legato!(f3i, 5)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro rx b4e x rx b4e x rx b4i rx b4i rx b4xd rx b4xd rx as4i rx a4e x rx a4e x rx legato!(a4i, 5)),
+            ser!(voice_harmony3_8.clone() rtd ro g3i o ro d4i o rx g4i o ro d5e x rx b4i rx g4i rx e4i rx f3i rx c4i rx f4i rx legato!(ser!(a4e xd), 10)),
+            ser!(voice_harmony2_5.clone() rx d4i rxd g4i rx d5e x rx b4i rx g4i rx e4i rx f3i rx c4i rx f4i rx a4e x rx legato!(e5i, 5)),
+            ser!(voice_harmony_3.clone() ro rx g2e x rx g2xd rx g2t ro b2i rx g2i rx d3i rx b2i rx f2i rx f2e x rx f2e x rx legato!(g2i, 5)),
+            ser!(voice_bass_12.clone() d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_11.clone() e3i rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro b1o as1o a1o gs1o fs1o),
+            ser!(rw),
+        ),
+        par!( // bar 14
+            ser!(rw),
+            ser!(voice_lead_7.clone() rid rx c4e xd ro d4edd rx e4edd o rx f4e x rx legato!(ser!(g4h idd o), 13)),
+            ser!(voice_lead2_7.clone() rxd rx c4e xd ro d4edd o rx e4edd o ro f4e xd ro legato!(ser!(g4h idd o), 22)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rxd rx f3i rx f3xd rx f3xd rx f3i rxd g3e xd ro g3e x rx g3i rxd g3i rx g3xd rx g3xd rx g3i rx legato!(ser!(g3e x), 11)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rxd rx a4i rx a4xd rx a4xd rxd as4i rx b4e xd ro b4e x rx b4i rxd b4i rx b4xd rx b4xd rx b4i rx legato!(ser!(c5e x), 11)),
+            ser!(voice_harmony3_8.clone() ri o ro e5i rx c5i o ro a4i o ro g4i o rx g3i o ro b3i o ro d4e xd ro b4i rx g4i o rx d4i rx voice_harmony3_6.clone() d4t o legato!(ser!(ds4t o), 1)),
+            ser!(voice_harmony2_5.clone() rxd rx c5i rx a4i rx g4i rx g3i rxd b3i rx d4e xd ro b4i rx g4i rx d4i rxd voice_harmony2_6.clone() d4t o ds4t o legato!(ser!(e4q i), 11)),
+            ser!(voice_harmony_3.clone() rxd rx a2i rx f2i rx g2i rxd g2e xd ro g2i rx b2i rx g2i rx d3i rxd g2i rx c3i rx legato!(ser!(c3e x), 11)),
+            ser!(voice_bass_12.clone() f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rxd voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o),
+            ser!(rw),
+        ),
+        par!( // bar 15
+            ser!(rw),
+            ser!(voice_lead_7.clone() rh x rx d4qdd x rx),
+            ser!(voice_lead2_7.clone() rqdd o rx d4qdd xd rx legato!(ser!(c4i o), 8)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd rx g3e x rxd g3i rx g3i rx g3xd rx g3xd rx g3i rx g3e x rx g3e x rx g3i rx g3i),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd rx c5e x rxd c5i rx c5i rx c5xd rx c5xd rx c5i rx b4e x rx b4e x rx b4i rx b4i),
+            ser!(voice_harmony3_6.clone() rt e4q i ds4t o d4t o cs4xd rxd legato!(ser!(d4h idd o), 68)),
+            ser!(voice_harmony2_6.clone() redd o ds4t o d4t o cs4t o c4t o b3t o as3xd rxd legato!(ser!(g3h idd o), 68)),
+            ser!(voice_harmony_3.clone() rtdd rx c3e x rx d3i rxd c3i rx f2i rx g2i rx gs2e x rx a2e x rx as2i rx b2i),
+            ser!(voice_bass_9.clone() as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o rxd voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o ro c3o b2o as2o a2o ro c3o b2o as2o a2o ro c3o b2o as2o a2o ro voice_bass_14.clone() a2o gs2o repeat!(1) g2o ro a2o gs2o repeat!(1)),
+            ser!(voice_drums.clone() param!(velocity=101.6) rhddd legato!(ser!(c4h e), 8)),
+        ),
+        par!( // bar 16
+            ser!(rw),
+            ser!(voice_lead_7.clone() ro c4i rx d4i rx e4i rx f4e x rx legato!(ser!(g4h ed o), 77)),
+            ser!(voice_lead2_7.clone() ro repeat!(1) d4i rx e4i o ro f4e xd ro legato!(ser!(g4h ed o), 86)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rx g3xd rx g3t rx g3i rx c4e x rx c4e x rx c4i rx c4i rx c4xd rx c4xd rx c4i rx b3e x rx legato!(ser!(b3e xd), 5)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rx b4xd rx b4t rx b4i rx e5e x rx e5e x rx e5i rx e5i rx e5xd rx e5xd rx e5i rx d5e x rx legato!(ser!(d5e xd), 5)),
+            ser!(voice_harmony3_6.clone() ri xd red x voice_harmony3_8.clone() e4i o ro g4i o rx c5e x rx g4e x rx e4i rx g3i rx d4i rx),
+            ser!(voice_harmony2_6.clone() ri xd rid voice_harmony2_5.clone() e4i rx g4i rx c5e x rx g4e x rx e4i rx g3i rx d4i rx g4i rx legato!(ser!(b4e xd), 5)),
+            ser!(voice_harmony_3.clone() rx d3i rx c3i o rx c3e x rx c3e x rx c3i rx c3i rx c3xd rx c3xd rx b2i rx b2e x rx legato!(ser!(b2e xd), 5)),
+            ser!(voice_bass_14.clone() g2o ro a2o gs2o repeat!(1) g2o ro a2o gs2o repeat!(1) g2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o),
+            ser!(rh i rqdd),
+        ),
+        par!( // bar 17
+            ser!(rw),
+            ser!(voice_lead_7.clone() rid ro d4e xd rx c4i o ro b3i o ro c4i rx d4e x rx e4edd rxd legato!(ser!(f4e x), 13)),
+            ser!(voice_lead2_7.clone() rxd rx d4e xd ro c4i o ro b3i o ro c4i o ro d4e xd rx e4edd o ro f4e x rx legato!(e4edd, 2)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ridd ro b3i rx b3i rx b3xd rx b3xd rxd b3i rx a3e xd ro a3e x rx a3i rx a3i rx a3xd rx a3xd rxd legato!(a3i, 1)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ridd ro d5i rx d5i rx d5xd rx d5xd rxd ds5i rx c5e x rx c5e x rx c5i rx c5i rx c5xd rx c5xd rxd legato!(c5i, 1)),
+            ser!(voice_harmony3_8.clone() g4i o ro b4e xd ro d5i rx g4i o rx d4i o ro a3i o ro e4i rx a4i o ro c5e xd ro e5i rx legato!(a4i, 7)),
+            ser!(voice_harmony2_5.clone() ridd ro d5i rx g4i rx d4i rx a3i rxd e4i rx a4i rx c5e xd ro e5i rx a4i rx e4i rxd legato!(g3i, 1)),
+            ser!(voice_harmony_3.clone() ridd ro b2i rx b2i rx b2xd rx b2xd rxd a2i rx a2e xd ro a2e xd ro a2i rx a2i rx a2xd rx a2xd rxd legato!(g2i, 1)),
+            ser!(voice_bass_12.clone() ds1o d1o c1o rx voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() b1o as1o),
+            ser!(rw),
+        ),
+        par!( // bar 18
+            ser!(rw),
+            ser!(voice_lead_7.clone() rt o rx e4edd o ro b3edd o rx a3xd b3x ro a3x rx g3i o ro a3edd rx legato!(b3edd, 10)),
+            ser!(voice_lead2_7.clone() red x rxd b3edd o ro a3xd b3o rxd a3o rx g3i rx a3edd o ro legato!(ser!(b3edd o), 19)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd rx g3e x rx g3e x rx g3i rxd g3i ro g3xd rx g3xd rx g3i rx f3e x rx f3e x ro),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd rx b4e x rx b4e x rx b4i rxd b4i ro b4xd rx b4xd rx as4i rx a4e x rx a4e x ro),
+            ser!(voice_harmony3_8.clone() ro rxd e4i rx g3i rx d4i rx g4i rx d5e x rx b4i o ro g4i o ro e4i o ro f3i o ro c4i o ro f4i o ro legato!(ser!(a4e xd), 4)),
+            ser!(voice_harmony2_5.clone() rtdd rx d4i rx g4i rx d5e x rx b4i rxd g4i ro e4i rx f3i rx c4i rx f4i rx a4e x ro),
+            ser!(voice_harmony_3.clone() rtdd rx g2e x rx g2xd rx g2xd rx b2i rx g2i rxd d3i ro b2i rx f2i rx f2e x rx f2e x ro),
+            ser!(voice_bass_12.clone() a1o gs1o fs1o f1o ds1o d1o rxd b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_11.clone() e3i rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o),
+            ser!(rw),
+        ),
+        par!( // bar 19
+            ser!(rw),
+            ser!(voice_lead_7.clone() re x rx c4e x rx d4edd rx e4edd o ro f4e xd rx legato!(e4qddd, 7)),
+            ser!(voice_lead2_7.clone() ri x ro c4e xd ro d4edd o rx e4edd rx f4e x rx legato!(ser!(e4qdd xd), 16)),
+            ser!(voice_arp.clone() param!(velocity=84.67) ro f3i rxd f3i rx f3xd ro f3t rx f3i rx f3e x rx f3e x rx f3i rx f3i rx f3xd rx f3xd rxd f3i rx legato!(ser!(gs3e x), 5)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) ro a4i rxd a4i rx a4xd rx a4t ro a4i rx as4e x rx as4e x rx as4i rx as4i rx as4xd rx as4xd rxd b4i rx legato!(ser!(b4e x), 5)),
+            ser!(voice_harmony3_8.clone() ridd o ro c5e xd rx e5i o ro f5i o ro d5e x rx as4e x rx f4i rx d4xd rxd voice_harmony3_9.clone() legato!(ser!(e2qdd xd), 15)),
+            ser!(voice_harmony2_5.clone() ro c5e xd ro e5i o rx f5i rx d5e x rx as4e x rx f4i rx d4i rx as3i rxd voice_harmony2_6.clone() legato!(ser!(gs2qdd xd), 15)),
+            ser!(voice_harmony_3.clone() ro f2i rxd g2i ro a2i rxd as2i rx as2e x rx as2e x rx as2i rx f2i rx d2i rxd e2i rx legato!(ser!(e2e x), 5)),
+            ser!(voice_bass_12.clone() ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o rx voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o ro voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_11.clone() e3i rx voice_bass_12.clone() c2o b1o as1o a1o gs1o fs1o f1o ds1o d1o ro voice_bass_9.clone() c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o as1o gs1o f1o d1o as0o f0o a_1o c_1o gs3o ro c3o b2o as2o a2o gs2o fs2o f2o ds2o d2o rx voice_bass_12.clone() c2o b1o as1o a1o gs1o),
+            ser!(voice_drums.clone() param!(velocity=101.6) rhdd o legato!(ser!(c4qddd o), 15)),
+        ),
+        par!( // bar 20
+            ser!(rw),
+            ser!(voice_lead_7.clone() rqd t o ro e4idd d4t c4xd legato!(ser!(b3h e), 53)),
+            ser!(voice_lead2_7.clone() rq i xd rx e4idd d4t c4o rx legato!(ser!(b3h idd o), 62)),
+            ser!(voice_arp.clone() param!(velocity=84.67) rid o rx gs3e xd ro gs3i rx gs3i rxd gs3xd rx gs3xd rx gs3i rx e3e xd ro e3e x rx e3i rxd legato!(e3i, 1)),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rid o rx b4e xd ro b4i rx b4i rxd b4xd rx b4xd rx as4i rx gs4e xd ro gs4e x rx gs4i rxd legato!(gs4i, 1)),
+            ser!(voice_harmony3_9.clone() rq id re o g5xd rx gs5xd rx a5xd rx as5xd rx legato!(ser!(b5qdd xd), 47)),
+            ser!(voice_harmony2_6.clone() rq id ro g5xd rx gs5xd rxd a5xd rx as5t ro b5qdd xd ro legato!(a5xd, 2)),
+            ser!(voice_harmony_3.clone() rid o rx e2e xd ro e2i rx e2i rxd e2xd rx e2xd rx gs2i rx gs2i rx gs2i rx gs2i rx b2i rx gs2i rxd legato!(d3i, 1)),
+            ser!(voice_bass_12.clone() fs1o f1o ds1o d1o voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o rx voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o ro voice_bass_9.clone() b2o as2o a2o gs2o fs2o f2o ds2o d2o c2o ro voice_bass_12.clone() b1o as1o a1o gs1o fs1o f1o ds1o d1o c1o rx voice_bass_9.clone() b2o as2o a2o gs2o ro b2o as2o a2o gs2o ro b2o as2o a2o gs2o ro b2o as2o a2o gs2o ro voice_bass_14.clone() gs2o repeat!(1) g2o fs2o ro gs2o repeat!(1) g2o fs2o ro gs2o repeat!(1) g2o fs2o ro gs2o repeat!(1) g2o fs2o ro e2x ds2o d2o ro e2x ds2o d2o ro e2x ds2o d2o ro e2x ds2o d2o ro voice_bass_9.clone() b2o as2o),
+            ser!(voice_drums.clone() param!(velocity=101.6) rq idd rh e o legato!(ser!(c4eddd o), 1)),
+        ),
+        par!( // bar 21
+            ser!(reddd),
+            ser!(voice_lead_7.clone() red xd ro voice_lead_5.clone() e4x),
+            ser!(voice_lead2_7.clone() re o rx voice_lead2_5.clone() e4i o rx),
+            ser!(voice_arp.clone() param!(velocity=84.67) rtdd rx e3xd rx e3xd rxd e3i x),
+            ser!(voice_arp2.clone() param!(velocity=84.67) rtdd rx gs4xd rx gs4xd rxd a4i x),
+            ser!(voice_harmony3_9.clone() rid rx a5xd rid o),
+            ser!(voice_harmony2_6.clone() ro rxd g5xd rx f5xd rx e5xd rx param!(op4_tl=9) a3i o rx),
+            ser!(voice_harmony_3.clone() rtdd rx e2i rxd a2i rx),
+            ser!(voice_bass_9.clone() a2o rxd b2o as2o a2o rx b2o as2o a2o rx b2o as2o a2o rx b2x as2o a2o gs2o fs2o f2o ds2o d2o rx),
+            ser!(reddd),
+        )
     )
 }

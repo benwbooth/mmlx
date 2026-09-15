@@ -819,12 +819,11 @@ fn split_spanning(
             index += 1;
             continue;
         }
-        // Gather the unit: head plus following bare-tie pieces (len > 0;
-        // the head's own duration fragments). Zero-len items never
-        // intervene: emission lays head + ties adjacently and grouping
-        // only merges params (which stay zero-len, breaking the run here
-        // only if one sits between head and tie — impossible by
-        // construction, but the loop below tolerates it by ending the unit).
+        // Gather the unit: head plus following bare-tie pieces, which glue
+        // to it regardless of length (note ties ride zero; rest-window
+        // ties carry their own span). Emission lays head + ties adjacently
+        // and grouping preserves sounding order, so a bare tie here always
+        // continues this head.
         let (pitch, _, attr) = sounding.unwrap();
         let head_setup = setups[index].clone();
         let start = position;
@@ -832,7 +831,7 @@ fn split_spanning(
         let mut end = position + len;
         position = end;
         index += 1;
-        while index < n && lens[index] > 0 && is_bare_tie(&items[index]) {
+        while index < n && is_bare_tie(&items[index]) {
             pieces.push((items[index].clone(), lens[index]));
             end += lens[index];
             position = end;
@@ -1049,17 +1048,27 @@ fn program_snapshot(note: &TrackNote) -> Vec<(String, f32)> {
     snapshot
 }
 
-/// One voice lane (one channel) rendered as a terse `ser!` lane plus
+/// One bar of one lane: compressed display items plus the ambient setup
+/// at the bar's start (for program restatement in bar-major assembly).
+/// `start_setup` is the running setup after the last pre-bar item
+/// (empty for the opening bar).
+pub struct LaneBar {
+    pub bar: u64,
+    pub items: Vec<String>,
+    pub start_setup: HashMap<String, f32>,
+}
+
+/// One voice lane (one channel) rendered as bar-partitioned items plus
 /// extracted `seg_N()` phrase functions. Voice programs recurring across
 /// runs become shared `voice_<role>()` call items (rewritten downstream to
 /// `let` bindings or inline groups); once-only programs stay inline;
-/// tweaks of 2 or fewer keys stay inline diffs. Items lay out one
-/// music bar per line (`bar_ticks` grid ticks per bar; 0 disables), each
-/// with a `// bar N` comment so the lane reads like staff notation.
+/// tweaks of 2 or fewer keys stay inline diffs. Items partition into one
+/// exact bar each (`bar_ticks` grid ticks per bar; 0 disables), with the
+/// ambient start setup recorded per bar for program restatement.
 /// `program_runs` maps program keys to contiguous-run counts (built by
 /// the caller across both sections). `section_end` pads trailing silence
 /// so all lanes share the same bar count (vertical alignment). Returns
-/// lane + segs.
+/// per-bar items + segs; the caller assembles bars into staves.
 pub fn emit_voice(
     notes: &[TrackNote],
     tick_samples: u64,
@@ -1070,7 +1079,7 @@ pub fn emit_voice(
     programs: &mut ProgramReg,
     program_runs: &HashMap<String, usize>,
     section_end: u64,
-) -> (String, Vec<String>) {
+) -> (Vec<LaneBar>, Vec<String>) {
     let tick = tick_samples.max(1);
     let notes = snap_voice(notes, tick);
     let to_ticks = |samples: u64| (samples + tick / 2) / tick;
@@ -1190,15 +1199,17 @@ pub fn emit_voice(
             octave.to_string()
         };
         // Notes are bare atoms now; loudness rides the ambient setup.
-        // Each piece carries its own literal length (head + ties sum to
-        // the true duration), so the bar partition sees exact time.
+        // The head carries the FULL duration and tie pieces ride zero:
+        // ties merge into their head at resolution (no independent
+        // advance), so layout lengths match true time exactly. This keeps
+        // phrase call lengths and bar spans truthful downstream.
         let base = format!("{name}{octave_str}{}", durations[0]);
         items.push(base);
-        item_lens.push(suffix_ticks(durations[0]));
+        item_lens.push(dur_ticks);
         item_setups.push(setup.clone());
         for tie in &durations[1..] {
             items.push(tie.to_string());
-            item_lens.push(suffix_ticks(tie));
+            item_lens.push(0);
             item_setups.push(setup.clone());
         }
         if note.approx {
@@ -1240,49 +1251,68 @@ pub fn emit_voice(
     // bar partition: after splitting nothing crosses a barline, so
     // cumulative lengths give absolute bar numbers. Repeat runs compress
     // within each bar (never across: a run would hide the barline).
-    let (items, mut segs, item_lens) =
+    // Each bar records its start setup (running state after the last
+    // pre-bar item) for program restatement downstream.
+    let (items, mut segs, item_lens, item_setups) =
         extract_phrases(items, item_setups, item_lens, seg_prefix, 8, bar_ticks);
-    let mut bars: Vec<(u64, Vec<String>)> = Vec::new();
+    let mut bars: Vec<LaneBar> = Vec::new();
     let mut position = 0u64;
     let mut current_bar = 0u64;
     let mut current: Vec<String> = Vec::new();
+    let mut current_start_setup: HashMap<String, f32> = HashMap::new();
+    let mut running_setup: HashMap<String, f32> = HashMap::new();
     let mut started = false;
-    for (item, len) in items.iter().zip(item_lens.iter()) {
-        let bar = if bar_ticks > 0 {
+    // Flush the open bar (compressed) with its recorded start setup.
+    for (item, (len, setup)) in items.iter().zip(item_lens.iter().zip(item_setups.iter())) {
+        // Zero-len bare ties merge BACKWARD into their head's atom at
+        // resolution, so they join the head's bar even when sitting
+        // exactly on a barline (forward assignment would strand them at a
+        // fresh ser! start and panic). All other items assign by position
+        // (params/voice calls apply forward to following notes).
+        let bar = if bar_ticks > 0 && *len == 0 && is_bare_tie(item) && started {
+            current_bar
+        } else if bar_ticks > 0 {
             position / bar_ticks
         } else {
             0
         };
         if !started {
             current_bar = bar;
+            current_start_setup = running_setup.clone();
             started = true;
         } else if bar != current_bar {
-            bars.push((current_bar, compress_runs(&current)));
+            bars.push(LaneBar {
+                bar: current_bar,
+                items: compress_runs(&current),
+                start_setup: std::mem::take(&mut current_start_setup),
+            });
             current = Vec::new();
             // Fill wholly-silent bars so numbering stays exact.
             let mut missing = current_bar + 1;
             while missing < bar {
-                bars.push((missing, vec![full_bar_rest(bar_ticks)]));
+                bars.push(LaneBar {
+                    bar: missing,
+                    items: vec![full_bar_rest(bar_ticks)],
+                    start_setup: running_setup.clone(),
+                });
                 missing += 1;
             }
             current_bar = bar;
+            current_start_setup = running_setup.clone();
         }
         current.push(item.clone());
+        running_setup = setup.clone();
         position += len;
     }
     if !current.is_empty() || bars.is_empty() {
-        bars.push((current_bar, compress_runs(&current)));
+        bars.push(LaneBar {
+            bar: current_bar,
+            items: compress_runs(&current),
+            start_setup: current_start_setup,
+        });
     }
-    // One line per bar with a bar-number comment (Rust `//`, stripped by
-    // the macro tokenizer, so playback is unaffected). Reads like staff
-    // systems: `notes // bar 3`.
-    let mut lines: Vec<String> = Vec::new();
-    for (bar, bar_items) in &bars {
-        lines.push(format!("{} // bar {}", bar_items.join(" "), bar + 1));
-    }
-    let lane = format!("ser!(\n{}\n        )", lines.join("\n        "));
     segs.sort();
-    (lane, segs)
+    (bars, segs)
 }
 
 /// Bare duration-tie literal (`q`, `o`, `qdd`, …): extends the previous
@@ -1338,7 +1368,12 @@ fn extract_phrases(
     prefix: &str,
     min_len: usize,
     bar_ticks: u64,
-) -> (Vec<String>, Vec<String>, Vec<u64>) {
+) -> (
+    Vec<String>,
+    Vec<String>,
+    Vec<u64>,
+    Vec<HashMap<String, f32>>,
+) {
     let mut items = items;
     let mut setups = setups;
     let mut lens = lens;
@@ -1414,7 +1449,34 @@ fn extract_phrases(
         let call = format!("{name}()");
         // The call occupies its expansion's tick length for layout.
         let call_len: u64 = lens[first..first + len].iter().sum();
-        // Rebuild: splice calls at all occurrence positions except the first.
+        // Rebuild: splice calls at fitting occurrence positions except the
+        // first. A call must fit its bar (bar-major pars advance exactly
+        // one bar); crossing occurrences stay inline and partition by
+        // position like any items.
+        let pos = item_positions(&lens);
+        let fits = |at: usize| same_bar(pos[at], call_len, bar_ticks);
+        let mut fitting_calls = 0;
+        {
+            let mut k = 0;
+            let mut seen_first = false;
+            while k + len <= items.len() {
+                if items[k..k + len] == items[first..first + len] && setups[k] == setups[first] {
+                    if !seen_first && k == first {
+                        seen_first = true;
+                    } else if fits(k) {
+                        fitting_calls += 1;
+                    }
+                    k += len;
+                } else {
+                    k += 1;
+                }
+            }
+        }
+        // A breakout with no fittable call is pure overhead.
+        if fitting_calls == 0 {
+            segs.pop();
+            break;
+        }
         let mut next_items = Vec::new();
         let mut next_setups = Vec::new();
         let mut next_lens = Vec::new();
@@ -1430,12 +1492,16 @@ fn extract_phrases(
                     next_setups.extend(setups[k..k + len].iter().cloned());
                     next_lens.extend(lens[k..k + len].iter().cloned());
                     first_kept = true;
-                } else {
+                } else if fits(k) {
                     next_items.push(call.clone());
                     // Post-call ambient is the phrase's END state, not its
                     // start: later diffs compare against it.
                     next_setups.push(apply_items(&setups[k], &items[k..k + len]));
                     next_lens.push(call_len);
+                } else {
+                    next_items.extend(items[k..k + len].iter().cloned());
+                    next_setups.extend(setups[k..k + len].iter().cloned());
+                    next_lens.extend(lens[k..k + len].iter().cloned());
                 }
                 k += len;
             } else {
@@ -1452,7 +1518,7 @@ fn extract_phrases(
             break;
         }
     }
-    (items, segs, lens)
+    (items, segs, lens, setups)
 }
 
 fn not_overlapping(i: usize, j: usize, len: usize) -> bool {
@@ -1595,19 +1661,72 @@ fn section_end_ticks(notes: &[TrackNote], tick: u64) -> u64 {
         .unwrap_or(0)
 }
 
-/// Indent every line of a lane block for the mix body.
-fn lane_indent(lane: &str) -> String {
-    lane.replace('\n', "\n        ")
+/// True when a channel-bar needs program restatement: it holds a note
+/// head, legato sustain, or seg call (any NoteOn source). Rest heads and
+/// zero-len items (params, voice calls, comments, repeats, bare ties)
+/// need no program; voices ignore rests.
+fn bar_sounds(items: &[String]) -> bool {
+    items.iter().any(|item| {
+        item.starts_with("legato!(")
+            || (item.ends_with("()")
+                && !item.starts_with("param!(")
+                && !item.starts_with("comment!(")
+                && !item.starts_with("voice_"))
+            || parse_sounding(item)
+                .map(|(pitch, _, _)| pitch.is_some())
+                .unwrap_or(false)
+    })
 }
 
-/// Full song: intro + loop voices, each a terse `ser!` lane inside `par!`.
+/// Program restatement opening a sounding channel-bar: the `voice()`
+/// call for the bar-start snapshot (interned on demand) plus a velocity
+/// param when it differs from default. Empty setups need nothing: the
+/// bar's own items establish everything (lane heads). Voice calls use
+/// the `{name}()` form here; the downstream let/inline pass rewrites them.
+fn restate_bar(
+    reg: &mut ProgramReg,
+    role: &str,
+    instrument: &str,
+    start_setup: &HashMap<String, f32>,
+    bar_items: &[String],
+) -> Vec<String> {
+    if start_setup.is_empty() {
+        return Vec::new();
+    }
+    // Snapshot pairs are the setup minus velocity (instrument rides the key).
+    let mut snapshot: Vec<(String, f32)> = start_setup
+        .iter()
+        .filter(|(key, _)| key.as_str() != "velocity")
+        .map(|(key, value)| (key.clone(), *value))
+        .collect();
+    snapshot.sort_by(|a, b| a.0.cmp(&b.0));
+    let voice = reg.intern(role, instrument, snapshot);
+    let call = format!("{voice}()");
+    let mut prefix = Vec::new();
+    // The bar's own head program already establishes everything.
+    let opens_with_program = bar_items
+        .first()
+        .map(|first| first == &call || first.starts_with("param!(instrument="))
+        .unwrap_or(false);
+    if !opens_with_program {
+        prefix.push(call);
+    }
+    if let Some(velocity) = start_setup.get("velocity") {
+        if (velocity - 100.0).abs() > 1e-6 {
+            prefix.push(format!("param!(velocity={velocity})"));
+        }
+    }
+    prefix
+}
+
+/// Full song: intro + loop voices as bar-major scores — outer `ser!` of
+/// per-bar `par!`s, each a score-ordered stack of channel `ser!`s.
 /// `voices`: (instrument, role, intro notes, loop notes). `tempo` heads
-/// the mix; `bar_ticks` is grid ticks per bar for the lane layout.
+/// the mix; `bar_ticks` is grid ticks per bar for the layout.
 /// Voice programs bind once per song fn as `let voice_*` variables
 /// (`voice.clone()` splices); single-use programs inline as `param!(...)`.
-/// Lanes emit in score order (melody on top, drums at the
-/// bottom) with one `// bar N` line per bar so the parts read like staff
-/// systems and align vertically.
+/// Every sounding channel restates its program per bar (par branches
+/// reset ambient); rest-only bars carry bare rests.
 pub fn emit_song(
     name: &str,
     voices: &[(String, String, Vec<TrackNote>, Vec<TrackNote>)],
@@ -1630,8 +1749,8 @@ pub fn emit_song(
         .map(|(_, _, _, looping)| section_end_ticks(looping, tick))
         .max()
         .unwrap_or(0);
-    let mut intro_lanes: Vec<String> = Vec::new();
-    let mut loop_lanes: Vec<String> = Vec::new();
+    let mut intro_lanes: Vec<(String, String, Vec<LaneBar>)> = Vec::new();
+    let mut loop_lanes: Vec<(String, String, Vec<LaneBar>)> = Vec::new();
     let mut seg_defs: Vec<String> = Vec::new();
     // One program registry per role, shared across intro and loop so a
     // program used in both binds under one name in each song fn.
@@ -1647,7 +1766,7 @@ pub fn emit_song(
         };
         let reg = &mut regs[reg_index].1;
         let program_runs = program_run_counts(intro, looping, instrument);
-        let (intro_src, mut intro_segs) = emit_voice(
+        let (intro_bars, mut intro_segs) = emit_voice(
             intro,
             tick_samples,
             instrument,
@@ -1658,7 +1777,7 @@ pub fn emit_song(
             &program_runs,
             intro_end,
         );
-        let (loop_src, mut loop_segs) = emit_voice(
+        let (loop_bars, mut loop_segs) = emit_voice(
             looping,
             tick_samples,
             instrument,
@@ -1669,19 +1788,78 @@ pub fn emit_song(
             &program_runs,
             loop_end,
         );
-        // Staff labels: `// melody (psg)` above each lane, like an
-        // instrument name at the start of a staff system.
-        intro_lanes.push(format!(
-            "        // {role} ({instrument})\n        {}",
-            lane_indent(&intro_src)
-        ));
-        loop_lanes.push(format!(
-            "        // {role} ({instrument})\n        {}",
-            lane_indent(&loop_src)
-        ));
+        intro_lanes.push((role.clone(), instrument.clone(), intro_bars));
+        loop_lanes.push((role.clone(), instrument.clone(), loop_bars));
         seg_defs.append(&mut intro_segs);
         seg_defs.append(&mut loop_segs);
     }
+    // Bar-major assembly: outer ser of per-bar pars, each a score-ordered
+    // stack of channel sers. Par branches reset ambient, so every sounding
+    // channel restates its program (voice call + velocity); rest-only bars
+    // need nothing (voices ignore rests).
+    fn assemble_section(
+        lanes: &[(String, String, Vec<LaneBar>)],
+        regs: &mut [(String, ProgramReg)],
+        bar_ticks: u64,
+    ) -> String {
+        let nbars = lanes
+            .iter()
+            .map(|(_, _, bars)| bars.len())
+            .max()
+            .unwrap_or(0);
+        let mut bar_texts: Vec<String> = Vec::new();
+        for bar_idx in 0..nbars {
+            let mut channels: Vec<String> = Vec::new();
+            for (role, instrument, bars) in lanes {
+                let reg = regs
+                    .iter_mut()
+                    .find(|(name, _)| name == role)
+                    .map(|(_, reg)| reg)
+                    .expect("registry per role");
+                let (items, start_setup) = match bars.get(bar_idx) {
+                    Some(bar) => (bar.items.clone(), bar.start_setup.clone()),
+                    None => (vec![full_bar_rest(bar_ticks)], HashMap::new()),
+                };
+                let mut ch_items = if bar_sounds(&items) {
+                    restate_bar(reg, role, instrument, &start_setup, &items)
+                } else {
+                    Vec::new()
+                };
+                ch_items.extend(items);
+                // Staff labels on the first system only (sheet-music
+                // convention); order stays fixed after that.
+                if bar_idx == 0 {
+                    channels.push(format!(
+                        "            // {role} ({instrument})\n            ser!({})",
+                        ch_items.join(" ")
+                    ));
+                } else {
+                    channels.push(format!("            ser!({})", ch_items.join(" ")));
+                }
+            }
+            let bar_no = lanes
+                .iter()
+                .filter_map(|(_, _, bars)| bars.get(bar_idx).map(|bar| bar.bar))
+                .next()
+                .unwrap_or(bar_idx as u64);
+            bar_texts.push(format!(
+                "        par!( // bar {}\n{},\n        )",
+                bar_no + 1,
+                channels.join(",\n")
+            ));
+        }
+        bar_texts.join(",\n")
+    }
+    // Assemble bar-major mixes (interning restatement programs on demand),
+    // then collect the full program list including those.
+    let mut intro_mix = assemble_section(&intro_lanes, &mut regs, bar_ticks);
+    let mut loop_mix = assemble_section(&loop_lanes, &mut regs, bar_ticks);
+    // Staff order headline (first-system labels live on bar 1).
+    let staff_order = ordered
+        .iter()
+        .map(|(instrument, role, _, _)| format!("{role} ({instrument})"))
+        .collect::<Vec<_>>()
+        .join(", ");
     // Collect programs in first-use order across all roles.
     let programs: Vec<(String, String, Vec<(String, f32)>, String)> = regs
         .iter()
@@ -1699,9 +1877,7 @@ pub fn emit_song(
             }
         }
     }
-    let mut intro_mix = intro_lanes.join(",\n");
-    let mut loop_mix = loop_lanes.join(",\n");
-    // Lane programs: a single call site inlines the `param!(...)` group;
+    // Bar programs: a single call site inlines the `param!(...)` group;
     // the rest bind once per song fn (`let voice: Note`) and splice via
     // `voice.clone()` (same nested-serial value a `voice()` call returned).
     let mut intro_lets: Vec<String> = Vec::new();
@@ -1745,20 +1921,20 @@ pub fn emit_song(
     format!(
         "/// Decompiled `{name}` (tempo {tempo}, bar = {bar_ticks} ticks).\n\
          /// `{name}` plays the intro once; `loop_{name}` is the looping body.\n\
-         /// Terse form (no brackets, space-separated): one `// bar N` line\n\
-         /// per bar, lanes in score order (melody on top, drums at the\n\
-         /// bottom) so parts align vertically like staff systems;\n\
-         /// `#[rustfmt::skip]` keeps it. Voice programs bind once per song\n\
-         /// fn as `let voice_*` variables (`voice.clone()` splices them);\n\
-         /// single-use programs inline as `param!(...)`; `seg_*()` phrases\n\
-         /// are bar-local repeats.\n\
+         /// Bar-major score: outer `ser!` of `par!` bars, each a stack of\n\
+         /// channel `ser!`s in score order ({staff_order}); every sounding\n\
+         /// channel restates its voice (`#[rustfmt::skip]` keeps it).\n\
+         /// Voice programs bind once per song fn as `let voice_*`\n\
+         /// variables (`voice.clone()` splices them); single-use programs\n\
+         /// inline as `param!(...)`; `seg_*()` phrases are bar-local repeats;\n\
+         /// cross-bar sustains are `legato!` plus rest cover.\n\
          use mmlx_core::prelude::*;\n\
          \n\
          {segs}\
          #[rustfmt::skip]\n\
          pub fn {name}() -> Note {{\n\
          {intro_lets_block}\
-         \x20   par!(\n\
+         \x20   ser!(\n\
          \x20       param!(tempo={tempo}),\n\
          {intro}\n\
          \x20   )\n\
@@ -1767,7 +1943,7 @@ pub fn emit_song(
          #[rustfmt::skip]\n\
          pub fn loop_{name}() -> Note {{\n\
          {loop_lets_block}\
-         \x20   par!(\n\
+         \x20   ser!(\n\
          \x20       param!(tempo={tempo}),\n\
          {lp}\n\
          \x20   )\n\

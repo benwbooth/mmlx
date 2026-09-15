@@ -142,4 +142,10 @@ fn emitter_is_exact_and_compressed() {
     assert!(src.contains("ym_algo"), "raw program");
     assert!(!src.contains("ser!(['"), "terse lanes:\n{src}");
     assert!(!src.contains("par!(["), "terse mix:\n{src}");
+    // Bar-major score: outer ser of per-bar pars with channel sers.
+    assert!(src.contains("par!( // bar 1"), "bar pars:\n{src}");
+    assert!(
+        src.contains("param!(instrument=\"ym\""),
+        "inline program:\n{src}"
+    );
 }

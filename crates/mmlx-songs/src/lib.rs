@@ -139,6 +139,9 @@ mod tests {
                 MusicalEventType::Rest { .. } => rest_count += 1,
                 MusicalEventType::SetParameter { .. } => param_count += 1,
                 MusicalEventType::Comment(_) => comment_count += 1,
+                // Internal advance-accounting marker; never escapes into
+                // final streams (par heaps consume it).
+                MusicalEventType::BranchEnd => {}
             }
         }
         assert!(on > 20, "expected many notes, got {on}");

@@ -105,22 +105,30 @@ passes through as one expression.
 | `forkpar!([...])` | **0** | isolated clone | parallel fork alongside siblings. |
 | `repeat!(n)` → `RepeatMarker(n)` | repeats previous item `n` extra times | inherits context at each repetition | must follow atom/rest/`ser`/`par`; `0` = no-op. See §5.4. |
 | `comment!("...")` | 0 | none | yields `Comment` event for logging/highlight. |
+| `legato!(note, t)` → `Legato` | `t` 128th-note ticks | inner sounds with ambient + baked params (tempo read like its atom) | sounds full duration (NoteOff at true end); rests cover the span. Tied-over-barline sustain. |
 
 `ser!([c4q, forkser!([e4q, g4q]), d4q])`: `e+g` starts at `c4q` end, runs alongside `d4q`.
 
-Nesting is free: `par!([ser!([...]), ser!([...])])` is the standard multi-voice pattern.
+Nesting is free: `par!([ser!([...]), ser!([...])])` is the standard multi-voice pattern;
+decompiled songs use the bar-major form `ser!(par!(ser!(...) ...), ...)` —
+one `par!` per bar, one channel `ser!` per staff.
 
 Voice programs as variables: a `ser!` holding only `param!` setters splices
 like any nested block — its params leak forward to following siblings
 (`nested_ser_shares_ambient_params`). Decompiled songs bind each recurring
 voice program once per song fn as `let voice_<role>: Note` and splice
-`voice.clone()`, so a lane reads as program changes plus notes; programs
+`voice.clone()`, so a bar reads as program changes plus notes; programs
 used exactly once inline as `param!(...)` and small tweaks stay inline
-`param!` diffs. Lanes emit in score order
-(melody on top, drums at the bottom) with one `// bar N` line per bar, so
-parts align vertically like staff systems. Repeated phrases recurring 3+
-times with net savings extract to bar-local `seg_*()` functions (never
-crossing a barline, never opening with a bare tie).
+`param!` diffs. Bars emit channels in score order
+(melody on top, drums at the bottom) with one `par! // bar N` per bar, so
+parts align vertically like staff systems. Every sounding channel restates
+its program per bar (par branches reset ambient); rest-only bars carry bare
+rests. Repeated phrases recurring 3+
+times with net savings extract to bar-local `seg_*()` functions (fitting
+their bar; crossing occurrences stay inline). Cross-bar sustains are
+`legato!` plus rest cover, so no bar opens with a bare tie. Advance
+accounting uses branch logical ends (`BranchEnd` markers, consumed by par
+heaps): sustain overhang never extends a bar.
 
 ---
 
