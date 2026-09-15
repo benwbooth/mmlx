@@ -7,4 +7,6 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+clack-common = "0.2"
 clack-plugin = "0.2"
+clack-extensions = { version = "0.2", features = ["clack-plugin", "params"] }
