@@ -31,7 +31,8 @@ static VALID_PARAM_KEYS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "gate", // Gate parameter
         "pan",
         "bus",
-        "send", // Mixer: stereo pan + routing (Phase 5 text DAW)
+        "send",     // Mixer: stereo pan + routing (Phase 5 text DAW)
+        "send_bus", // Mixer: send target bus
         "cutoff",
         "resonance", // Filter: SID-style lowpass (mmlx-chip)
     ]

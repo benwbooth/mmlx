@@ -4,6 +4,10 @@
 //! biquads (design inspired by Kog's 31-band EQ; own implementation).
 //! Effects run on `&mut [[f32; 2]]` sample buffers, after instruments mix.
 
+pub mod routing;
+
+pub use routing::{mix_segment, route_event, BusState};
+
 use std::f32::consts::PI;
 
 /// One peaking biquad section (Direct Form I).

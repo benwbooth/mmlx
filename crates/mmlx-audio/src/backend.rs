@@ -3,62 +3,13 @@ use anyhow::Result;
 use cpal::traits::{DeviceTrait, HostTrait};
 use cpal::Stream;
 use log::{debug, error, info, warn};
-use mmlx_core::{Instrument, MusicalEventType, ParamValue, TimedMusicalEvent};
-use mmlx_fx::BusMixer;
+use mmlx_core::{Instrument, MusicalEventType};
+use mmlx_fx::routing::{mix_segment, route_event, BusState};
 use mmlx_synth::BasicSynth;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex}; // Import Stream
 
-// Text-DAW routing: which mix bus each instrument renders into.
-// Updated live from `param!(bus = "...")` SetParameter events.
-struct BusState {
-    bus_of: HashMap<String, String>,
-    mixer: BusMixer,
-}
-
-fn route_event(state: &mut BusState, event: &TimedMusicalEvent) {
-    if let MusicalEventType::SetParameter { key, value } = &event.event {
-        if key == "bus" {
-            match value {
-                ParamValue::String(bus) => {
-                    state
-                        .bus_of
-                        .insert(event.instrument_name.clone(), bus.clone());
-                }
-                ParamValue::Unset => {
-                    state.bus_of.remove(&event.instrument_name);
-                }
-                _ => {}
-            }
-        }
-    }
-}
-
-/// Render every instrument into its bus buffer, then sum buses to `out`.
-/// `out` must be zeroed by the caller; unrouted instruments go to "main".
-fn mix_segment(
-    instruments: &[(String, Arc<Mutex<dyn Instrument>>)],
-    state: &BusState,
-    out: &mut [[f32; 2]],
-    rate: usize,
-) {
-    let mut buses: HashMap<String, Vec<[f32; 2]>> = HashMap::new();
-    for (name, inst_arc) in instruments {
-        let samples = inst_arc.lock().unwrap().generate_samples(out.len(), rate);
-        let bus = state.bus_of.get(name).map(String::as_str).unwrap_or("main");
-        let entry = buses
-            .entry(bus.to_string())
-            .or_insert_with(|| vec![[0.0; 2]; out.len()]);
-        for (frame, sample) in entry.iter_mut().zip(samples.iter()) {
-            frame[0] += sample[0];
-            frame[1] += sample[1];
-        }
-    }
-    for (i, frame) in state.mixer.mixdown(&buses).iter().enumerate() {
-        out[i][0] += frame[0];
-        out[i][1] += frame[1];
-    }
-}
+// Bus routing lives in mmlx_fx::routing (shared, headless-testable).
 
 /// Sets up the audio host, device, stream, and shared state.
 ///
@@ -142,10 +93,7 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
     let eq_clone = event_queue.clone();
     let im_clone = instruments_map.clone();
     let st_clone = synth_time.clone();
-    let bus_clone: Arc<Mutex<BusState>> = Arc::new(Mutex::new(BusState {
-        bus_of: HashMap::new(),
-        mixer: BusMixer::new(),
-    }));
+    let bus_clone: Arc<Mutex<BusState>> = Arc::new(Mutex::new(BusState::new()));
     let mut samples_generated: u64 = 0;
     let mut last_callback_time = std::time::Instant::now();
     let mut callback_count = 0;
