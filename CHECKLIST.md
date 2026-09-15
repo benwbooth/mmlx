@@ -65,9 +65,10 @@ then commit + push after every feature/fix.
 
 ## Phase 5 — AI text DAW
 
-- [x] Mixer text encoding: `pan` (BasicSynth equal-power), `bus`/`send`
-  keys reserved; automation via envelopes on any target
-- [x] `mmlx-fx::BusMixer` mix stage (gain/master math test)
+- [x] Mixer text encoding: `pan` (BasicSynth equal-power), `bus`/`send`/
+  `send_bus` keys; automation via envelopes on any target
+- [x] `mmlx-fx` routing: `BusState`/`mix_segment` with sends, headless tests;
+  backend reuses the shared module
 - [x] Agent helpers: `humanize` (seeded velocity/gate jitter),
   `harmonize` (interval stacks), `continue_melody` (Markov), all tested
 - [x] Mixer bus rendering in backend (per-bus buffers into BusMixer,
