@@ -258,6 +258,43 @@ mod tests {
     }
 
     #[test]
+    fn nested_ser_shares_ambient_params() {
+        // Voice-program variables splice as nested ser! blocks; their
+        // params must leak forward to following siblings (event-time
+        // ambient threading, matching generate_events_recursive).
+        use mmlx_core::ParamValue;
+        fn tl_of(song: &Note, midi: u8) -> f32 {
+            song.event_stream(0.0)
+                .filter_map(|event| match &event.event {
+                    MusicalEventType::NoteOn {
+                        pitch_midi,
+                        parameters,
+                        ..
+                    } if *pitch_midi == midi => match parameters.get("op4_tl") {
+                        Some(ParamValue::Number(tl)) => Some(*tl),
+                        _ => None,
+                    },
+                    _ => None,
+                })
+                .next()
+                .unwrap_or(-1.0)
+        }
+        let nested = ser!([ser!([param!(op4_tl = 9)]), c4q]);
+        let flat = ser!([param!(op4_tl = 9), c4q]);
+        assert_eq!(tl_of(&nested, 60), 9.0);
+        assert_eq!(tl_of(&nested, 60), tl_of(&flat, 60));
+        // And programs can change mid-lane through nested blocks.
+        let swap = ser!([
+            ser!([param!(op4_tl = 9)]),
+            c4q,
+            ser!([param!(op4_tl = 22)]),
+            d4q,
+        ]);
+        assert_eq!(tl_of(&swap, 60), 9.0);
+        assert_eq!(tl_of(&swap, 62), 22.0);
+    }
+
+    #[test]
     fn envelopes_evaluate() {
         let probe = env!(q0, e1, h0.5, q0);
         let mmlx_core::Note::Envelope(envelope) = probe else {
