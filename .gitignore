@@ -1,3 +1,4 @@
 /target/
 # NOTE: Cargo.lock is intentionally tracked — this workspace ships a binary
 # (mmlx-repl), so reproducible builds matter.
+/.direnv/
