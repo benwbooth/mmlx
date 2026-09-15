@@ -37,15 +37,67 @@ const ACCIDENTALS: [(&str, i8); 7] = [
     ("nn", 0),
 ];
 
+fn gcd(mut a: u32, mut b: u32) -> u32 {
+    while b != 0 {
+        let t = b;
+        b = a % b;
+        a = t;
+    }
+    a.max(1)
+}
+
+/// Musical value words: ("quarter note (1/4)"), dots 0-3 add dotting.
+/// Human-readable pitch: "middle C (C4), MIDI 60".
+fn pitch_words(letter: &str, acc_sym: &str, octave: i32, midi: i32) -> String {
+    let spelled = format!("{}{}{}", letter.to_uppercase(), acc_sym, octave);
+    if letter == "c" && acc_sym.is_empty() && octave == 4 {
+        format!("middle C ({spelled}), MIDI {midi}")
+    } else {
+        format!("{spelled}, MIDI {midi}")
+    }
+}
+
+fn value_words(code: &str, dots: u8) -> String {
+    let (name, num, den) = match code {
+        "w" => ("whole", 1, 1),
+        "h" => ("half", 1, 2),
+        "q" => ("quarter", 1, 4),
+        "e" => ("eighth", 1, 8),
+        "i" => ("sixteenth", 1, 16),
+        "t" => ("thirty-second", 1, 32),
+        "x" => ("sixty-fourth", 1, 64),
+        _ => ("hundred-twenty-eighth", 1, 128),
+    };
+    let (dotted, mult_num, mult_den) = match dots {
+        1 => ("dotted ", 3, 2),
+        2 => ("double-dotted ", 7, 4),
+        3 => ("triple-dotted ", 15, 8),
+        _ => ("", 1, 1),
+    };
+    let (mut num, mut den) = (num * mult_num, den * mult_den);
+    let g = gcd(num, den);
+    num /= g;
+    den /= g;
+    format!("{dotted}{name} note ({num}/{den})")
+}
+
 // --- Macro 1: Generate Rest Notes (rw, rhd, etc.) ---
 #[proc_macro]
 pub fn generate_rest_notes(_input: TokenStream) -> TokenStream {
     let mut tokens = proc_macro2::TokenStream::new();
     for &(code, base_dur) in &DURATIONS {
         // Function to generate the macro_rules! definition
-        let generate_macro = |ident: &Ident, const_ident: &Ident| -> proc_macro2::TokenStream {
+        let generate_macro = |ident: &Ident,
+                              const_ident: &Ident,
+                              doc: String|
+         -> proc_macro2::TokenStream {
+            let name = ident.to_string();
+            let macrodock = format!(
+                "{doc}\n\nMacro form — attach per-note attributes, e.g. `{name}!(velocity = 90)`."
+            );
             quote! {
                 #[macro_export]
+                #[doc = #macrodock]
                 macro_rules! #ident {
                     () => { $crate::play::note::#const_ident };
                     // --- Updated pattern to allow optional value ---
@@ -92,14 +144,16 @@ pub fn generate_rest_notes(_input: TokenStream) -> TokenStream {
         let ident = Ident::new(&name, proc_macro2::Span::call_site());
         let const_ident = ident.clone(); // Use the same ident for the const
         let doc = format!(
-            "Rest `{}` — {} whole notes of silence. Per-note attrs: `{}!(...)`.",
-            const_ident, base_dur, const_ident
+            "Rest `{}` \u{2014} {} of silence. Per-note attrs: `{}!(...)`.",
+            const_ident,
+            value_words(code, 0),
+            const_ident
         );
         tokens.extend(quote! {
             #[doc = #doc]
             pub const #const_ident: Note = Note::Rest { duration: #dur_lit, parameters: Vec::new() };
         });
-        tokens.extend(generate_macro(&ident, &const_ident));
+        tokens.extend(generate_macro(&ident, &const_ident, doc.clone()));
 
         // dotted duration rest
         let dot_dur = base_dur * 1.5;
@@ -108,14 +162,16 @@ pub fn generate_rest_notes(_input: TokenStream) -> TokenStream {
         let ident_dot = Ident::new(&name_dot, proc_macro2::Span::call_site());
         let const_ident_dot = ident_dot.clone();
         let doc = format!(
-            "Rest `{}` — {} whole notes of silence. Per-note attrs: `{}!(...)`.",
-            const_ident_dot, dot_dur, const_ident_dot
+            "Rest `{}` \u{2014} {} of silence. Per-note attrs: `{}!(...)`.",
+            const_ident_dot,
+            value_words(code, 1),
+            const_ident_dot
         );
         tokens.extend(quote! {
             #[doc = #doc]
             pub const #const_ident_dot: Note = Note::Rest { duration: #dot_lit, parameters: Vec::new() };
         });
-        tokens.extend(generate_macro(&ident_dot, &const_ident_dot));
+        tokens.extend(generate_macro(&ident_dot, &const_ident_dot, doc.clone()));
 
         // double-dotted duration rest
         let ddot_dur = base_dur * 1.75;
@@ -124,14 +180,16 @@ pub fn generate_rest_notes(_input: TokenStream) -> TokenStream {
         let ident_ddot = Ident::new(&name_ddot, proc_macro2::Span::call_site());
         let const_ident_ddot = ident_ddot.clone();
         let doc = format!(
-            "Rest `{}` — {} whole notes of silence. Per-note attrs: `{}!(...)`.",
-            const_ident_ddot, ddot_dur, const_ident_ddot
+            "Rest `{}` \u{2014} {} of silence. Per-note attrs: `{}!(...)`.",
+            const_ident_ddot,
+            value_words(code, 2),
+            const_ident_ddot
         );
         tokens.extend(quote! {
             #[doc = #doc]
             pub const #const_ident_ddot: Note = Note::Rest { duration: #ddot_lit, parameters: Vec::new() };
         });
-        tokens.extend(generate_macro(&ident_ddot, &const_ident_ddot));
+        tokens.extend(generate_macro(&ident_ddot, &const_ident_ddot, doc.clone()));
 
         // triple-dotted duration rest
         let tdot_dur = base_dur * 1.875;
@@ -140,14 +198,16 @@ pub fn generate_rest_notes(_input: TokenStream) -> TokenStream {
         let ident_tdot = Ident::new(&name_tdot, proc_macro2::Span::call_site());
         let const_ident_tdot = ident_tdot.clone();
         let doc = format!(
-            "Rest `{}` — {} whole notes of silence. Per-note attrs: `{}!(...)`.",
-            const_ident_tdot, tdot_dur, const_ident_tdot
+            "Rest `{}` \u{2014} {} of silence. Per-note attrs: `{}!(...)`.",
+            const_ident_tdot,
+            value_words(code, 3),
+            const_ident_tdot
         );
         tokens.extend(quote! {
             #[doc = #doc]
             pub const #const_ident_tdot: Note = Note::Rest { duration: #tdot_lit, parameters: Vec::new() };
         });
-        tokens.extend(generate_macro(&ident_tdot, &const_ident_tdot));
+        tokens.extend(generate_macro(&ident_tdot, &const_ident_tdot, doc.clone()));
     }
     tokens.into()
 }
@@ -160,8 +220,9 @@ pub fn generate_duration_ties(_input: TokenStream) -> TokenStream {
         let dur_lit = LitFloat::new(&format!("{}f32", base_dur), proc_macro2::Span::call_site());
         let ident = Ident::new(code, proc_macro2::Span::call_site());
         let doc = format!(
-            "Duration tie `{}` — extends the previous note/rest by {} whole notes.",
-            ident, base_dur
+            "Duration tie `{}` \u{2014} {}: extends the previous note or rest.",
+            ident,
+            value_words(code, 0)
         );
         tokens
             .extend(quote! { #[doc = #doc] pub const #ident: Note = Note::DurationTie { duration: #dur_lit }; });
@@ -170,8 +231,9 @@ pub fn generate_duration_ties(_input: TokenStream) -> TokenStream {
         let dot_lit = LitFloat::new(&format!("{}f32", dot_dur), proc_macro2::Span::call_site());
         let ident_dot = Ident::new(&format!("{}d", code), proc_macro2::Span::call_site());
         let doc = format!(
-            "Duration tie `{}` — extends the previous note/rest by {} whole notes.",
-            ident_dot, dot_dur
+            "Duration tie `{}` \u{2014} {}: extends the previous note or rest.",
+            ident_dot,
+            value_words(code, 1)
         );
         tokens.extend(
             quote! { #[doc = #doc] pub const #ident_dot: Note = Note::DurationTie { duration: #dot_lit }; },
@@ -181,8 +243,9 @@ pub fn generate_duration_ties(_input: TokenStream) -> TokenStream {
         let ddot_lit = LitFloat::new(&format!("{}f32", ddot_dur), proc_macro2::Span::call_site());
         let ident_ddot = Ident::new(&format!("{}dd", code), proc_macro2::Span::call_site());
         let doc = format!(
-            "Duration tie `{}` — extends the previous note/rest by {} whole notes.",
-            ident_ddot, ddot_dur
+            "Duration tie `{}` \u{2014} {}: extends the previous note or rest.",
+            ident_ddot,
+            value_words(code, 2)
         );
         tokens.extend(
             quote! { #[doc = #doc] pub const #ident_ddot: Note = Note::DurationTie { duration: #ddot_lit }; },
@@ -192,8 +255,9 @@ pub fn generate_duration_ties(_input: TokenStream) -> TokenStream {
         let tdot_lit = LitFloat::new(&format!("{}f32", tdot_dur), proc_macro2::Span::call_site());
         let ident_tdot = Ident::new(&format!("{}ddd", code), proc_macro2::Span::call_site());
         let doc = format!(
-            "Duration tie `{}` — extends the previous note/rest by {} whole notes.",
-            ident_tdot, tdot_dur
+            "Duration tie `{}` \u{2014} {}: extends the previous note or rest.",
+            ident_tdot,
+            value_words(code, 3)
         );
         tokens.extend(
             quote! { #[doc = #doc] pub const #ident_tdot: Note = Note::DurationTie { duration: #tdot_lit }; },
@@ -208,9 +272,17 @@ pub fn generate_previous_pitch_notes(_input: TokenStream) -> TokenStream {
     let mut tokens = proc_macro2::TokenStream::new();
 
     // Function to generate the macro_rules! definition (same as above)
-    let generate_macro = |ident: &Ident, const_ident: &Ident| -> proc_macro2::TokenStream {
+    let generate_macro = |ident: &Ident,
+                          const_ident: &Ident,
+                          doc: String|
+     -> proc_macro2::TokenStream {
+        let name = ident.to_string();
+        let macrodock = format!(
+                "{doc}\n\nMacro form \u{2014} attach per-note attributes, e.g. `{name}!(velocity = 90)`.",
+            );
         quote! {
             #[macro_export]
+            #[doc = #macrodock]
             macro_rules! #ident {
                 () => { $crate::play::note::#const_ident };
                 ($($key:ident = $($value:expr)? ),* $(,)?) => {{
@@ -233,14 +305,14 @@ pub fn generate_previous_pitch_notes(_input: TokenStream) -> TokenStream {
     let p_ident = Ident::new("p", proc_macro2::Span::call_site());
     let const_p_ident = p_ident.clone();
     let doc = format!(
-        "Previous-pitch note `{}` — repeats the last pitch and its duration.",
+        "Previous-pitch note `{}` \u{2014} repeats the last pitch and takes the previous duration.",
         const_p_ident
     );
     tokens.extend(quote! {
         #[doc = #doc]
         pub const #const_p_ident: Note = Note::PreviousPitch { optional_duration: None, parameters: Vec::new() };
     });
-    tokens.extend(generate_macro(&p_ident, &const_p_ident));
+    tokens.extend(generate_macro(&p_ident, &const_p_ident, doc.clone()));
 
     // Generate 'p' constants with durations
     for &(code, base_dur) in &DURATIONS {
@@ -248,56 +320,60 @@ pub fn generate_previous_pitch_notes(_input: TokenStream) -> TokenStream {
         let ident = Ident::new(&format!("p{}", code), proc_macro2::Span::call_site());
         let const_ident = ident.clone();
         let doc = format!(
-            "Previous-pitch note `{}` — repeats the last pitch, {} whole notes.",
-            const_ident, base_dur
+            "Previous-pitch note `{}` \u{2014} repeats the last pitch, {}.",
+            const_ident,
+            value_words(code, 0)
         );
         tokens.extend(quote! {
             #[doc = #doc]
             pub const #const_ident: Note = Note::PreviousPitch { optional_duration: Some(#dur_lit), parameters: Vec::new() };
         });
-        tokens.extend(generate_macro(&ident, &const_ident));
+        tokens.extend(generate_macro(&ident, &const_ident, doc.clone()));
 
         let dot_dur = base_dur * 1.5;
         let dot_lit = LitFloat::new(&format!("{}f32", dot_dur), proc_macro2::Span::call_site());
         let ident_dot = Ident::new(&format!("p{}d", code), proc_macro2::Span::call_site());
         let const_ident_dot = ident_dot.clone();
         let doc = format!(
-            "Previous-pitch note `{}` — repeats the last pitch, {} whole notes.",
-            const_ident_dot, dot_dur
+            "Previous-pitch note `{}` \u{2014} repeats the last pitch, {}.",
+            const_ident_dot,
+            value_words(code, 1)
         );
         tokens.extend(quote! {
             #[doc = #doc]
             pub const #const_ident_dot: Note = Note::PreviousPitch { optional_duration: Some(#dot_lit), parameters: Vec::new() };
         });
-        tokens.extend(generate_macro(&ident_dot, &const_ident_dot));
+        tokens.extend(generate_macro(&ident_dot, &const_ident_dot, doc.clone()));
 
         let ddot_dur = base_dur * 1.75;
         let ddot_lit = LitFloat::new(&format!("{}f32", ddot_dur), proc_macro2::Span::call_site());
         let ident_ddot = Ident::new(&format!("p{}dd", code), proc_macro2::Span::call_site());
         let const_ident_ddot = ident_ddot.clone();
         let doc = format!(
-            "Previous-pitch note `{}` — repeats the last pitch, {} whole notes.",
-            const_ident_ddot, ddot_dur
+            "Previous-pitch note `{}` \u{2014} repeats the last pitch, {}.",
+            const_ident_ddot,
+            value_words(code, 2)
         );
         tokens.extend(quote! {
             #[doc = #doc]
             pub const #const_ident_ddot: Note = Note::PreviousPitch { optional_duration: Some(#ddot_lit), parameters: Vec::new() };
         });
-        tokens.extend(generate_macro(&ident_ddot, &const_ident_ddot));
+        tokens.extend(generate_macro(&ident_ddot, &const_ident_ddot, doc.clone()));
 
         let tdot_dur = base_dur * 1.875;
         let tdot_lit = LitFloat::new(&format!("{}f32", tdot_dur), proc_macro2::Span::call_site());
         let ident_tdot = Ident::new(&format!("p{}ddd", code), proc_macro2::Span::call_site());
         let const_ident_tdot = ident_tdot.clone();
         let doc = format!(
-            "Previous-pitch note `{}` — repeats the last pitch, {} whole notes.",
-            const_ident_tdot, tdot_dur
+            "Previous-pitch note `{}` \u{2014} repeats the last pitch, {}.",
+            const_ident_tdot,
+            value_words(code, 3)
         );
         tokens.extend(quote! {
             #[doc = #doc]
             pub const #const_ident_tdot: Note = Note::PreviousPitch { optional_duration: Some(#tdot_lit), parameters: Vec::new() };
         });
-        tokens.extend(generate_macro(&ident_tdot, &const_ident_tdot));
+        tokens.extend(generate_macro(&ident_tdot, &const_ident_tdot, doc.clone()));
     }
     tokens.into()
 }
@@ -329,9 +405,17 @@ pub fn generate_pitched_notes_octave(input: TokenStream) -> TokenStream {
     let mut tokens = proc_macro2::TokenStream::new();
 
     // Function to generate the macro_rules! definition (same as above)
-    let generate_macro = |ident: &Ident, const_ident: &Ident| -> proc_macro2::TokenStream {
+    let generate_macro = |ident: &Ident,
+                          const_ident: &Ident,
+                          doc: String|
+     -> proc_macro2::TokenStream {
+        let name = ident.to_string();
+        let macrodock = format!(
+                "{doc}\n\nMacro form \u{2014} attach per-note attributes, e.g. `{name}!(velocity = 90)`.",
+            );
         quote! {
             #[macro_export]
+            #[doc = #macrodock]
             macro_rules! #ident {
                 () => { $crate::play::note::#const_ident };
                 ($($key:ident = $($value:expr)? ),* $(,)?) => {{
@@ -375,20 +459,17 @@ pub fn generate_pitched_notes_octave(input: TokenStream) -> TokenStream {
                     _ => "",
                 };
                 let doc = format!(
-                    "Note `{}` — {}{}{}, MIDI {}, {} whole notes. Per-note attrs: `{}!(...)`.",
+                    "Note `{}` \u{2014} {}. {}. Per-note attrs: `{}!(...)`.",
                     const_ident,
-                    letter.to_uppercase(),
-                    acc_sym,
-                    octave_i32,
-                    midi_u8,
-                    base_dur,
+                    pitch_words(letter, &acc_sym, octave_i32, midi_i32),
+                    value_words(code, 0),
                     const_ident
                 );
                 tokens.extend(quote! {
                     #[doc = #doc]
                     pub const #const_ident: Note = Note::Atom { midi: #midi_u8, duration: #dur_lit, parameters: Vec::new()};
                     });
-                tokens.extend(generate_macro(&ident, &const_ident));
+                tokens.extend(generate_macro(&ident, &const_ident, doc.clone()));
 
                 // dotted duration
                 let dot_dur = base_dur * 1.5;
@@ -405,20 +486,17 @@ pub fn generate_pitched_notes_octave(input: TokenStream) -> TokenStream {
                     _ => "",
                 };
                 let doc = format!(
-                    "Note `{}` — {}{}{}, MIDI {}, {} whole notes. Per-note attrs: `{}!(...)`.",
+                    "Note `{}` \u{2014} {}. {}. Per-note attrs: `{}!(...)`.",
                     const_ident_dot,
-                    letter.to_uppercase(),
-                    acc_sym,
-                    octave_i32,
-                    midi_u8,
-                    dot_dur,
+                    pitch_words(letter, &acc_sym, octave_i32, midi_i32),
+                    value_words(code, 1),
                     const_ident_dot
                 );
                 tokens.extend(quote! {
                     #[doc = #doc]
                     pub const #const_ident_dot: Note = Note::Atom { midi: #midi_u8, duration: #dot_lit, parameters: Vec::new()};
                     });
-                tokens.extend(generate_macro(&ident_dot, &const_ident_dot));
+                tokens.extend(generate_macro(&ident_dot, &const_ident_dot, doc.clone()));
 
                 // double-dotted duration
                 let ddot_dur = base_dur * 1.75;
@@ -435,20 +513,17 @@ pub fn generate_pitched_notes_octave(input: TokenStream) -> TokenStream {
                     _ => "",
                 };
                 let doc = format!(
-                    "Note `{}` — {}{}{}, MIDI {}, {} whole notes. Per-note attrs: `{}!(...)`.",
+                    "Note `{}` \u{2014} {}. {}. Per-note attrs: `{}!(...)`.",
                     const_ident_ddot,
-                    letter.to_uppercase(),
-                    acc_sym,
-                    octave_i32,
-                    midi_u8,
-                    ddot_dur,
+                    pitch_words(letter, &acc_sym, octave_i32, midi_i32),
+                    value_words(code, 2),
                     const_ident_ddot
                 );
                 tokens.extend(quote! {
                     #[doc = #doc]
                     pub const #const_ident_ddot: Note = Note::Atom { midi: #midi_u8, duration: #ddot_lit, parameters: Vec::new()};
                  });
-                tokens.extend(generate_macro(&ident_ddot, &const_ident_ddot));
+                tokens.extend(generate_macro(&ident_ddot, &const_ident_ddot, doc.clone()));
 
                 // triple-dotted duration
                 let tdot_dur = base_dur * 1.875;
@@ -465,20 +540,17 @@ pub fn generate_pitched_notes_octave(input: TokenStream) -> TokenStream {
                     _ => "",
                 };
                 let doc = format!(
-                    "Note `{}` — {}{}{}, MIDI {}, {} whole notes. Per-note attrs: `{}!(...)`.",
+                    "Note `{}` \u{2014} {}. {}. Per-note attrs: `{}!(...)`.",
                     const_ident_tdot,
-                    letter.to_uppercase(),
-                    acc_sym,
-                    octave_i32,
-                    midi_u8,
-                    tdot_dur,
+                    pitch_words(letter, &acc_sym, octave_i32, midi_i32),
+                    value_words(code, 3),
                     const_ident_tdot
                 );
                 tokens.extend(quote! {
                     #[doc = #doc]
                     pub const #const_ident_tdot: Note = Note::Atom { midi: #midi_u8, duration: #tdot_lit, parameters: Vec::new()};
                  });
-                tokens.extend(generate_macro(&ident_tdot, &const_ident_tdot));
+                tokens.extend(generate_macro(&ident_tdot, &const_ident_tdot, doc.clone()));
             }
             // --- Generate duration-less variant (AtomImplicitDuration) ---
             let name_implicit = format!("{}{}{}", letter, acc_suf, oct_name);
@@ -491,12 +563,16 @@ pub fn generate_pitched_notes_octave(input: TokenStream) -> TokenStream {
                 "ff" => "bb",
                 _ => "",
             };
-            let doc = format!("Note `{}` — {}{}{}, MIDI {}; takes the previous note/rest duration. Per-note attrs: `{}!(...)`.", const_ident_implicit, letter.to_uppercase(), acc_sym, octave_i32, midi_u8, const_ident_implicit);
+            let doc = format!("Note `{}` \u{2014} {}. Takes the previous note or rest duration. Per-note attrs: `{}!(...)`.", const_ident_implicit, pitch_words(letter, &acc_sym, octave_i32, midi_i32), const_ident_implicit);
             tokens.extend(quote! {
                 #[doc = #doc]
                 pub const #const_ident_implicit: Note = Note::AtomImplicitDuration { midi: #midi_u8, parameters: Vec::new() };
             });
-            tokens.extend(generate_macro(&ident_implicit, &const_ident_implicit));
+            tokens.extend(generate_macro(
+                &ident_implicit,
+                &const_ident_implicit,
+                doc.clone(),
+            ));
         }
     }
     tokens.into()
