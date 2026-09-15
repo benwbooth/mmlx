@@ -21,11 +21,16 @@ let band = par!([
 - `crates/mmlx-core` — `Note`, params, envelopes, `ser/par/parmin/fork`
   composition, `genawaiter` event-stream (piano roll) generation
 - `crates/mmlx-songs` — `all_features()` conformance song + tests
+- `crates/mmlx-synth` — `BasicSynth` instrument + render test
+- `crates/mmlx-audio` — playback queue; cpal backend (`audio` feature)
+- `crates/mmlx-repl` — evcxr REPL library + `mmlx-repl` binary
 
 ## Build / test
 
 ```sh
 cargo build
 cargo test
+cargo run -p mmlx-repl --example repl_smoke  # evcxr end-to-end
+cargo run -p mmlx-repl                       # interactive (needs audio machine + --features audio for sound)
 cargo fmt --check
 ```
