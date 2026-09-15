@@ -653,12 +653,13 @@ pub fn snap_voice(notes: &[TrackNote], tick: u64) -> Vec<TrackNote> {
 }
 
 /// A named voice program: the full ambient snapshot a lane section plays
-/// under, emitted once as `fn voice_<role>() -> Note` and spliced by call.
+/// under, bound once per song fn as `let voice_<role>: Note` and spliced
+/// via `voice.clone()` (single-use programs inline as `param!(...)`).
 /// Splicing is sound because nested `ser!` shares ambient params with its
 /// siblings (covered by `nested_ser_shares_ambient_params` in mmlx-songs).
 #[derive(Default)]
 pub struct ProgramReg {
-    /// (match key, fn name, snapshot pairs, instrument), voice order.
+    /// (match key, var name, snapshot pairs, instrument), voice order.
     entries: Vec<(String, String, Vec<(String, f32)>, String)>,
 }
 
@@ -695,24 +696,20 @@ impl ProgramReg {
         name
     }
 
-    /// Render all collected programs as top-level `fn` definitions.
-    pub fn defs(&self) -> Vec<String> {
-        self.entries
-            .iter()
-            .map(|(_, name, snapshot, instrument)| {
-                let mut pairs = vec![format!("instrument=\"{instrument}\"")];
-                pairs.extend(
-                    snapshot
-                        .iter()
-                        .map(|(key, value)| format!("{key}={value}")),
-                );
-                let body = pairs.join(", ");
-                format!(
-                    "#[rustfmt::skip]\nfn {name}() -> Note {{\n    ser!(\n        param!({body})\n    )\n}}"
-                )
-            })
-            .collect()
+    /// All collected programs in first-use order:
+    /// (match key, var name, snapshot pairs, instrument).
+    pub fn programs(&self) -> &[(String, String, Vec<(String, f32)>, String)] {
+        &self.entries
     }
+}
+
+/// Full-program `param!(...)` group text: instrument first, then sorted
+/// snapshot. Shared by lane emission and the let/inline post-pass so the
+/// two can never drift.
+fn program_param_group(instrument: &str, snapshot: &[(String, f32)]) -> String {
+    let mut pairs = vec![format!("instrument=\"{instrument}\"")];
+    pairs.extend(snapshot.iter().map(|(key, value)| format!("{key}={value}")));
+    format!("param!({})", pairs.join(", "))
 }
 
 /// Duration-literal suffix back to 128th-note ticks (for bar layout).
@@ -1025,8 +1022,9 @@ fn program_snapshot(note: &TrackNote) -> Vec<(String, f32)> {
 
 /// One voice lane (one channel) rendered as a terse `ser!` lane plus
 /// extracted `seg_N()` phrase functions. Voice programs recurring across
-/// runs become shared `voice_<role>()` calls; once-only programs stay
-/// inline; tweaks of 2 or fewer keys stay inline diffs. Items lay out one
+/// runs become shared `voice_<role>()` call items (rewritten downstream to
+/// `let` bindings or inline groups); once-only programs stay inline;
+/// tweaks of 2 or fewer keys stay inline diffs. Items lay out one
 /// music bar per line (`bar_ticks` grid ticks per bar; 0 disables), each
 /// with a `// bar N` comment so the lane reads like staff notation.
 /// `program_runs` maps program keys to contiguous-run counts (built by
@@ -1086,11 +1084,7 @@ pub fn emit_voice(
             .unwrap_or(0)
             >= 2;
         // One grouped full-program item (instrument first, then sorted).
-        let full_group = || {
-            let mut pairs = vec![format!("instrument=\"{instrument}\"")];
-            pairs.extend(snapshot.iter().map(|(key, value)| format!("{key}={value}")));
-            format!("param!({})", pairs.join(", "))
-        };
+        let full_group = || program_param_group(instrument, &snapshot);
         if first {
             if frequent {
                 let voice = programs.intern(role, instrument, snapshot.clone());
@@ -1579,8 +1573,9 @@ fn lane_indent(lane: &str) -> String {
 /// Full song: intro + loop voices, each a terse `ser!` lane inside `par!`.
 /// `voices`: (instrument, role, intro notes, loop notes). `tempo` heads
 /// the mix; `bar_ticks` is grid ticks per bar for the lane layout.
-/// Voice programs render once as `voice_<role>()` definitions shared by
-/// both sections. Lanes emit in score order (melody on top, drums at the
+/// Voice programs bind once per song fn as `let voice_*` variables
+/// (`voice.clone()` splices); single-use programs inline as `param!(...)`.
+/// Lanes emit in score order (melody on top, drums at the
 /// bottom) with one `// bar N` line per bar so the parts read like staff
 /// systems and align vertically.
 pub fn emit_song(
@@ -1609,7 +1604,8 @@ pub fn emit_song(
     let mut loop_lanes: Vec<String> = Vec::new();
     let mut seg_defs: Vec<String> = Vec::new();
     // One program registry per role, shared across intro and loop so a
-    // program used in both is defined once. Order follows voices.
+    // program used in both binds under one name in each song fn.
+    // Order follows voices.
     let mut regs: Vec<(String, ProgramReg)> = Vec::new();
     for (instrument, role, intro, looping) in &ordered {
         let reg_index = match regs.iter().position(|(name, _)| name == role) {
@@ -1656,21 +1652,82 @@ pub fn emit_song(
         seg_defs.append(&mut intro_segs);
         seg_defs.append(&mut loop_segs);
     }
-    let var_defs: Vec<String> = regs.iter().flat_map(|(_, reg)| reg.defs()).collect();
+    // Collect programs in first-use order across all roles.
+    let programs: Vec<(String, String, Vec<(String, f32)>, String)> = regs
+        .iter()
+        .flat_map(|(_, reg)| reg.programs().iter().cloned())
+        .collect();
+    // Seg bodies are shared across call sites and sections: always inline
+    // programs there as `param!(...)` groups so seg fns stay self-contained
+    // (no cross-fn bindings to resolve).
+    for (_, name, snapshot, instrument) in &programs {
+        let pat = format!("{name}()");
+        let group = program_param_group(instrument, snapshot);
+        for seg in seg_defs.iter_mut() {
+            if seg.contains(pat.as_str()) {
+                *seg = seg.replace(pat.as_str(), &group);
+            }
+        }
+    }
+    let mut intro_mix = intro_lanes.join(",\n");
+    let mut loop_mix = loop_lanes.join(",\n");
+    // Lane programs: a single call site inlines the `param!(...)` group;
+    // the rest bind once per song fn (`let voice: Note`) and splice via
+    // `voice.clone()` (same nested-serial value a `voice()` call returned).
+    let mut intro_lets: Vec<String> = Vec::new();
+    let mut loop_lets: Vec<String> = Vec::new();
+    for (_, name, snapshot, instrument) in &programs {
+        let pat = format!("{name}()");
+        let uses = intro_mix.matches(pat.as_str()).count() + loop_mix.matches(pat.as_str()).count();
+        if uses == 0 {
+            continue;
+        }
+        let group = program_param_group(instrument, snapshot);
+        if uses == 1 {
+            if intro_mix.contains(pat.as_str()) {
+                intro_mix = intro_mix.replacen(pat.as_str(), &group, 1);
+            } else {
+                loop_mix = loop_mix.replacen(pat.as_str(), &group, 1);
+            }
+        } else {
+            let binding = format!("let {name}: Note = ser!({group});");
+            let use_site = format!("{name}.clone()");
+            if intro_mix.contains(pat.as_str()) {
+                intro_mix = intro_mix.replace(pat.as_str(), &use_site);
+                intro_lets.push(binding.clone());
+            }
+            if loop_mix.contains(pat.as_str()) {
+                loop_mix = loop_mix.replace(pat.as_str(), &use_site);
+                loop_lets.push(binding);
+            }
+        }
+    }
+    let intro_lets_block = if intro_lets.is_empty() {
+        String::new()
+    } else {
+        format!("    // voices\n    {}\n", intro_lets.join("\n    "))
+    };
+    let loop_lets_block = if loop_lets.is_empty() {
+        String::new()
+    } else {
+        format!("    // voices\n    {}\n", loop_lets.join("\n    "))
+    };
     format!(
         "/// Decompiled `{name}` (tempo {tempo}, bar = {bar_ticks} ticks).\n\
          /// `{name}` plays the intro once; `loop_{name}` is the looping body.\n\
          /// Terse form (no brackets, space-separated): one `// bar N` line\n\
          /// per bar, lanes in score order (melody on top, drums at the\n\
          /// bottom) so parts align vertically like staff systems;\n\
-         /// `#[rustfmt::skip]` keeps it. Voice programs live in `voice_*()`\n\
-         /// definitions up top; `seg_*()` phrases are bar-local repeats.\n\
+         /// `#[rustfmt::skip]` keeps it. Voice programs bind once per song\n\
+         /// fn as `let voice_*` variables (`voice.clone()` splices them);\n\
+         /// single-use programs inline as `param!(...)`; `seg_*()` phrases\n\
+         /// are bar-local repeats.\n\
          use mmlx_core::prelude::*;\n\
          \n\
-         {vars}\
          {segs}\
          #[rustfmt::skip]\n\
          pub fn {name}() -> Note {{\n\
+         {intro_lets_block}\
          \x20   par!(\n\
          \x20       param!(tempo={tempo}),\n\
          {intro}\n\
@@ -1679,22 +1736,18 @@ pub fn emit_song(
          \n\
          #[rustfmt::skip]\n\
          pub fn loop_{name}() -> Note {{\n\
+         {loop_lets_block}\
          \x20   par!(\n\
          \x20       param!(tempo={tempo}),\n\
          {lp}\n\
          \x20   )\n\
          }}",
-        vars = if var_defs.is_empty() {
-            String::new()
-        } else {
-            var_defs.join("\n\n") + "\n\n"
-        },
         segs = if seg_defs.is_empty() {
             String::new()
         } else {
             seg_defs.join("\n\n") + "\n\n"
         },
-        intro = intro_lanes.join(",\n"),
-        lp = loop_lanes.join(",\n"),
+        intro = intro_mix,
+        lp = loop_mix,
     )
 }

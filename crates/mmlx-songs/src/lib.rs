@@ -283,6 +283,10 @@ mod tests {
         let flat = ser!([param!(op4_tl = 9), c4q]);
         assert_eq!(tl_of(&nested, 60), 9.0);
         assert_eq!(tl_of(&nested, 60), tl_of(&flat, 60));
+        // A bare multi-pair `param!(...)` (the single-use inline form)
+        // splices identically too.
+        let multi = ser!([param!(op4_tl = 9, op1_tl = 8), c4q]);
+        assert_eq!(tl_of(&multi, 60), 9.0);
         // And programs can change mid-lane through nested blocks.
         let swap = ser!([
             ser!([param!(op4_tl = 9)]),

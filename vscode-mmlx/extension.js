@@ -303,12 +303,20 @@ async function laneMap(doc, name) {
     });
     const isLaneHead = (s) => /^(?:ser|par|parmin)\s*!/.test(stripLeadingComments(s).trim());
     // Voice programs hoist instrument + channel pins out of lanes
-    // (`voice_melody()` sets them via nested-ser ambient leak), so
-    // resolve lane identity through voice definitions when the lane
+    // (`voice_melody.clone()` splices a `let voice_melody` binding via
+    // nested-ser ambient leak; older songs call `voice_melody()` fns),
+    // so resolve lane identity through voice definitions when the lane
     // itself carries no pin. Staff comments (`// melody (psg)`) are a
     // final fallback.
     const voiceMap = new Map();
     for (const m of text.matchAll(/fn\s+(voice_\w+)\s*\(\)\s*->\s*Note\s*\{([\s\S]*?)\n\}/g)) {
+      const body = m[2];
+      const vi = (body.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
+      const vc = (body.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/) || [])[1];
+      if (vi) voiceMap.set(m[1], { inst: vi, ch: vc !== undefined ? Math.round(Number(vc)) : -1 });
+    }
+    for (const m of text.matchAll(/let\s+(voice_\w+)\s*:\s*Note\s*=\s*ser!\(\s*param!\(([^;]*?)\)\s*\)\s*;/g)) {
+      if (voiceMap.has(m[1])) continue;
       const body = m[2];
       const vi = (body.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
       const vc = (body.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/) || [])[1];
@@ -370,7 +378,7 @@ async function laneMap(doc, name) {
       let inst = (clean.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
       let chm = clean.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/);
       if (!inst) {
-        const vcall = (clean.match(/\b(voice_\w+)\s*\(\)/) || [])[1];
+        const vcall = (clean.match(/\b(voice_\w+)\s*(?:\(\)|\.clone\(\))/) || [])[1];
         const v = vcall && voiceMap.get(vcall);
         if (v) { inst = v.inst; if (!chm && v.ch >= 0) chm = [null, String(v.ch)]; }
       }

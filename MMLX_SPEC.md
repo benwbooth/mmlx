@@ -112,10 +112,11 @@ Nesting is free: `par!([ser!([...]), ser!([...])])` is the standard multi-voice 
 
 Voice programs as variables: a `ser!` holding only `param!` setters splices
 like any nested block — its params leak forward to following siblings
-(`nested_ser_shares_ambient_params`). Decompiled songs hoist each recurring
-voice program to `fn voice_<role>() -> Note` once and splice calls, so a
-lane reads as program changes plus notes; once-only programs stay inline
-and small tweaks stay inline `param!` diffs. Lanes emit in score order
+(`nested_ser_shares_ambient_params`). Decompiled songs bind each recurring
+voice program once per song fn as `let voice_<role>: Note` and splice
+`voice.clone()`, so a lane reads as program changes plus notes; programs
+used exactly once inline as `param!(...)` and small tweaks stay inline
+`param!` diffs. Lanes emit in score order
 (melody on top, drums at the bottom) with one `// bar N` line per bar, so
 parts align vertically like staff systems. Repeated phrases recurring 3+
 times with net savings extract to bar-local `seg_*()` functions (never

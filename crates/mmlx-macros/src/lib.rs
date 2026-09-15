@@ -888,6 +888,7 @@ mod seq_tests {
     #[test]
     fn paths_calls_and_blocks() {
         expect("voice_bass() c4q", &["voice_bass()", "c4q"]);
+        expect("voice_bass.clone() c4q", &["voice_bass.clone()", "c4q"]);
         expect("crate::songs::x() c4q", &["crate::songs::x()", "c4q"]);
         expect(
             "if c { a } else { b } d4q",
