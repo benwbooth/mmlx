@@ -26,8 +26,9 @@ let band = par!([
 - `crates/mmlx-repl` — evcxr REPL library + `mmlx-repl` binary
 - `crates/mmlx-server` — line-protocol playback engine + smoke example
 - `crates/mmlx-algo` — Opusmodus-style transforms (deterministic, seeded, systems, generative)
-- `crates/mmlx-midi` — SMF export
-- `crates/mmlx-fx` — buffer effects (graphic EQ)
+- `crates/mmlx-midi` — SMF export/import
+- `crates/mmlx-fx` — buffer effects (graphic EQ, bus mixer)
+- `crates/mmlx-clap` — CLAP export scaffold (cdylib)
 - `vscode-mmlx/` — VSCode transport extension
 
 ## Build / test

@@ -51,7 +51,11 @@ then commit + push after every feature/fix.
 
 - [x] Plugin format decision: **CLAP primary** (`clack`), LV2 second
 - [x] Effect plugin 1: `mmlx-fx` graphic EQ (peaking biquads, flat/boost/cut tests)
-- [x] `mmlx-midi`: SMF export with round-trip test (multi-port + import next)
+- [x] `mmlx-midi`: SMF export + import + multi-port (per-instrument tracks),
+  all with round-trip tests
+- [x] CLAP scaffold: `mmlx-clap` cdylib (Clack gain plugin, descriptor test,
+  real `libmmlx_clap.so`); full instrument-param export next
+- [ ] Instrument plugin: SF2 wavetable (RustySynth, cf. Kog `decoder.rs`)
 - [ ] Instrument plugin: SF2 wavetable (RustySynth, cf. Kog `decoder.rs`)
 - [ ] CLAP export of instruments (needs audio-machine verification)
 - [ ] Chiptune wrappers (external C/C++ — each its own crate):
@@ -62,7 +66,9 @@ then commit + push after every feature/fix.
 
 - [x] Mixer text encoding: `pan` (BasicSynth equal-power), `bus`/`send`
   keys reserved; automation via envelopes on any target
-- [x] Agent helper: `humanize` (seeded velocity/gate jitter) in `mmlx-algo`
-- [ ] Mixer/bus implementation (summing + sends in backend)
-- [ ] Agent helpers: continue/harmonize/remix operating on `Note` text
+- [x] `mmlx-fx::BusMixer` mix stage (gain/master math test)
+- [x] Agent helpers: `humanize` (seeded velocity/gate jitter),
+  `harmonize` (interval stacks), `continue_melody` (Markov), all tested
+- [ ] Mixer bus rendering in backend (per-bus buffers into BusMixer)
+- [ ] Agent helpers: remix operating on `Note` text
 - [ ] Piano-roll *view* over event stream (never source of truth)

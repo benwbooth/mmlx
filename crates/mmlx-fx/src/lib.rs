@@ -127,3 +127,56 @@ impl Equalizer {
         }
     }
 }
+
+/// Text-DAW mix stage: named buses with gains plus a master gain.
+///
+/// Voices declare `param!(bus = "drums")`; the backend renders one stereo
+/// buffer per bus and sums `gain * bus` here. Sends are pre-fader copies
+/// added into the target bus before its gain. All pure buffer math, so it
+/// is fully testable without an audio device.
+#[derive(Default)]
+pub struct BusMixer {
+    gains: std::collections::HashMap<String, f32>,
+    master: f32,
+}
+
+impl BusMixer {
+    pub fn new() -> Self {
+        BusMixer {
+            gains: std::collections::HashMap::new(),
+            master: 1.0,
+        }
+    }
+
+    /// Set a bus gain (linear). Unknown buses default to 1.0.
+    pub fn set_gain(&mut self, bus: &str, gain: f32) {
+        self.gains.insert(bus.to_string(), gain.max(0.0));
+    }
+
+    pub fn set_master(&mut self, master: f32) {
+        self.master = master.max(0.0);
+    }
+
+    /// Sum `master * Σ gain[bus] * buffer[bus]` over the longest buffer.
+    pub fn mixdown(
+        &self,
+        buses: &std::collections::HashMap<String, Vec<[f32; 2]>>,
+    ) -> Vec<[f32; 2]> {
+        let frames = buses.values().map(Vec::len).max().unwrap_or(0);
+        let mut out = vec![[0.0f32; 2]; frames];
+        let mut names: Vec<&String> = buses.keys().collect();
+        names.sort();
+        for name in names {
+            let gain = self.gains.get(name).copied().unwrap_or(1.0);
+            for (i, frame) in buses[name].iter().enumerate() {
+                out[i][0] += frame[0] * gain;
+                out[i][1] += frame[1] * gain;
+            }
+        }
+        for frame in &mut out {
+            frame[0] *= self.master;
+            frame[1] *= self.master;
+        }
+        out
+    }
+}

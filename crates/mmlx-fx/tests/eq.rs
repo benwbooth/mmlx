@@ -1,6 +1,6 @@
 //! EQ behavior: flat passes through, boost/cut moves band energy.
 
-use mmlx_fx::{Equalizer, GRAPHIC_FREQS_10};
+use mmlx_fx::{BusMixer, Equalizer, GRAPHIC_FREQS_10};
 
 fn sine_1k(frames: usize, sample_rate: f32) -> Vec<[f32; 2]> {
     (0..frames)
@@ -52,4 +52,27 @@ fn boost_and_cut_move_energy() {
     let flat_energy = energy(&flat[22050..]);
     assert!(boosted_energy > 2.0 * flat_energy, "+12dB boosts");
     assert!(cut_energy < 0.1 * flat_energy, "-20dB cuts");
+}
+
+#[test]
+fn bus_mixer_sums_gains_and_master() {
+    use std::collections::HashMap;
+    let mut mixer = BusMixer::new();
+    mixer.set_gain("drums", 0.5);
+    mixer.set_master(2.0);
+    let buses: HashMap<String, Vec<[f32; 2]>> = HashMap::from([
+        ("drums".to_string(), vec![[1.0, 1.0]; 4]),
+        ("lead".to_string(), vec![[1.0, 0.0]; 2]),
+    ]);
+    let mixed = mixer.mixdown(&buses);
+    // Longest bus wins; missing frames read as silence.
+    assert_eq!(mixed.len(), 4);
+    // drums: 2.0 * 0.5 * 1.0 = 1.0; lead: 2.0 * 1.0 * 1.0 on the left only.
+    assert!(
+        (mixed[0][0] - 3.0).abs() < 1e-6,
+        "left sums both: {:?}",
+        mixed[0]
+    );
+    assert!((mixed[0][1] - 1.0).abs() < 1e-6, "right is drums only");
+    assert!((mixed[3][0] - 1.0).abs() < 1e-6, "tail is drums only");
 }

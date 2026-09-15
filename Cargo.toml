@@ -8,6 +8,7 @@ members = [
     "crates/mmlx-server",
     "crates/mmlx-algo",
     "crates/mmlx-fx",
+    "crates/mmlx-clap",
     "crates/mmlx-midi",
     "crates/mmlx-songs",
 ]

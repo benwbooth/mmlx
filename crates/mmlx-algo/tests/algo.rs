@@ -221,6 +221,25 @@ fn humanize_jitters_within_bounds() {
 }
 
 #[test]
+fn harmonize_and_continue() {
+    let line = vec![atom(60, 0.25), atom(62, 0.25)];
+    let harmony = harmonize(line.clone(), &[4, 7]);
+    let mmlx_core::Note::Parallel(voices) = harmony else {
+        panic!("harmonize yields Parallel");
+    };
+    assert_eq!(voices.len(), 3);
+    let continued = continue_melody(&line, 0.25, 8, 9);
+    assert_eq!(continued.len(), 8);
+    assert_eq!(continue_melody(&line, 0.25, 8, 9), continued);
+    assert!(
+        continued
+            .iter()
+            .all(|note| matches!(note, mmlx_core::Note::Atom { midi: 60 | 62, .. })),
+        "continuation stays in the corpus pitch set"
+    );
+}
+
+#[test]
 fn generative_series() {
     // L-system: A->AB, B->A gives Fibonacci words.
     let word = lindenmayer("A", &[('A', "AB"), ('B', "A")], 4);

@@ -309,6 +309,36 @@ pub fn humanize(notes: Vec<Note>, velocity_amount: f32, gate_amount: f32, seed: 
         .collect()
 }
 
+/// Harmonize: original voice plus a transposed copy per interval, as `par!`.
+/// E.g. intervals `[4, 7]` stacks a major triad above every note.
+pub fn harmonize(notes: Vec<Note>, intervals: &[i8]) -> Note {
+    let mut voices = vec![mmlx_core::ser(notes.clone())];
+    for interval in intervals {
+        voices.push(mmlx_core::ser(transpose_all(notes.clone(), *interval)));
+    }
+    mmlx_core::par(voices)
+}
+
+/// Continue a melody: build a first-order Markov chain over the corpus
+/// pitches and generate `len` new atoms of `duration`. Deterministic per seed.
+pub fn continue_melody(corpus: &[Note], duration: f32, len: usize, seed: u64) -> Vec<Note> {
+    let classes: Vec<u8> = corpus
+        .iter()
+        .filter_map(|note| match note {
+            Note::Atom { midi, .. } => Some(*midi),
+            _ => None,
+        })
+        .collect();
+    markov(&classes, len, seed)
+        .into_iter()
+        .map(|midi| Note::Atom {
+            midi,
+            duration,
+            parameters: Vec::new(),
+        })
+        .collect()
+}
+
 /// Zip parallel lanes (cf. Opusmodus `make-omn`): pitches × durations.
 pub fn zip(pitches: Vec<u8>, durations: Vec<f32>) -> Vec<Note> {
     let len = pitches.len().max(durations.len());
