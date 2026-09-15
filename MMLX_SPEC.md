@@ -94,7 +94,9 @@ runtime functions resolve): `ser!([c4q, d4q])` (legacy) ≡ `ser!(c4q, d4q)`
 ≡ `ser!(c4q d4q)`. Whitespace separation recognizes notes, rests, ties,
 `repeat!`/`param!`/`comment!`, nested `ser!`/`par!`, per-note `!(...)`
 attrs, `::` paths and block constructs as units; a lone `(...)` group
-passes through as one expression.
+passes through as one expression. Items are borrowed (`vec![&...]`) and
+cloned inside the block fns, so `let`-bound programs splice bare
+(`ser!(voice c4q)` — no moves, no `.clone()`).
 
 | Op | Time advance | Param scope | Notes |
 |---|---|---|---|
@@ -117,7 +119,8 @@ Voice programs as variables: a `ser!` holding only `param!` setters splices
 like any nested block — its params leak forward to following siblings
 (`nested_ser_shares_ambient_params`). Decompiled songs bind each recurring
 voice program once per song fn as `let voice_<role>: Note` and splice
-`voice.clone()`, so a bar reads as program changes plus notes; programs
+it bare (`voice`, cloned inside the block), so a bar reads as program
+changes plus notes; programs
 used exactly once inline as `param!(...)` and small tweaks stay inline
 `param!` diffs. Bars emit channels in score order
 (melody on top, drums at the bottom) with one `par! // bar N` per bar, so
@@ -125,7 +128,8 @@ parts align vertically like staff systems. Every sounding channel restates
 its program per bar (par branches reset ambient); rest-only bars carry bare
 rests. Repeated phrases recurring 3+
 times with net savings extract to bar-local `seg_*()` functions (fitting
-their bar; crossing occurrences stay inline). Cross-bar sustains are
+their bar; crossing occurrences stay inline; single-call segs inline as
+nested `ser!` with no surviving def). Cross-bar sustains are
 `legato!` plus rest cover, so no bar opens with a bare tie. Advance
 accounting uses branch logical ends (`BranchEnd` markers, consumed by par
 heaps): sustain overhang never extends a bar.

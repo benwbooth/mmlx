@@ -139,6 +139,7 @@ fn emitter_is_exact_and_compressed() {
     // Terse form: voice program variable, no bracket bodies.
     // (One call site inlines the program; shared programs bind `let`.)
     assert!(!src.contains("fn voice_lead"), "no voice fns:\n{src}");
+    assert!(!src.contains(".clone()"), "bare splices:\n{src}");
     assert!(src.contains("ym_algo"), "raw program");
     assert!(!src.contains("ser!(['"), "terse lanes:\n{src}");
     assert!(!src.contains("par!(["), "terse mix:\n{src}");

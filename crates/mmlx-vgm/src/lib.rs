@@ -1878,8 +1878,8 @@ pub fn emit_song(
         }
     }
     // Bar programs: a single call site inlines the `param!(...)` group;
-    // the rest bind once per song fn (`let voice: Note`) and splice via
-    // `voice.clone()` (same nested-serial value a `voice()` call returned).
+    // the rest bind once per song fn (`let voice: Note`) and splice bare
+    // (blocks borrow items, cloning inside).
     let mut intro_lets: Vec<String> = Vec::new();
     let mut loop_lets: Vec<String> = Vec::new();
     for (_, name, snapshot, instrument) in &programs {
@@ -1897,7 +1897,7 @@ pub fn emit_song(
             }
         } else {
             let binding = format!("let {name}: Note = ser!({group});");
-            let use_site = format!("{name}.clone()");
+            let use_site = name.clone();
             if intro_mix.contains(pat.as_str()) {
                 intro_mix = intro_mix.replace(pat.as_str(), &use_site);
                 intro_lets.push(binding.clone());
@@ -1918,6 +1918,95 @@ pub fn emit_song(
     } else {
         format!("    // voices\n    {}\n", loop_lets.join("\n    "))
     };
+    // Seg phrases called exactly once inline as nested `ser!` blocks and
+    // drop their definitions (same single-use rule as voices). Fixpoint:
+    // inlining can strand nested single-call segs; unreferenced defs drop.
+    loop {
+        // Parse current defs into (name, one-line ser expr).
+        let mut defs: Vec<(String, String)> = Vec::new();
+        for def in &seg_defs {
+            let Some(fn_pos) = def.find("fn ") else {
+                continue;
+            };
+            let rest = &def[fn_pos + 3..];
+            let Some(paren) = rest.find("()") else {
+                continue;
+            };
+            let seg_name = rest[..paren].to_string();
+            let Some(ser_pos) = def.find("ser!(\n") else {
+                continue;
+            };
+            let Some(end_pos) = def.rfind("\n    )\n}") else {
+                continue;
+            };
+            let body = def[ser_pos + "ser!(\n".len()..end_pos]
+                .lines()
+                .map(str::trim)
+                .collect::<Vec<_>>()
+                .join(" ");
+            defs.push((seg_name, format!("ser!({body})")));
+        }
+        // Names referenced anywhere (mixes + seg bodies), for dead-def GC.
+        let uses_of = |seg_name: &str| {
+            let pat = format!("{seg_name}()");
+            let mut n =
+                intro_mix.matches(pat.as_str()).count() + loop_mix.matches(pat.as_str()).count();
+            for def in &seg_defs {
+                n += def.matches(pat.as_str()).count();
+            }
+            n.saturating_sub(1)
+        };
+        let singles: Vec<(String, String)> = defs
+            .iter()
+            .filter(|(seg_name, _)| uses_of(seg_name) == 1)
+            .cloned()
+            .collect();
+        if singles.is_empty() {
+            let live: std::collections::HashSet<String> = defs
+                .iter()
+                .filter(|(seg_name, _)| uses_of(seg_name) > 0)
+                .map(|(seg_name, _)| seg_name.clone())
+                .collect();
+            seg_defs.retain(|def| {
+                let Some(fn_pos) = def.find("fn ") else {
+                    return true;
+                };
+                let rest = &def[fn_pos + 3..];
+                let Some(paren) = rest.find("()") else {
+                    return true;
+                };
+                live.contains(&rest[..paren])
+            });
+            break;
+        }
+        for (seg_name, expr) in &singles {
+            let pat = format!("{seg_name}()");
+            if intro_mix.contains(pat.as_str()) {
+                intro_mix = intro_mix.replacen(pat.as_str(), expr, 1);
+            } else if loop_mix.contains(pat.as_str()) {
+                loop_mix = loop_mix.replacen(pat.as_str(), expr, 1);
+            } else {
+                for def in seg_defs.iter_mut() {
+                    if def.contains(pat.as_str()) {
+                        *def = def.replacen(pat.as_str(), expr, 1);
+                        break;
+                    }
+                }
+            }
+        }
+        seg_defs.retain(|def| {
+            let Some(fn_pos) = def.find("fn ") else {
+                return true;
+            };
+            let rest = &def[fn_pos + 3..];
+            let Some(paren) = rest.find("()") else {
+                return true;
+            };
+            !singles
+                .iter()
+                .any(|(seg_name, _)| seg_name == &rest[..paren])
+        });
+    }
     format!(
         "/// Decompiled `{name}` (tempo {tempo}, bar = {bar_ticks} ticks).\n\
          /// `{name}` plays the intro once; `loop_{name}` is the looping body.\n\
@@ -1925,9 +2014,10 @@ pub fn emit_song(
          /// channel `ser!`s in score order ({staff_order}); every sounding\n\
          /// channel restates its voice (`#[rustfmt::skip]` keeps it).\n\
          /// Voice programs bind once per song fn as `let voice_*`\n\
-         /// variables (`voice.clone()` splices them); single-use programs\n\
-         /// inline as `param!(...)`; `seg_*()` phrases are bar-local repeats;\n\
-         /// cross-bar sustains are `legato!` plus rest cover.\n\
+         /// variables (spliced bare); single-use programs inline as\n\
+         /// `param!(...)`; `seg_*()` phrases are bar-local repeats (single-\n\
+         /// call segs inline too); cross-bar sustains are `legato!` plus\n\
+         /// rest cover.\n\
          use mmlx_core::prelude::*;\n\
          \n\
          {segs}\

@@ -324,11 +324,11 @@ async function laneMap(doc, name) {
     const isBarHead = (s) => /^(?:par|parmin)\s*!/.test(stripLeadingComments(s).trim());
     const isChHead = (s) => /^(?:ser|par|parmin|forkseq|forkser|forkpar)\s*!/.test(stripLeadingComments(s).trim());
     // Voice programs hoist instrument + channel pins out of lanes
-    // (`voice_melody.clone()` splices a `let voice_melody` binding via
-    // nested-ser ambient leak; older songs call `voice_melody()` fns),
-    // so resolve lane identity through voice definitions when the lane
-    // itself carries no pin. Staff comments (`// melody (psg)`) are a
-    // final fallback.
+    // (bare `voice_melody` splices a `let voice_melody` binding — blocks
+    // borrow items; older songs call `voice_melody()` fns or splice
+    // `voice_melody.clone()`), so resolve lane identity through voice
+    // definitions when the lane itself carries no pin. Staff comments
+    // (`// melody (psg)`) are a final fallback.
     const voiceMap = new Map();
     for (const m of text.matchAll(/fn\s+(voice_\w+)\s*\(\)\s*->\s*Note\s*\{([\s\S]*?)\n\}/g)) {
       const body = m[2];
@@ -409,7 +409,7 @@ async function laneMap(doc, name) {
       let inst = (clean.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
       let chm = clean.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/);
       if (!inst) {
-        const vcall = (clean.match(/\b(voice_\w+)\s*(?:\(\)|\.clone\(\))/) || [])[1];
+        const vcall = (clean.match(/\b(voice_\w+)\b/) || [])[1];
         const v = vcall && voiceMap.get(vcall);
         if (v) { inst = v.inst; if (!chm && v.ch >= 0) chm = [null, String(v.ch)]; }
       }
@@ -605,7 +605,7 @@ function bufferMatchesDisk(doc) {
 
 // Sections play by submitting their (whitespace-collapsed) source text.
 // Voice `let` bindings live outside sections, so the fn's single-line
-// lets ride along; otherwise references like `voice_melody.clone()`
+// lets ride along; otherwise references like bare `voice_melody` splices
 // fail to eval (the server error shows in the status bar).
 async function playSection(doc, name, index) {
   ensureServer(doc);
