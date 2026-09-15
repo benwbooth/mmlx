@@ -104,7 +104,8 @@ async function structure(doc) {
 
 // Complete sounding tokens: pitched `c4e`/`fs5hdd`/`bb_1t`, rests `rq`.
 // (Implicit `c4`, bare `p`, ties need surrounding context — not previewable.)
-const VAL = "(?:w|h|q|e|i|t|x)(?:ddd|dd|d)?";
+// VAL covers all durations incl. `o` (the shortest); bare ties stay out.
+const VAL = "(?:w|h|q|e|i|t|x|o)(?:ddd|dd|d)?";
 const NOTE_RE = new RegExp(`^(?:[a-g](?:ss|ff|[sfn]|nn)?(?:_\\d|\\d)${VAL}|r${VAL})$`);
 // Pitched notes only (no rests): the server counts NoteOns, and rests emit
 // none, so highlight ordinals index pitched atoms.
@@ -264,6 +265,10 @@ async function applyHighlight(ordinal, lane) {
 // mix par!, in source order, with the instrument + pinned channel parsed
 // from each lane's setup and pitched elements with repeat!-expansion.
 // The server sends matching (inst, ch, lane-ordinal) in `pos` lines.
+//
+// NOTE: tree-sitter-rust keeps macro bodies as opaque token soup, so the
+// lane ser! blocks are NOT macro_invocation AST nodes — split the outer
+// par!'s [...] region by scanning brackets in text instead.
 const laneCache = new Map(); // uri -> { version, name, lanes }
 async function laneMap(doc, name) {
   const key = doc.uri.toString();
@@ -271,73 +276,122 @@ async function laneMap(doc, name) {
   if (hit && hit.version === doc.version && hit.name === name) return hit.lanes;
   const lanes = [];
   const { parser } = await ts;
-  const tree = parser.parse(doc.getText());
+  const text = doc.getText();
+  const tree = parser.parse(text);
   const fn = tree.rootNode.descendantsOfType("function_item").find((f) => {
     const n = f.childForFieldName("name");
     return n && n.text === name;
   });
   if (fn) {
-    // Outer mix: first top-level par!/parmin! invocation in the function.
+    // Split the outer mix into lane items, then map each lane.
+    // Outer mix: first [...] region after a top-level par!/parmin! macro
+    // name inside the function body.
     const outer = fn.descendantsOfType("macro_invocation").find((node) => {
       const macro = node.childForFieldName("macro");
-      if (!macro || (macro.text !== "par" && macro.text !== "parmin")) return false;
-      let parent = node.parent;
-      while (parent && parent !== fn) {
-        if (parent.type === "macro_invocation") return false;
-        parent = parent.parent;
-      }
-      return true;
+      return macro && (macro.text === "par" || macro.text === "parmin");
     });
-    if (outer) {
-      const kids = outer.descendantsOfType("macro_invocation").filter((node) => {
-        if (node === outer) return false;
-        const macro = node.childForFieldName("macro");
-        if (!macro || !["ser", "par", "parmin"].includes(macro.text)) return false;
-        // Direct child: no other ser/par/parmin/fork macro between.
-        let parent = node.parent;
-        while (parent && parent !== outer) {
-          if (parent.type === "macro_invocation") {
-            const pm = parent.childForFieldName("macro");
-            if (pm && ["ser", "par", "parmin", "forkseq", "forkser", "forkpar"].includes(pm.text)) return false;
-          }
-          parent = parent.parent;
+    const isLaneHead = (s) => /^(?:ser|par|parmin)\s*!/.test(s);
+    for (const item of splitTopLevel(text, fn, outer)) {
+      if (!isLaneHead(item.src)) continue;
+      const inst = (item.src.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
+      if (!inst) continue;
+      const chm = item.src.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/);
+      // Re-parse the lane on its own: whole-file identifier queries
+      // truncate on large files, but a per-lane parse is complete.
+      // (Offsets rebase from the wrapper prefix back to the document.)
+      const PRE = "fn _w() -> Note { ";
+      const laneTree = parser.parse(PRE + item.src + " }");
+      const laneFn = laneTree.rootNode.descendantsOfType("function_item")[0];
+      const laneIds = laneFn
+        ? laneFn.descendantsOfType("identifier")
+        : [];
+      const els = [];
+      const seen = new Set();
+      let lastPitched = null;
+      for (const id of laneIds) {
+        const a = item.a + id.startIndex - PRE.length;
+        const b = item.a + id.endIndex - PRE.length;
+        if (seen.has(a)) continue;
+        seen.add(a);
+        if (PITCH_RE.test(id.text)) {
+          const el = { a, b };
+          els.push(el);
+          lastPitched = el;
+        } else if (id.text === "repeat") {
+          const count = (text.slice(b).match(/^!\((\d+)\)/) || [])[1];
+          const extra = count ? Number(count) : 0;
+          // repeat!(N) replays the previous atom N more times; rests
+          // emit no NoteOns, so only pitched predecessors expand.
+          for (let k = 0; k < extra && lastPitched; k++) els.push(lastPitched);
+          lastPitched = null; // a repeat is not itself repeatable content
+        } else if (!/^(?:param|ser|par|parmin|comment|instrument|tempo|velocity)$/.test(id.text)) {
+          lastPitched = null; // anything else breaks a repeat chain
         }
-        return true;
-      });
-      kids.sort((a, b) => a.startIndex - b.startIndex);
-      const text = doc.getText();
-      for (const kid of kids) {
-        const src = text.slice(kid.startIndex, kid.endIndex);
-        const inst = (src.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
-        if (!inst) continue;
-        const chm = src.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/);
-        const els = [];
-        const seen = new Set();
-        let lastPitched = null;
-        for (const id of kid.descendantsOfType("identifier")) {
-          if (seen.has(id.startIndex)) continue;
-          seen.add(id.startIndex);
-          if (PITCH_RE.test(id.text)) {
-            const el = { a: id.startIndex, b: id.endIndex };
-            els.push(el);
-            lastPitched = el;
-          } else if (id.text === "repeat") {
-            const count = (text.slice(id.endIndex).match(/^\((\d+)\)/) || [])[1];
-            const extra = count ? Number(count) : 0;
-            // repeat!(N) replays the previous atom N more times; rests
-            // emit no NoteOns, so only pitched predecessors expand.
-            for (let k = 0; k < extra && lastPitched; k++) els.push(lastPitched);
-            lastPitched = null; // a repeat is not itself repeatable content
-          } else if (!/^(?:param|ser|par|parmin|comment|instrument|tempo|velocity)$/.test(id.text)) {
-            lastPitched = null; // anything else breaks a repeat chain
-          }
-        }
-        lanes.push({ inst, ch: chm ? Math.round(Number(chm[1])) : -1, els });
       }
+      lanes.push({ inst, ch: chm ? Math.round(Number(chm[1])) : -1, els });
     }
   }
   laneCache.set(key, { version: doc.version, name, lanes });
   return lanes;
+}
+
+// Split the outer par!'s [...] region into top-level comma-separated
+// items (with absolute offsets), aware of nested brackets, strings,
+// char literals, and line/block comments. Returns [] when not found.
+function splitTopLevel(text, fn, outer) {
+  if (!outer) return [];
+  const head = text.slice(outer.startIndex, outer.endIndex);
+  const m = head.match(/^(?:par|parmin)\s*!\s*\(\s*\[/);
+  if (!m) return [];
+  let depth = 0;
+  let start = -1;
+  let i = outer.startIndex + m[0].length;
+  const items = [];
+  let mode = null; // "str", "chr", "line", "block"
+  const end = outer.endIndex;
+  let cur = i;
+  const push = (b) => {
+    let a = cur;
+    while (a < b && /\s/.test(text[a])) a++;
+    const src = text.slice(a, b).trim();
+    if (src) items.push({ a, b, src });
+    cur = b + 1;
+  };
+  while (i < end) {
+    const ch = text[i];
+    const nx = i + 1 < end ? text[i + 1] : "";
+    if (mode === "str") {
+      if (ch === "\\") i++;
+      else if (ch === '"') mode = null;
+    } else if (mode === "chr") {
+      if (ch === "\\") i++;
+      else if (ch === "'") mode = null;
+    } else if (mode === "line") {
+      if (ch === "\n") mode = null;
+    } else if (mode === "block") {
+      if (ch === "*" && nx === "/") { mode = null; i++; }
+    } else if (ch === '"') {
+      mode = "str";
+    } else if (ch === "'") {
+      mode = "chr";
+    } else if (ch === "/" && nx === "/") {
+      mode = "line";
+    } else if (ch === "/" && nx === "*") {
+      mode = "block";
+    } else if (ch === "[" || ch === "(" || ch === "{") {
+      depth++;
+    } else if (ch === "]" || ch === ")" || ch === "}") {
+      if (depth === 0) {
+        if (ch === "]") push(i);
+        break;
+      }
+      depth--;
+    } else if (ch === "," && depth === 0) {
+      push(i);
+    }
+    i++;
+  }
+  return items;
 }
 
 // Atom-like identifiers in a section's source text, rebased to absolute offsets.
@@ -579,3 +633,5 @@ function deactivate() {
 }
 
 module.exports = { activate, deactivate };
+// Exported for headless testing (node harness with a vscode stub).
+module.exports.__test = { laneMap, songElements, sectionElements, NOTE_RE, PITCH_RE, initTreeSitter, splitTopLevel };
