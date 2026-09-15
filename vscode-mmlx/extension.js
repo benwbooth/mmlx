@@ -68,10 +68,36 @@ async function structure(doc) {
     const cap = {};
     for (const c of m.captures) cap[c.name] = c.node;
     if (cap.name && cap.body) {
-      fns.push({ name: cap.name.text, nameAt: cap.name.startIndex, bodyA: cap.body.startIndex, bodyB: cap.body.endIndex });
+      fns.push({ name: cap.name.text, nameAt: cap.name.startIndex, bodyA: cap.body.startIndex, bodyB: cap.body.endIndex, sections: [] });
     }
   }
   fns.sort((a, b) => a.nameAt - b.nameAt);
+  // Sections: top-level ser!/par!/parmin!/fork*! invocations per function
+  // (not nested in another one). Played by submitting their source text.
+  const SECTIONS = new Set(["ser", "par", "parmin", "forkseq", "forkser", "forkpar"]);
+  for (const fn of fns) {
+    const fnNode = tree.rootNode.descendantsOfType("function_item").find((f) => {
+      const n = f.childForFieldName("name");
+      return n && n.startIndex === fn.nameAt;
+    });
+    if (!fnNode) continue;
+    const invocs = fnNode.descendantsOfType("macro_invocation").filter((node) => {
+      const macro = node.childForFieldName("macro");
+      if (!macro || !SECTIONS.has(macro.text)) return false;
+      // top-level: no ancestor macro_invocation of the same family inside this fn
+      let parent = node.parent;
+      while (parent && parent !== fnNode) {
+        if (parent.type === "macro_invocation") {
+          const pm = parent.childForFieldName("macro");
+          if (pm && SECTIONS.has(pm.text)) return false;
+        }
+        parent = parent.parent;
+      }
+      return true;
+    });
+    invocs.sort((a, b) => a.startIndex - b.startIndex);
+    for (const node of invocs) fn.sections.push({ start: node.startIndex, end: node.endIndex });
+  }
   cache.set(key, { version: doc.version, val: fns });
   return fns;
 }
@@ -191,24 +217,50 @@ async function applyHighlight(ordinal) {
   if (!playing || ordinal < 1) return;
   const ed = editorFor(playing.doc);
   if (!ed) return;
-  const els = await songElements(playing.doc, playing.name);
+  let els;
+  if (playing.section != null) {
+    // Section play: map the ordinal into the section's own source spans.
+    els = await sectionElements(playing.doc, playing.sectionStart, playing.sectionSrc);
+  } else {
+    els = await songElements(playing.doc, playing.name);
+  }
   const el = els[ordinal - 1];
   if (!el) return;
   ed.setDecorations(highlight, [new vscode.Range(playing.doc.positionAt(el.a), playing.doc.positionAt(el.b))]);
 }
 
-function isCurrent(doc, name) {
-  return playing && playing.name === name && playing.doc.uri.toString() === doc.uri.toString();
+// Atom-like identifiers in a section's source text, rebased to absolute offsets.
+async function sectionElements(doc, base, src) {
+  const { parser } = await ts;
+  const tree = parser.parse(src);
+  const els = [];
+  const seen = new Set();
+  for (const id of tree.rootNode.descendantsOfType("identifier")) {
+    if (NOTE_RE.test(id.text) && !seen.has(id.startIndex)) {
+      seen.add(id.startIndex);
+      els.push({ a: base + id.startIndex, b: base + id.endIndex });
+    }
+  }
+  els.sort((x, y) => x.a - y.a);
+  return els;
 }
 
-async function playToggle(doc, name) {
-  if (isCurrent(doc, name)) {
+function isCurrent(doc, name, section) {
+  return (
+    playing &&
+    playing.name === name &&
+    playing.doc.uri.toString() === doc.uri.toString() &&
+    (section == null ? playing.section == null : playing.section === section)
+  );
+}
+
+async function playToggle(doc, name, section) {
+  if (isCurrent(doc, name, section)) {
     playing.paused = !playing.paused;
-    send(playing.paused ? "stop" : `play ${name}()`);
-    if (!playing.paused) {
-      // resume restarts the stream from the top (v1: no position memory)
-    }
+    send(playing.paused ? "stop" : playing.section != null ? `play ${playing.sectionSrc}` : `play ${name}()`);
     lensChanged.fire();
+  } else if (section != null) {
+    await playSection(doc, name, section);
   } else {
     await play(doc, name);
   }
@@ -217,9 +269,29 @@ async function playToggle(doc, name) {
 async function play(doc, name) {
   ensureServer(doc);
   out.appendLine(`▶ ${name}`);
-  playing = { doc, name, paused: false };
+  playing = { doc, name, section: null, paused: false };
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   writeAndSend();
+  lensChanged.fire();
+}
+
+// Sections play by submitting their (whitespace-collapsed) source text.
+// Only self-contained sections work: references to fn locals fail to eval
+// (the server error shows in the status bar).
+async function playSection(doc, name, index) {
+  ensureServer(doc);
+  const fns = await structure(doc);
+  const fn = fns.find((f) => f.name === name);
+  const section = fn && fn.sections[index];
+  if (!section) return;
+  const src = doc.getText(new vscode.Range(doc.positionAt(section.start), doc.positionAt(section.end))).replace(/\s+/g, " ");
+  out.appendLine(`▶ ${name} §${index + 1}`);
+  playing = { doc, name, section: index, sectionSrc: src, sectionStart: section.start, paused: false };
+  send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
+  const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
+  fs.writeFileSync(tmp, doc.getText());
+  send(`load ${tmp}`);
+  send(`play ${src}`);
   lensChanged.fire();
 }
 
@@ -263,7 +335,10 @@ async function showRoll(doc, name) {
 
 async function reloadIfPlaying() {
   if (!playing || playing.paused) return;
-  writeAndSend(); // v1: reload restarts from the top
+  const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
+  fs.writeFileSync(tmp, playing.doc.getText());
+  send(`load ${tmp}`);
+  send(`reload`); // server re-evaluates the current expr, keeping position
 }
 
 async function functionAt(doc, line) {
@@ -281,11 +356,16 @@ class Lenses {
     const at = (off) => { const p = doc.positionAt(off); return new vscode.Range(p, p); };
     for (const fn of fns) {
       const r = at(fn.nameAt);
-      const cur = isCurrent(doc, fn.name);
+      const cur = isCurrent(doc, fn.name, null);
       lenses.push(new vscode.CodeLens(r, { title: cur && !playing.paused ? "⏸ Pause" : "▶ Play", command: "mmlx.play", arguments: [doc, fn.name] }));
       lenses.push(new vscode.CodeLens(r, { title: "⏹ Stop", command: "mmlx.stop" }));
       const lon = loopOf(doc, fn.name);
       lenses.push(new vscode.CodeLens(r, { title: `🔁 Loop ${lon ? "on" : "off"}`, command: "mmlx.toggleLoop", arguments: [doc, fn.name] }));
+      fn.sections.forEach((section, k) => {
+        const sr = at(section.start);
+        const scur = isCurrent(doc, fn.name, k);
+        lenses.push(new vscode.CodeLens(sr, { title: scur && !playing.paused ? `⏸ §${k + 1}` : `▶ §${k + 1}`, command: "mmlx.playSection", arguments: [doc, fn.name, k] }));
+      });
     }
     return lenses;
   }
@@ -309,6 +389,7 @@ function activate(ctx) {
       }
       playToggle(doc, name);
     }),
+    vscode.commands.registerCommand("mmlx.playSection", (doc, name, section) => playToggle(doc, name, section)),
     vscode.commands.registerCommand("mmlx.stop", () => {
       send("reset");
       const ed = playing ? editorFor(playing.doc) : vscode.window.activeTextEditor;

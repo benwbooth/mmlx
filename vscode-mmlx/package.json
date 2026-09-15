@@ -6,7 +6,7 @@
   "publisher": "mmlx",
   "engines": { "vscode": "^1.75.0" },
   "categories": ["Other"],
-  "activationEvents": ["onLanguage:rust"],
+  "activationEvents": ["onLanguage:rust", "workspaceContains:**/crates/mmlx-server"],
   "main": "./extension.js",
   "dependencies": {
     "web-tree-sitter": "^0.25.0",
@@ -15,6 +15,7 @@
   "contributes": {
     "commands": [
       { "command": "mmlx.play", "title": "mmlx: Play song" },
+      { "command": "mmlx.playSection", "title": "mmlx: Play section" },
       { "command": "mmlx.stop", "title": "mmlx: Stop" },
       { "command": "mmlx.toggleLoop", "title": "mmlx: Toggle loop" },
       { "command": "mmlx.showRoll", "title": "mmlx: Show piano roll" }

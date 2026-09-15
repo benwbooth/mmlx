@@ -3,6 +3,7 @@
 //! stdin commands (one per line):
 //!   load <path>      execute a Rust song file's items in the eval context
 //!   play <expr>      evaluate `<expr>` as a Note and play it from the start
+//!   reload [expr]    re-evaluate (default: current) and keep the playhead
 //!   stop             pause, keeping position
 //!   reset            stop and rewind to the start
 //!   loop on|off      toggle looping at the end of the stream
@@ -36,6 +37,7 @@ pub struct Player {
     started: Option<Instant>,
     tick: u64,
     last_ordinal: i64,
+    last_expr: Option<String>,
 }
 
 impl Player {
@@ -55,6 +57,7 @@ impl Player {
             started: None,
             tick: 0,
             last_ordinal: -1,
+            last_expr: None,
         })
     }
 
@@ -109,6 +112,7 @@ impl Player {
                     self.started = Some(Instant::now());
                     self.playing = true;
                     self.last_ordinal = -1;
+                    self.last_expr = Some(rest.to_string());
                     self.say(format!("ok playing {}", self.events.len()));
                 }
                 Ok(EvalOutcome::IterDone(_)) => self.say(
@@ -125,6 +129,42 @@ impl Player {
                 Ok(_) => self.say("err expression is not a Note".to_string()),
                 Err(err) => self.say(format!("err {err:?}")),
             },
+            // Re-evaluate the current expression (or `reload <expr>`) and keep
+            // the playhead: live-editing without losing position.
+            "reload" => {
+                let expr = if rest.is_empty() {
+                    match self.last_expr.clone() {
+                        Some(expr) => expr,
+                        None => {
+                            self.say("err nothing to reload".to_string());
+                            return;
+                        }
+                    }
+                } else {
+                    rest.to_string()
+                };
+                match self.repl.evaluate_line(&expr) {
+                    Ok(EvalOutcome::Note(note)) => {
+                        let position = self.now();
+                        self.events = note.event_stream(0.0).collect();
+                        self.noteon_times = self
+                            .events
+                            .iter()
+                            .filter(|event| matches!(event.event, MusicalEventType::NoteOn { .. }))
+                            .map(|event| event.time_seconds)
+                            .collect();
+                        self.offset = position.min(self.end());
+                        if self.playing {
+                            self.started = Some(Instant::now());
+                        }
+                        self.last_ordinal = -1;
+                        self.last_expr = Some(expr);
+                        self.say(format!("ok reloaded {}", self.events.len()));
+                    }
+                    Ok(_) => self.say("err expression is not a Note".to_string()),
+                    Err(err) => self.say(format!("err {err:?}")),
+                }
+            }
             "roll" => match self.repl.evaluate_line(rest) {
                 Ok(EvalOutcome::Note(note)) => {
                     let events: Vec<_> = note.event_stream(0.0).collect();

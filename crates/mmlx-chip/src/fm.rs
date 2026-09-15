@@ -16,6 +16,10 @@ fn midi_freq(midi: u8) -> f32 {
 struct OpConfig {
     ratio: f32,
     level: f32,
+    attack: f32,
+    decay: f32,
+    sustain: f32,
+    release: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -23,61 +27,87 @@ struct FmPatchDef {
     routing: u8,
     feedback: f32,
     ops: [OpConfig; 4],
-    attack: f32,
-    decay: f32,
-    sustain: f32,
-    release: f32,
 }
 
 fn patch(name: &str) -> FmPatchDef {
-    let op = |ratio: f32, level: f32| OpConfig { ratio, level };
+    // (ratios, levels, attack, decay, sustain, release) per patch.
+    let def = |routing: u8,
+               feedback: f32,
+               ratios: [f32; 4],
+               levels: [f32; 4],
+               attack: f32,
+               decay: f32,
+               sustain: f32,
+               release: f32| {
+        let mut ops = [OpConfig {
+            ratio: 1.0,
+            level: 1.0,
+            attack,
+            decay,
+            sustain,
+            release,
+        }; 4];
+        for (i, op) in ops.iter_mut().enumerate() {
+            op.ratio = ratios[i];
+            op.level = levels[i];
+        }
+        FmPatchDef {
+            routing,
+            feedback,
+            ops,
+        }
+    };
     match name {
-        "fm-bell" => FmPatchDef {
-            routing: 0,
-            feedback: 0.0,
-            ops: [op(1.0, 1.0), op(2.0, 0.8), op(3.0, 0.5), op(4.0, 0.4)],
-            attack: 0.005,
-            decay: 0.4,
-            sustain: 0.0,
-            release: 0.3,
-        },
-        "fm-bass" => FmPatchDef {
-            routing: 1,
-            feedback: 0.0,
-            ops: [op(0.5, 1.0), op(1.0, 0.7), op(0.5, 1.0), op(1.0, 0.7)],
-            attack: 0.01,
-            decay: 0.1,
-            sustain: 0.8,
-            release: 0.1,
-        },
-        "fm-pad" => FmPatchDef {
-            routing: 3,
-            feedback: 0.0,
-            ops: [op(1.0, 0.5), op(1.0, 0.5), op(2.0, 0.3), op(3.0, 0.2)],
-            attack: 0.4,
-            decay: 0.4,
-            sustain: 0.7,
-            release: 0.6,
-        },
-        "fm-brass" => FmPatchDef {
-            routing: 2,
-            feedback: 0.0,
-            ops: [op(1.0, 0.9), op(1.0, 0.8), op(1.0, 0.7), op(2.0, 0.5)],
-            attack: 0.08,
-            decay: 0.2,
-            sustain: 0.8,
-            release: 0.15,
-        },
-        _ => FmPatchDef {
-            // fm-lead: feedback stack.
-            routing: 4,
-            feedback: 0.35,
-            ops: [op(1.0, 1.0), op(1.0, 0.8), op(1.0, 0.7), op(1.0, 0.6)],
-            attack: 0.01,
-            decay: 0.1,
-            sustain: 0.9,
-            release: 0.1,
-        },
+        "fm-bell" => def(
+            0,
+            0.0,
+            [1.0, 2.0, 3.0, 4.0],
+            [1.0, 0.8, 0.5, 0.4],
+            0.005,
+            0.4,
+            0.0,
+            0.3,
+        ),
+        "fm-bass" => def(
+            1,
+            0.0,
+            [0.5, 1.0, 0.5, 1.0],
+            [1.0, 0.7, 1.0, 0.7],
+            0.01,
+            0.1,
+            0.8,
+            0.1,
+        ),
+        "fm-pad" => def(
+            3,
+            0.0,
+            [1.0, 1.0, 2.0, 3.0],
+            [0.5, 0.5, 0.3, 0.2],
+            0.4,
+            0.4,
+            0.7,
+            0.6,
+        ),
+        "fm-brass" => def(
+            2,
+            0.0,
+            [1.0, 1.0, 1.0, 2.0],
+            [0.9, 0.8, 0.7, 0.5],
+            0.08,
+            0.2,
+            0.8,
+            0.15,
+        ),
+        _ => def(
+            4,
+            0.35,
+            [1.0, 1.0, 1.0, 1.0],
+            [1.0, 0.8, 0.7, 0.6],
+            0.01,
+            0.1,
+            0.9,
+            0.1,
+        ),
     }
 }
 
@@ -129,12 +159,13 @@ impl FmVoice {
         }
         for i in 0..4 {
             let (value, stage) = (&mut self.env[i], &mut self.stages[i]);
+            let op = &self.def.ops[i];
             if self.released {
-                if self.def.release <= 0.0 {
+                if op.release <= 0.0 {
                     *value = 0.0;
                     *stage = EnvStage::Done;
                 } else {
-                    *value = (*value - dt / self.def.release).max(0.0);
+                    *value = (*value - dt / op.release).max(0.0);
                     *stage = if *value <= 0.0 {
                         EnvStage::Done
                     } else {
@@ -145,23 +176,22 @@ impl FmVoice {
             }
             match stage {
                 EnvStage::Attack => {
-                    *value = if self.def.attack <= 0.0 {
+                    *value = if op.attack <= 0.0 {
                         1.0
                     } else {
-                        (*value + dt / self.def.attack).min(1.0)
+                        (*value + dt / op.attack).min(1.0)
                     };
                     if *value >= 1.0 {
                         *stage = EnvStage::Decay;
                     }
                 }
                 EnvStage::Decay => {
-                    *value = if self.def.decay <= 0.0 {
-                        self.def.sustain
+                    *value = if op.decay <= 0.0 {
+                        op.sustain
                     } else {
-                        (*value - dt / self.def.decay * (1.0 - self.def.sustain))
-                            .max(self.def.sustain)
+                        (*value - dt / op.decay * (1.0 - op.sustain)).max(op.sustain)
                     };
-                    if *value <= self.def.sustain {
+                    if *value <= op.sustain {
                         *stage = EnvStage::Sustain;
                     }
                 }
@@ -171,7 +201,12 @@ impl FmVoice {
     }
 
     fn finished(&self) -> bool {
-        self.released && (self.def.release <= 0.0 || self.release_age >= self.def.release + 0.01)
+        self.released
+            && self
+                .def
+                .ops
+                .iter()
+                .all(|op| op.release <= 0.0 || self.release_age >= op.release + 0.01)
     }
 
     fn sample(&mut self, sample_rate: f32) -> f32 {
@@ -186,35 +221,60 @@ impl FmVoice {
             osc(self.phases[i] + modulation) * self.env[i] * self.def.ops[i].level
         };
         let out = match self.def.routing {
-            // Stack of 4.
+            // Stack of 4 (YM alg 0).
             0 => {
                 let v1 = op(0, 0.0);
                 let v2 = op(1, v1);
                 let v3 = op(2, v2);
                 op(3, v3)
             }
-            // Twin stacks.
+            // Twin stacks (YM alg 4).
             1 => {
                 let v1 = op(0, 0.0);
                 let v3 = op(2, 0.0);
                 op(1, v1) + op(3, v3)
             }
-            // Stack of 3 plus dry carrier.
+            // Stack of 3 plus dry carrier (YM alg 5).
             2 => {
                 let v1 = op(0, 0.0);
                 let v2 = op(1, v1);
                 let v3 = op(2, v2);
                 v3 + op(3, 0.0)
             }
-            // All parallel.
+            // All parallel (YM alg 7).
             3 => op(0, 0.0) + op(1, 0.0) + op(2, 0.0) + op(3, 0.0),
             // Feedback lead: op1 feeds back into itself, then stacks.
-            _ => {
+            4 => {
                 let v1 = op(0, self.fb_state * self.def.feedback);
                 self.fb_state = v1;
                 let v2 = op(1, v1);
                 let v3 = op(2, v2);
                 op(3, v3)
+            }
+            // (1+2) into 3 into 4 (YM alg 1).
+            5 => {
+                let v1 = op(0, 0.0);
+                let v2 = op(1, 0.0);
+                let v3 = op(2, v1 + v2);
+                op(3, v3)
+            }
+            // 1 into 2 into 4, plus 3 into 4 (YM alg 2).
+            6 => {
+                let v1 = op(0, 0.0);
+                let v2 = op(1, v1);
+                let v3 = op(2, 0.0);
+                op(3, v2 + v3)
+            }
+            // 1 into 2 into 4, plus dry 3 (YM alg 3).
+            7 => {
+                let v1 = op(0, 0.0);
+                let v2 = op(1, v1);
+                op(3, v2) + op(2, 0.0)
+            }
+            // 1 into 2, plus dry 3 and 4 (YM alg 6).
+            _ => {
+                let v1 = op(0, 0.0);
+                op(1, v1) + op(2, 0.0) + op(3, 0.0)
             }
         };
         out * 0.25 * self.velocity
@@ -254,11 +314,48 @@ impl Instrument for Fm4 {
                     .and_then(|value| value.as_string())
                     .map(String::as_str)
                     .unwrap_or("fm-lead");
+                let mut def = patch(name);
+                // FM programming via params: every patch field is overridable
+                // per block or per note, e.g. `c4q!(op2_ratio = 2.0)`.
+                let num = |key: &str| {
+                    parameters.get(key).and_then(|value| match value {
+                        mmlx_core::ParamValue::Number(number) => Some(*number),
+                        _ => None,
+                    })
+                };
+                if let Some(routing) = num("fm_routing") {
+                    def.routing = routing.round().clamp(0.0, 8.0) as u8;
+                }
+                if let Some(feedback) = num("fm_feedback") {
+                    def.feedback = feedback.clamp(0.0, 1.0);
+                }
+                for (i, op) in def.ops.iter_mut().enumerate() {
+                    let prefix = format!("op{}", i + 1);
+                    let field = |key: &str| num(&format!("{prefix}_{key}"));
+                    if let Some(ratio) = field("ratio") {
+                        op.ratio = ratio.clamp(0.01, 16.0);
+                    }
+                    if let Some(level) = field("level") {
+                        op.level = level.clamp(0.0, 1.0);
+                    }
+                    if let Some(attack) = field("attack") {
+                        op.attack = attack.max(0.0);
+                    }
+                    if let Some(decay) = field("decay") {
+                        op.decay = decay.max(0.0);
+                    }
+                    if let Some(sustain) = field("sustain") {
+                        op.sustain = sustain.clamp(0.0, 1.0);
+                    }
+                    if let Some(release) = field("release") {
+                        op.release = release.max(0.0);
+                    }
+                }
                 self.active.push(FmVoice::new(
                     *note_id,
                     midi_freq(*pitch_midi),
                     *velocity,
-                    patch(name),
+                    def,
                 ));
             }
             MusicalEventType::NoteOff { note_id } => {

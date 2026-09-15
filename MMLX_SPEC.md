@@ -295,6 +295,8 @@ trait Instrument: Send+Sync+'static {
 ```
 
 * **v0.1 `BasicSynth`.** Patches `sine/square/triangle/sawtooth/noise(+white/periodic/brown/pink)`; `duty` PWM; `key` signature (`get_key_signature_adjustment`); `transpose`; `pitch/note/duty/volume/velocity` automation; ADS/R phases per §9.4; LFSR periodic noise with pitch-tracked update period; smoothing + click-free release.
+* **FM programming is params.** `Fm4` patches (`fm-lead fm-bell fm-bass fm-pad fm-brass`) are starting points only; every field is overridable per block or per note: `fm_routing` (0-4), `fm_feedback` (0-1), and per operator `op1_ratio … op4_release` (`ratio level attack decay sustain release` each). Example: `c4q!(op2_ratio=1.5, op4_level=0)` retunes and mutes operators on that note alone.
+* **SID programming is params.** `Sid` patches (`sid-pulse sid-saw sid-tri`) read `duty`, `cutoff` (Hz), `resonance` (0-1) per note; `cutoff`/`resonance` are envelope targets too.
 * Voice model: `ActiveNote{note_id, pitch_midi, phase: Attack/Sustain/Release/Off, envelopes, block_context_envelopes, osc/noise state, cached+smoothed mods}`.
 * Mixer: sum all active voices + `static_volume`; future: per-instrument filters/effects stack, named patches (CP437 README TODO, reserved keys `fx`, `filter`, `patch_name`).
 * More instruments (separate crates, same trait): `2a03 NES, DMG GB, YM2612, OPL3, SNES wavetable, PC speaker`. Kog decoders (`gme/libvgm/adlmidi/adplug/openmpt/sid/vgmstream`) are reference oracles, not dependencies.

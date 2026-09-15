@@ -101,6 +101,171 @@ fn fm_patches_sound_stop_and_differ() {
 }
 
 #[test]
+fn fm_params_reprogram_operators() {
+    use mmlx_chip::Fm4;
+    use mmlx_core::{Note, ParamValue};
+
+    fn render(patch: &str, extra: Vec<(String, ParamValue)>) -> Vec<[f32; 2]> {
+        let mut parameters = vec![("patch".to_string(), ParamValue::String(patch.to_string()))];
+        parameters.extend(extra);
+        let note = Note::Atom {
+            midi: 69,
+            duration: 0.5,
+            parameters,
+        };
+        let events: Vec<_> = note.event_stream(0.0).collect();
+        let mut synth = Fm4::new();
+        for event in events.iter().filter(|event| event.time_seconds <= 0.0) {
+            synth.process_event(event, 44100);
+        }
+        synth.generate_samples(22050, 44100)
+    }
+
+    let lead = render("fm-lead", vec![]);
+    // Detune operator 2 and mute operator 4: must audibly differ.
+    let edited = render(
+        "fm-lead",
+        vec![
+            ("op2_ratio".to_string(), ParamValue::Number(1.5)),
+            ("op4_level".to_string(), ParamValue::Number(0.0)),
+        ],
+    );
+    assert_ne!(lead, edited);
+    // Out-of-range programming clamps instead of panicking.
+    let clamped = render(
+        "fm-lead",
+        vec![
+            ("fm_routing".to_string(), ParamValue::Number(99.0)),
+            ("op1_ratio".to_string(), ParamValue::Number(-5.0)),
+            ("fm_feedback".to_string(), ParamValue::Number(7.0)),
+        ],
+    );
+    assert!(peak(&clamped) > 0.0);
+    // Per-op release still idles.
+    let mut synth = Fm4::new();
+    let note = Note::Atom {
+        midi: 69,
+        duration: 0.5,
+        parameters: vec![
+            (
+                "patch".to_string(),
+                ParamValue::String("fm-pad".to_string()),
+            ),
+            ("op1_release".to_string(), ParamValue::Number(0.05)),
+            ("op2_release".to_string(), ParamValue::Number(0.05)),
+            ("op3_release".to_string(), ParamValue::Number(0.05)),
+            ("op4_release".to_string(), ParamValue::Number(0.05)),
+        ],
+    };
+    let events: Vec<_> = note.event_stream(0.0).collect();
+    for event in &events {
+        synth.process_event(event, 44100);
+    }
+    let _ = synth.generate_samples(44100, 44100);
+    assert!(synth.is_idle());
+}
+
+#[test]
+fn ay_sn_opl_voices_sound_and_stop() {
+    use mmlx_chip::{AyVoice, Opl2, PsgVoice};
+
+    // AY: tone, noise mix, and envelope shape all render.
+    for (patch, extra) in [
+        ("ay-square", vec![]),
+        ("ay-noise", vec![("ay_noise_period", 4.0)]),
+        (
+            "ay-square",
+            vec![("ay_env_shape", 8.0), ("ay_env_period", 64.0)],
+        ),
+    ] {
+        let mut synth = AyVoice::new();
+        let mut parameters = HashMap::new();
+        parameters.insert("patch".to_string(), patch.into());
+        for (key, value) in extra {
+            parameters.insert(key.to_string(), value.into());
+        }
+        synth.process_event(
+            &TimedMusicalEvent {
+                time_seconds: 0.0,
+                real_duration: 0.5,
+                event: MusicalEventType::NoteOn {
+                    note_id: 1,
+                    pitch_midi: 69,
+                    velocity: 0.9,
+                    parameters,
+                    attack_envelope: None,
+                    sustain_envelope: None,
+                    release_envelope: None,
+                    other_envelopes: Vec::new(),
+                },
+                instrument_name: "ay".to_string(),
+            },
+            44100,
+        );
+        let buffer = synth.generate_samples(22050, 44100);
+        assert!(peak(&buffer) > 0.01, "{patch} audible");
+        synth.process_event(&note_off(1), 44100);
+        let _ = synth.generate_samples(44100, 44100);
+        assert!(synth.is_idle(), "{patch} idles");
+    }
+
+    // SN76489: tones, all noise modes, and explicit channel select.
+    for patch in [
+        "sn-square",
+        "sn-noise-white",
+        "sn-noise-periodic",
+        "sn-noise-tone3",
+    ] {
+        let mut synth = PsgVoice::new();
+        synth.process_event(&note_on(1, patch), 44100);
+        let buffer = synth.generate_samples(22050, 44100);
+        assert!(peak(&buffer) > 0.01, "{patch} audible");
+        synth.process_event(&note_off(1), 44100);
+        let _ = synth.generate_samples(44100, 44100);
+        assert!(synth.is_idle(), "{patch} idles");
+    }
+
+    // OPL2: FM/AM, all waveforms, and per-op programming.
+    for patch in ["opl-fm", "opl-am"] {
+        let mut synth = Opl2::new();
+        synth.process_event(&note_on(1, patch), 44100);
+        let buffer = synth.generate_samples(22050, 44100);
+        assert!(peak(&buffer) > 0.01, "{patch} audible");
+        synth.process_event(&note_off(1), 44100);
+        let _ = synth.generate_samples(88200, 44100);
+        assert!(synth.is_idle(), "{patch} idles");
+    }
+    // Waveform select changes timbre; EGT off decays through sustain.
+    {
+        use mmlx_core::{Note, ParamValue};
+        fn render_opl(extra: Vec<(String, ParamValue)>) -> Vec<[f32; 2]> {
+            let mut parameters = vec![(
+                "patch".to_string(),
+                ParamValue::String("opl-fm".to_string()),
+            )];
+            parameters.extend(extra);
+            let note = Note::Atom {
+                midi: 69,
+                duration: 0.5,
+                parameters,
+            };
+            let events: Vec<_> = note.event_stream(0.0).collect();
+            let mut synth = Opl2::new();
+            for event in events.iter().filter(|event| event.time_seconds <= 0.0) {
+                synth.process_event(event, 44100);
+            }
+            synth.generate_samples(22050, 44100)
+        }
+        let sine = render_opl(vec![]);
+        let squareish = render_opl(vec![
+            ("op1_wave".to_string(), ParamValue::Number(2.0)),
+            ("op2_wave".to_string(), ParamValue::Number(2.0)),
+        ]);
+        assert_ne!(sine, squareish, "waveform select is audible");
+    }
+}
+
+#[test]
 fn sid_filter_shapes_tone() {
     use mmlx_chip::Sid;
     use mmlx_core::{Instrument, MusicalEventType, TimedMusicalEvent};

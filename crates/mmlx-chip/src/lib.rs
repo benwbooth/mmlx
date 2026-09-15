@@ -5,11 +5,17 @@
 //! Chiptune-style: constant volume while gated, instant off — no ADSR.
 //! Voice selected per note by `patch`.
 
+pub mod ay;
 pub mod fm;
+pub mod opl;
 pub mod sid;
+pub mod sn;
 
+pub use ay::AyVoice;
 pub use fm::Fm4;
+pub use opl::Opl2;
 pub use sid::Sid;
+pub use sn::PsgVoice;
 
 use mmlx_core::{Instrument, MusicalEventType, TimedMusicalEvent};
 
