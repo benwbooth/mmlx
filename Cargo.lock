@@ -1459,6 +1459,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mmlx-chip"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "mmlx-core",
+]
+
+[[package]]
 name = "mmlx-clap"
 version = "0.1.0"
 dependencies = [
