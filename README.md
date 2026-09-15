@@ -24,6 +24,11 @@ let band = par!([
 - `crates/mmlx-synth` — `BasicSynth` instrument + render test
 - `crates/mmlx-audio` — playback queue; cpal backend (`audio` feature)
 - `crates/mmlx-repl` — evcxr REPL library + `mmlx-repl` binary
+- `crates/mmlx-server` — line-protocol playback engine + smoke example
+- `crates/mmlx-algo` — Opusmodus-style transforms (deterministic, seeded, systems, generative)
+- `crates/mmlx-midi` — SMF export
+- `crates/mmlx-fx` — buffer effects (graphic EQ)
+- `vscode-mmlx/` — VSCode transport extension
 
 ## Build / test
 

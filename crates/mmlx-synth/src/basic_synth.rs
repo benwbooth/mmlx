@@ -63,6 +63,7 @@ struct ActiveNote {
     note_tempo: f32,
     note_time_note: u8,
     note_base_duty_cycle: f32,
+    note_base_pan: f32, // 0.0 = left, 1.0 = right, 0.5 = center
 
     // Oscillator/Noise State
     white_noise_rng_state: u32,
@@ -90,9 +91,16 @@ struct ActiveNote {
     smoothed_velocity_mod: f32,
     smoothed_pitch_semitone_offset: f32,
     smoothed_duty_cycle: f32,
+    smoothed_pan: f32,
 }
 
 impl ActiveNote {
+    /// Equal-power stereo gains from the smoothed pan position.
+    fn stereo_gains(&self) -> (f32, f32) {
+        let angle = self.smoothed_pan.clamp(0.0, 1.0) * std::f32::consts::FRAC_PI_2;
+        (angle.cos(), angle.sin())
+    }
+
     fn next_sample(&mut self, sample_rate: usize) -> (f32, bool) {
         if self.current_phase == NotePhase::Off {
             return (0.0, true);
@@ -420,6 +428,7 @@ impl ActiveNote {
             * smoothing_coeff;
         self.smoothed_duty_cycle +=
             (self.cached_duty_cycle - self.smoothed_duty_cycle) * smoothing_coeff;
+        self.smoothed_pan += (self.note_base_pan - self.smoothed_pan) * smoothing_coeff;
 
         // For Release phase, ensure volume reaches exactly zero at the end
         if self.current_phase == NotePhase::Release {
@@ -677,6 +686,17 @@ impl Instrument for BasicSynth {
                     })
                     .unwrap_or(0.5);
 
+                let note_base_pan_val = note_params
+                    .get("pan")
+                    .and_then(|p| {
+                        if let ParamValue::Number(n) = p {
+                            Some(n.clamp(0.0, 1.0))
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(0.5);
+
                 // Determine fixed duration of the note using timed_event.real_duration
                 let note_fixed_duration_samples_opt: Option<u64> =
                     if timed_event.real_duration > 0.0f32 {
@@ -837,6 +857,8 @@ impl Instrument for BasicSynth {
                     smoothed_velocity_mod: 1.0,
                     smoothed_pitch_semitone_offset: 0.0,
                     smoothed_duty_cycle: note_base_duty_val,
+                    note_base_pan: note_base_pan_val,
+                    smoothed_pan: note_base_pan_val,
                 });
             }
             MusicalEventType::NoteOff { note_id } => {
@@ -943,14 +965,15 @@ impl Instrument for BasicSynth {
             if let Some(note) = self.active_notes.get_mut(note_idx) {
                 if note.current_phase == NotePhase::Off {
                 } else {
+                    let (gain_left, gain_right) = note.stereo_gains();
                     for sample_idx in 0..count {
                         // Pass the host-provided 'rate' to next_sample.
                         let (sample_val, finished_during_buffer) = note.next_sample(rate);
                         if finished_during_buffer {
                             break;
                         }
-                        buffer[sample_idx][0] += sample_val;
-                        buffer[sample_idx][1] += sample_val;
+                        buffer[sample_idx][0] += sample_val * gain_left;
+                        buffer[sample_idx][1] += sample_val * gain_right;
                     }
                 }
             }

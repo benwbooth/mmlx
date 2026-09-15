@@ -29,6 +29,9 @@ static VALID_PARAM_KEYS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "pitch",
         "note", // Add pitch and note keys for envelope targets
         "gate", // Gate parameter
+        "pan",
+        "bus",
+        "send", // Mixer: stereo pan + routing (Phase 5 text DAW)
     ]
     .iter()
     .cloned()
@@ -47,6 +50,7 @@ pub static VALID_ENV_TARGETS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "velocity",
         "transpose",
         "gate",
+        "pan",
         "attack_envelope",
         "sustain_envelope",
         "release_envelope",

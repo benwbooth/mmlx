@@ -263,6 +263,52 @@ pub fn crescendo(notes: Vec<Note>, from: f32, to: f32) -> Vec<Note> {
         .collect()
 }
 
+fn existing_number(note: &Note, key: &str) -> Option<f32> {
+    let parameters = match note {
+        Note::Atom { parameters, .. }
+        | Note::Rest { parameters, .. }
+        | Note::AtomImplicitDuration { parameters, .. }
+        | Note::PreviousPitch { parameters, .. } => parameters,
+        _ => return None,
+    };
+    parameters.iter().find_map(|(name, value)| {
+        if name == key {
+            match value {
+                ParamValue::Number(number) => Some(*number),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    })
+}
+
+/// Humanize: seeded jitter of per-note velocity (±`velocity_amount` MIDI
+/// units) and gate (±`gate_amount`), around existing values when present.
+/// Deterministic for the same seed — the agent-friendly "make it feel live".
+pub fn humanize(notes: Vec<Note>, velocity_amount: f32, gate_amount: f32, seed: u64) -> Vec<Note> {
+    let mut state = seed.wrapping_add(0x9E3779B97F4A7C15);
+    let jitter =
+        |state: &mut u64, amount: f32| ((lcg_next(state) % 2000) as f32 / 1000.0 - 1.0) * amount;
+    notes
+        .into_iter()
+        .map(|note| {
+            let base_velocity = existing_number(&note, "velocity").unwrap_or(100.0);
+            let base_gate = existing_number(&note, "gate").unwrap_or(1.0);
+            note.param(
+                "velocity".to_string(),
+                ParamValue::Number(
+                    (base_velocity + jitter(&mut state, velocity_amount)).clamp(1.0, 127.0),
+                ),
+            )
+            .param(
+                "gate".to_string(),
+                ParamValue::Number((base_gate + jitter(&mut state, gate_amount)).clamp(0.05, 2.0)),
+            )
+        })
+        .collect()
+}
+
 /// Zip parallel lanes (cf. Opusmodus `make-omn`): pitches × durations.
 pub fn zip(pitches: Vec<u8>, durations: Vec<f32>) -> Vec<Note> {
     let len = pitches.len().max(durations.len());

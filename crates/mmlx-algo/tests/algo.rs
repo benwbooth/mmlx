@@ -192,6 +192,35 @@ fn row_forms_and_systems() {
 }
 
 #[test]
+fn humanize_jitters_within_bounds() {
+    let notes = vec![atom(60, 0.25), atom(62, 0.25), atom(64, 0.25)];
+    let once = humanize(notes.clone(), 10.0, 0.1, 42);
+    assert_eq!(humanize(notes.clone(), 10.0, 0.1, 42), once);
+    for note in &once {
+        match note {
+            Note::Atom { parameters, .. } => {
+                let velocity = parameters.iter().find(|(key, _)| key == "velocity");
+                match velocity {
+                    Some((_, ParamValue::Number(velocity))) => {
+                        assert!((90.0..=110.0).contains(velocity), "velocity {velocity}");
+                    }
+                    _ => panic!("humanize sets velocity"),
+                }
+            }
+            _ => panic!("expected atoms"),
+        }
+    }
+    // Zero amount leaves values untouched.
+    assert_eq!(
+        humanize(notes.clone(), 0.0, 0.0, 1),
+        crescendo(notes, 100.0, 100.0)
+            .into_iter()
+            .map(|note| note.param("gate".to_string(), ParamValue::Number(1.0)))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn generative_series() {
     // L-system: A->AB, B->A gives Fibonacci words.
     let word = lindenmayer("A", &[('A', "AB"), ('B', "A")], 4);

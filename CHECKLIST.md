@@ -49,17 +49,20 @@ then commit + push after every feature/fix.
 
 ## Phase 4 — plugins + MIDI
 
-- [ ] Plugin format: **CLAP primary** (`clack`), LV2 second; native
-  `Instrument` trait stays source of truth, CLAP export auto-exposes params
-- [ ] Effect plugin 1: 31-band EQ (pure-Rust port of Kog `equalizer.rs`)
+- [x] Plugin format decision: **CLAP primary** (`clack`), LV2 second
+- [x] Effect plugin 1: `mmlx-fx` graphic EQ (peaking biquads, flat/boost/cut tests)
+- [x] `mmlx-midi`: SMF export with round-trip test (multi-port + import next)
 - [ ] Instrument plugin: SF2 wavetable (RustySynth, cf. Kog `decoder.rs`)
+- [ ] CLAP export of instruments (needs audio-machine verification)
 - [ ] Chiptune wrappers (external C/C++ — each its own crate):
       OPL3, MT-32, SC-55, GME set, libvgm, SID, libopenmpt, vgmstream,
       PSF family, HivelyTracker, AdPlug — with designed (not fixed) params
-- [ ] `mmlx-midi`: export (multi-port for >16 voices, MPE pitch), import via `midly`
 
 ## Phase 5 — AI text DAW
 
-- [ ] Mixer/bus/section text encoding (§13 of spec)
+- [x] Mixer text encoding: `pan` (BasicSynth equal-power), `bus`/`send`
+  keys reserved; automation via envelopes on any target
+- [x] Agent helper: `humanize` (seeded velocity/gate jitter) in `mmlx-algo`
+- [ ] Mixer/bus implementation (summing + sends in backend)
 - [ ] Agent helpers: continue/harmonize/remix operating on `Note` text
 - [ ] Piano-roll *view* over event stream (never source of truth)

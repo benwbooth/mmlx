@@ -157,6 +157,9 @@ c4q!(volume=0.8, duty=)     // per-note; duty unset for this note only
 | `sustain_envelope` | synth | Env | Unset | looped until NoteOff. |
 | `release_envelope` | synth | Env | Unset | played on NoteOff. |
 | `release_duration` | synth | Number | 0.1 | seconds to play release if no env duration. |
+| `pan` | synth | Number/Env | 0.5 | stereo position 0=left..1=right (equal-power). |
+| `bus` | mixer | String | — | named mix bus this voice routes to (Phase 5). |
+| `send` | mixer | Number | — | send amount to `bus` (Phase 5). |
 | `envelope_preset` | meta | String | — | e.g. `"percussion"`; sugar expanding to env triple. |
 | `accidental_suffix` | meta | String | — | internal parser residue; do not set. |
 
