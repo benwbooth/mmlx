@@ -32,8 +32,16 @@ pub fn parse_header(data: &[u8]) -> Result<VgmHeader, String> {
         u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]]) as usize
     };
     let u32v = |at: usize| u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]]);
-    let data_start = if u32v(0x34) == 0 { 0x40 } else { 0x34 + u32le(0x34) };
-    let loop_offset = if u32v(0x1C) == 0 { None } else { Some(0x1C + u32le(0x1C)) };
+    let data_start = if u32v(0x34) == 0 {
+        0x40
+    } else {
+        0x34 + u32le(0x34)
+    };
+    let loop_offset = if u32v(0x1C) == 0 {
+        None
+    } else {
+        Some(0x1C + u32le(0x1C))
+    };
     Ok(VgmHeader {
         version: u32v(0x08),
         total_samples: u32v(0x18),
@@ -55,7 +63,10 @@ pub enum Command {
 }
 
 /// `(command_offset, sample_pos, Command)` in file order.
-pub fn parse_commands(data: &[u8], header: &VgmHeader) -> Result<Vec<(usize, u64, Command)>, String> {
+pub fn parse_commands(
+    data: &[u8],
+    header: &VgmHeader,
+) -> Result<Vec<(usize, u64, Command)>, String> {
     let mut out = Vec::new();
     let mut sample = 0u64;
     let mut i = header.data_start;
@@ -112,8 +123,8 @@ pub fn parse_commands(data: &[u8], header: &VgmHeader) -> Result<Vec<(usize, u64
                 if i + 6 > n {
                     return Err("truncated data block".to_string());
                 }
-                let size =
-                    u32::from_le_bytes([data[i + 2], data[i + 3], data[i + 4], data[i + 5]]) as usize;
+                let size = u32::from_le_bytes([data[i + 2], data[i + 3], data[i + 4], data[i + 5]])
+                    as usize;
                 i += 6 + size;
             }
             0xE0 => {
@@ -173,7 +184,9 @@ fn fnum_freq(fnum: u16, block: u8, clock: u32) -> f32 {
 }
 
 fn freq_midi(freq: f32) -> u8 {
-    (69.0 + 12.0 * (freq / 440.0).log2()).round().clamp(0.0, 127.0) as u8
+    (69.0 + 12.0 * (freq / 440.0).log2())
+        .round()
+        .clamp(0.0, 127.0) as u8
 }
 
 /// Snapshot a channel into raw voice params. Slots S1..S4; file rows hold
@@ -254,7 +267,10 @@ fn split_on_pitch(
     at: u64,
     clock: u32,
 ) {
-    let sounding = channels[channel].active.as_ref().map(|(_, midi, _, _)| *midi);
+    let sounding = channels[channel]
+        .active
+        .as_ref()
+        .map(|(_, midi, _, _)| *midi);
     let freq = fnum_freq(channels[channel].fnum, channels[channel].block, clock);
     let midi = freq_midi(freq);
     if sounding == Some(midi) {
@@ -317,11 +333,7 @@ pub fn track_fm(commands: &[(usize, u64, Command)], clock: u32, end_sample: u64)
                         close_note(&mut channels, &mut notes, target, *sample);
                     } else {
                         close_note(&mut channels, &mut notes, target, *sample); // retrigger cuts
-                        let freq = fnum_freq(
-                            channels[target].fnum,
-                            channels[target].block,
-                            clock,
-                        );
+                        let freq = fnum_freq(channels[target].fnum, channels[target].block, clock);
                         let midi = freq_midi(freq);
                         let (params, approx) = fm_snapshot(&channels[target]);
                         let (start, approx) =
@@ -433,7 +445,10 @@ pub fn track_psg(commands: &[(usize, u64, Command)], end_sample: u64) -> Vec<Tra
     let mut sounding: [Option<(u64, u8, f32)>; 4] = [None, None, None, None];
     let mut notes = Vec::new();
     let loudness = |attenuation: u8| (15 - attenuation.min(15)) as f32 / 15.0;
-    let close = |sounding: &mut [Option<(u64, u8, f32)>; 4], channel: usize, at: u64, notes: &mut Vec<TrackNote>| {
+    let close = |sounding: &mut [Option<(u64, u8, f32)>; 4],
+                 channel: usize,
+                 at: u64,
+                 notes: &mut Vec<TrackNote>| {
         if let Some((start, midi, velocity)) = sounding[channel].take() {
             if at > start {
                 notes.push(TrackNote {
@@ -470,8 +485,7 @@ pub fn track_psg(commands: &[(usize, u64, Command)], end_sample: u64) -> Vec<Tra
                                 &[],
                                 false,
                             );
-                            sounding[latched] =
-                                Some((start, freq_midi(tone.max(1.0)), velocity));
+                            sounding[latched] = Some((start, freq_midi(tone.max(1.0)), velocity));
                         }
                     } else if attenuation == 0x0F {
                         close(&mut sounding, 3, *sample, &mut notes);
@@ -565,7 +579,9 @@ pub fn split_loop(
 
 /// Pitch const name for a MIDI number (sharp spelling): ("cs", 4) etc.
 pub fn midi_name(midi: u8) -> (&'static str, i8) {
-    const NAMES: [&str; 12] = ["c", "cs", "d", "ds", "e", "f", "fs", "g", "gs", "a", "as", "b"];
+    const NAMES: [&str; 12] = [
+        "c", "cs", "d", "ds", "e", "f", "fs", "g", "gs", "a", "as", "b",
+    ];
     (NAMES[(midi % 12) as usize], midi as i8 / 12 - 1)
 }
 
@@ -647,9 +663,9 @@ fn group_params(
     let mut pending: Vec<String> = Vec::new();
     let mut pending_setup: Option<HashMap<String, f32>> = None;
     let flush = |pending: &mut Vec<String>,
-                   pending_setup: &mut Option<HashMap<String, f32>>,
-                   out: &mut Vec<String>,
-                   out_setups: &mut Vec<HashMap<String, f32>>| {
+                 pending_setup: &mut Option<HashMap<String, f32>>,
+                 out: &mut Vec<String>,
+                 out_setups: &mut Vec<HashMap<String, f32>>| {
         if !pending.is_empty() {
             out.push(format!("param!({})", pending.join(", ")));
             out_setups.push(pending_setup.take().unwrap_or_default());
@@ -694,7 +710,11 @@ pub fn emit_voice(
         if start_tick > cursor {
             let rest = ticks_to_durations(start_tick - cursor);
             for (i, suffix) in rest.iter().enumerate() {
-                items.push(if i == 0 { format!("r{suffix}") } else { suffix.to_string() });
+                items.push(if i == 0 {
+                    format!("r{suffix}")
+                } else {
+                    suffix.to_string()
+                });
                 item_setups.push(setup.clone());
             }
         }
@@ -740,7 +760,10 @@ pub fn emit_voice(
             } else {
                 note.velocity
             };
-            format!("{name}{octave_str}{}!(velocity={midi_vel:.2})", durations[0])
+            format!(
+                "{name}{octave_str}{}!(velocity={midi_vel:.2})",
+                durations[0]
+            )
         } else {
             format!("{name}{octave_str}{}", durations[0])
         };
@@ -759,7 +782,11 @@ pub fn emit_voice(
     // Group single-pair params, then phrase extraction, then repeat! runs.
     let (items, item_setups) = group_params(items, item_setups);
     // Phrase extraction first (multi-item repeats), then repeat! runs.
-    let (items, mut segs) = if std::env::var("MMLX_NO_SEGS").is_ok() { (items, Vec::new()) } else { extract_phrases(items, item_setups, seg_prefix, 16) };
+    let (items, mut segs) = if std::env::var("MMLX_NO_SEGS").is_ok() {
+        (items, Vec::new())
+    } else {
+        extract_phrases(items, item_setups, seg_prefix, 16)
+    };
     // Compress consecutive identical atoms into repeat!.
     // NEVER compress bare duration ties (w/q/hd/...): repeat! would clone
     // the preceding note/rest instead of extending it. Same for markers.
@@ -769,10 +796,30 @@ pub fn emit_voice(
             || item.starts_with("repeat!(")
             || matches!(
                 item,
-                "w" | "h" | "q" | "e" | "i" | "t" | "x" | "o"
-                    | "wd" | "hd" | "qd" | "ed" | "id" | "td" | "xd"
-                    | "wdd" | "hdd" | "qdd" | "edd" | "idd" | "tdd"
-                    | "wddd" | "hddd" | "qddd" | "eddd"
+                "w" | "h"
+                    | "q"
+                    | "e"
+                    | "i"
+                    | "t"
+                    | "x"
+                    | "o"
+                    | "wd"
+                    | "hd"
+                    | "qd"
+                    | "ed"
+                    | "id"
+                    | "td"
+                    | "xd"
+                    | "wdd"
+                    | "hdd"
+                    | "qdd"
+                    | "edd"
+                    | "idd"
+                    | "tdd"
+                    | "wddd"
+                    | "hddd"
+                    | "qddd"
+                    | "eddd"
             ))
     };
     let mut compressed: Vec<String> = Vec::new();
@@ -791,10 +838,7 @@ pub fn emit_voice(
         }
         index += run;
     }
-    let lane = format!(
-        "ser!([\n{}\n    ])",
-        pack_items(&compressed, "        ")
-    );
+    let lane = format!("ser!([\n{}\n    ])", pack_items(&compressed, "        "));
     segs.sort();
     (lane, segs)
 }

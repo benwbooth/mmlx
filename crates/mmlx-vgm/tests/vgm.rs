@@ -32,7 +32,7 @@ fn synth_vgm() -> Vec<u8> {
     ym(&mut body, 0xA0, 0x3A);
     ym(&mut body, 0x28, 0xF0);
     body.extend([0x61, 0xE0, 0x5B]); // 23520 samples = 32 ticks
-    // Note 2: retriggered immediately (legato run with note 1).
+                                     // Note 2: retriggered immediately (legato run with note 1).
     ym(&mut body, 0x28, 0x00);
     ym(&mut body, 0xA4, 0x24);
     ym(&mut body, 0xA0, 0x3A);
@@ -59,9 +59,19 @@ fn tracker_extracts_exact_notes() {
     assert_eq!(notes[0].voice, 0);
     assert_eq!(notes[1].start, 23520);
     // Raw program captured.
-    let tl = notes[0].params.iter().find(|(key, _)| key == "op1_tl").unwrap().1;
+    let tl = notes[0]
+        .params
+        .iter()
+        .find(|(key, _)| key == "op1_tl")
+        .unwrap()
+        .1;
     assert_eq!(tl, 16.0);
-    let algo = notes[0].params.iter().find(|(key, _)| key == "ym_algo").unwrap().1;
+    let algo = notes[0]
+        .params
+        .iter()
+        .find(|(key, _)| key == "ym_algo")
+        .unwrap()
+        .1;
     assert_eq!(algo, 0.0);
     assert!(!notes[0].approx);
 }
@@ -112,12 +122,7 @@ fn emitter_is_exact_and_compressed() {
     let header = parse_header(&data).expect("header");
     let commands = parse_commands(&data, &header).expect("commands");
     let notes = track_fm(&commands, header.ym2612_clock, header.total_samples as u64);
-    let src = emit_song(
-        "synth",
-        &[("ym".to_string(), vec![], notes)],
-        735,
-        112.5,
-    );
+    let src = emit_song("synth", &[("ym".to_string(), vec![], notes)], 735, 112.5);
     // Readable consts, compression markers, loop fns, tempo.
     assert!(src.contains("a4q"), "note literal:\n{src}");
     assert!(src.contains("repeat!(1)"), "run compression:\n{src}");
