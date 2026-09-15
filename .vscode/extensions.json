@@ -1,0 +1,7 @@
+{
+  // Project extension (./vscode-mmlx, id `mmlx.mmlx`). The nix devshell
+  // auto-installs it into the VSCode extensions dir on load, so opening
+  // this folder is enough; this entry documents the dependency and takes
+  // over once the extension is published.
+  "recommendations": ["mmlx.mmlx"]
+}

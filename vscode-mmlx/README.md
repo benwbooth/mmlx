@@ -21,7 +21,16 @@ The ordinal counts NoteOns so far (1-based); the extension highlights the
 Nth atom-like element in the function. Approximate after rests (rests emit
 no NoteOn).
 
-## Setup (development install)
+## Setup (automatic for project contributors)
+
+Opening this project with the nix devshell active (direnv `use flake`)
+auto-installs the extension: the shellHook symlinks `vscode-mmlx` into
+`~/.vscode/extensions/mmlx` (or `~/.vscode-oss/extensions/mmlx`) and runs
+`npm install` once. Reload the window after the first install; the
+extension then activates on Rust files via
+`workspaceContains:**/crates/mmlx-server`.
+
+Manual equivalent:
 
 ```sh
 cd vscode-mmlx && npm install
