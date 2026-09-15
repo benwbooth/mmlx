@@ -32,6 +32,8 @@ static VALID_PARAM_KEYS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "pan",
         "bus",
         "send", // Mixer: stereo pan + routing (Phase 5 text DAW)
+        "cutoff",
+        "resonance", // Filter: SID-style lowpass (mmlx-chip)
     ]
     .iter()
     .cloned()
@@ -51,6 +53,8 @@ pub static VALID_ENV_TARGETS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "transpose",
         "gate",
         "pan",
+        "cutoff",
+        "resonance",
         "attack_envelope",
         "sustain_envelope",
         "release_envelope",

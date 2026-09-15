@@ -5,6 +5,12 @@
 //! Chiptune-style: constant volume while gated, instant off — no ADSR.
 //! Voice selected per note by `patch`.
 
+pub mod fm;
+pub mod sid;
+
+pub use fm::Fm4;
+pub use sid::Sid;
+
 use mmlx_core::{Instrument, MusicalEventType, TimedMusicalEvent};
 
 fn midi_freq(midi: u8) -> f32 {
