@@ -45,6 +45,10 @@ pub struct Ym2612 {
     hp_in_r: f32,
     hp_out_l: f32,
     hp_out_r: f32,
+    // Whether the highpass has seen its first sample yet. Seeding the
+    // delay with the first input (instead of zero) avoids a start-of-
+    // stream thump as the filter converges from the idle DC level.
+    hp_seeded: bool,
 }
 
 // The chip is only touched from the render path.
@@ -68,6 +72,7 @@ impl Ym2612 {
                     hp_in_r: 0.0,
                     hp_out_l: 0.0,
                     hp_out_r: 0.0,
+                    hp_seeded: false,
                 })
             }
         }
@@ -94,12 +99,19 @@ impl Ym2612 {
         unsafe {
             YM2612_Update(self.chip, buffers.as_mut_ptr(), frames as u32);
         }
-        // GENS core outputs 14-bit-ish samples; normalize conservatively.
+        // GENS core outputs 14-bit-ish samples; normalize conservatively,
+        // then halve: the core runs hot (a single moderate FM note peaks
+        // past 0.5) and six channels share the mix with the PSG voices.
         // Then strip the core's idle DC offset with a one-pole highpass.
         let mut out = Vec::with_capacity(frames);
         for (l, r) in left.into_iter().zip(right) {
-            let l = (l as f32 / 16384.0).clamp(-1.0, 1.0);
-            let r = (r as f32 / 16384.0).clamp(-1.0, 1.0);
+            let l = (l as f32 / 16384.0).clamp(-1.0, 1.0) * 0.5;
+            let r = (r as f32 / 16384.0).clamp(-1.0, 1.0) * 0.5;
+            if !self.hp_seeded {
+                self.hp_in_l = l;
+                self.hp_in_r = r;
+                self.hp_seeded = true;
+            }
             self.hp_out_l = l - self.hp_in_l + 0.995 * self.hp_out_l;
             self.hp_out_r = r - self.hp_in_r + 0.995 * self.hp_out_r;
             self.hp_in_l = l;
@@ -220,9 +232,8 @@ impl Ym2612Voice {
             let prefix = format!("op{}", slot + 1);
             let field = |key: &str| num(&format!("{prefix}_{key}"));
             // Raw register values win when present (decompiler-exact path).
-            let raw = |key: &str, mask: f32| {
-                field(key).map(|value| value.round().clamp(0.0, mask) as u8)
-            };
+            let raw =
+                |key: &str, mask: f32| field(key).map(|value| value.round().clamp(0.0, mask) as u8);
             let mult_reg = raw("mult", 15.0).unwrap_or_else(|| {
                 let mult = field("ratio").unwrap_or(1.0);
                 if mult <= 0.75 {
@@ -233,22 +244,16 @@ impl Ym2612Voice {
             });
             // DT lives in the MUL high nibble (bits 4-6).
             let detune = raw("dt", 7.0).unwrap_or(0);
-            self.chip.write(
-                port,
-                0x30 + row * 4 + base,
-                mult_reg & 0x0F | (detune << 4),
-            );
-            let tl = raw("tl", 127.0).unwrap_or_else(|| {
-                gain_to_tl(field("level").unwrap_or(0.8).clamp(0.0, 1.0))
-            });
+            self.chip
+                .write(port, 0x30 + row * 4 + base, mult_reg & 0x0F | (detune << 4));
+            let tl = raw("tl", 127.0)
+                .unwrap_or_else(|| gain_to_tl(field("level").unwrap_or(0.8).clamp(0.0, 1.0)));
             self.chip.write(port, 0x40 + row * 4 + base, tl);
-            let attack = raw("ar", 31.0).unwrap_or_else(|| {
-                secs_to_rate(field("attack").unwrap_or(0.01).max(0.0), 1.5, 31)
-            });
+            let attack = raw("ar", 31.0)
+                .unwrap_or_else(|| secs_to_rate(field("attack").unwrap_or(0.01).max(0.0), 1.5, 31));
             self.chip.write(port, 0x50 + row * 4 + base, attack);
-            let decay = raw("dr", 31.0).unwrap_or_else(|| {
-                secs_to_rate(field("decay").unwrap_or(0.1).max(0.0), 3.0, 31)
-            });
+            let decay = raw("dr", 31.0)
+                .unwrap_or_else(|| secs_to_rate(field("decay").unwrap_or(0.1).max(0.0), 3.0, 31));
             self.chip.write(port, 0x60 + row * 4 + base, decay);
             // Sustain rate: hold unless programmed raw.
             let sustain_rate = raw("sr", 31.0).unwrap_or(0);
@@ -256,9 +261,8 @@ impl Ym2612Voice {
             let sustain_level = raw("sl", 15.0).unwrap_or_else(|| {
                 ((1.0 - field("sustain").unwrap_or(0.9).clamp(0.0, 1.0)) * 15.0).round() as u8
             });
-            let release_rate = raw("rr", 15.0).unwrap_or_else(|| {
-                secs_to_rate(field("release").unwrap_or(0.1).max(0.0), 3.0, 15)
-            });
+            let release_rate = raw("rr", 15.0)
+                .unwrap_or_else(|| secs_to_rate(field("release").unwrap_or(0.1).max(0.0), 3.0, 15));
             self.chip.write(
                 port,
                 0x80 + row * 4 + base,
@@ -332,5 +336,12 @@ impl Instrument for Ym2612Voice {
 
     fn is_idle(&self) -> bool {
         self.active.is_empty()
+    }
+
+    fn all_notes_off(&mut self) {
+        let channels: Vec<u8> = self.active.drain().map(|(_, channel)| channel).collect();
+        for channel in channels {
+            self.key_off(channel);
+        }
     }
 }

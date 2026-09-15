@@ -886,6 +886,11 @@ pub trait Instrument: Send + Sync + 'static {
     fn is_idle(&self) -> bool {
         false // Default implementation: assume never idle
     }
+
+    /// Silence all sounding voices immediately (transport stop/pause).
+    /// Default is a no-op for stateless voices; stateful voices must
+    /// clear held notes so nothing drones after the queue is dropped.
+    fn all_notes_off(&mut self) {}
 }
 
 impl Note {

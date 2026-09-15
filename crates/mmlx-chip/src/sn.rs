@@ -184,4 +184,9 @@ impl Instrument for PsgVoice {
     fn is_idle(&self) -> bool {
         self.noise.is_none() && self.tones.iter().all(Option::is_none)
     }
+
+    fn all_notes_off(&mut self) {
+        self.tones = [None, None, None];
+        self.noise = None;
+    }
 }

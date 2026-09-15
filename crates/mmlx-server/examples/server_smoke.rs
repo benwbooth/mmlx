@@ -21,6 +21,7 @@ fn main() {
     let mut player = Player::new(
         mmlx_audio::new_queue(),
         mmlx_audio::new_synth_time(),
+        mmlx_audio::InstrumentsMap::default(),
         out_tx,
     )
     .expect("player");

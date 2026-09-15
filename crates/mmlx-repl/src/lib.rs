@@ -134,7 +134,19 @@ impl ReplEnv {
         Ok(Self::plain_text(&output).unwrap_or("").trim().to_string())
     }
 
+    /// Evaluate one line, queueing resulting audio (REPL + preview path).
     pub fn evaluate_line(&mut self, line: &str) -> Result<EvalOutcome> {
+        self.evaluate_line_impl(line, true)
+    }
+
+    /// Evaluate one line without touching the audio queue. The caller
+    /// (playback engine) owns queueing so it can position, replace, or
+    /// drop the events instead of always appending from zero.
+    pub fn evaluate_line_no_queue(&mut self, line: &str) -> Result<EvalOutcome> {
+        self.evaluate_line_impl(line, false)
+    }
+
+    fn evaluate_line_impl(&mut self, line: &str, queue: bool) -> Result<EvalOutcome> {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             return Ok(EvalOutcome::Empty);
@@ -145,7 +157,9 @@ impl ReplEnv {
             if let Some(text) = Self::plain_text(&output) {
                 if let Ok(inner) = serde_json::from_str::<String>(text) {
                     if let Ok(note) = serde_json::from_str::<Note>(&inner) {
-                        queue_note(note.clone(), &self.queue, &self.time);
+                        if queue {
+                            queue_note(note.clone(), &self.queue, &self.time);
+                        }
                         return Ok(EvalOutcome::Note(note));
                     }
                 }
@@ -170,7 +184,9 @@ impl ReplEnv {
                             let opt: Option<Note> = serde_json::from_str(&js_inner)?;
                             match opt {
                                 Some(note) => {
-                                    queue_note(note, &self.queue, &self.time);
+                                    if queue {
+                                        queue_note(note, &self.queue, &self.time);
+                                    }
                                     count += 1;
                                 }
                                 None => break,

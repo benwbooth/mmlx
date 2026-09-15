@@ -75,6 +75,12 @@ impl Instrument for Sf2Synth {
     fn is_idle(&self) -> bool {
         self.active.is_empty()
     }
+
+    fn all_notes_off(&mut self) {
+        for (_, key) in self.active.drain() {
+            self.synth.note_off(0, key);
+        }
+    }
 }
 
 // --- minimal in-memory SoundFont (single sine preset) ---

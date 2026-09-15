@@ -254,4 +254,8 @@ impl Instrument for AyVoice {
     fn is_idle(&self) -> bool {
         self.channels.iter().all(Option::is_none)
     }
+
+    fn all_notes_off(&mut self) {
+        self.channels = [None, None, None];
+    }
 }

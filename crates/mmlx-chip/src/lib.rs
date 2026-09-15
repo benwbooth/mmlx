@@ -196,6 +196,10 @@ impl Instrument for Nes2A03 {
     fn is_idle(&self) -> bool {
         self.active.is_empty()
     }
+
+    fn all_notes_off(&mut self) {
+        self.active.clear();
+    }
 }
 
 /// GameBoy DMG. Patches: `pulse12 pulse25 pulse50 pulse75 wave noise short-noise`.
@@ -256,5 +260,9 @@ impl Instrument for GbDmg {
 
     fn is_idle(&self) -> bool {
         self.active.is_empty()
+    }
+
+    fn all_notes_off(&mut self) {
+        self.active.clear();
     }
 }

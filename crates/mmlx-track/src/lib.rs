@@ -578,6 +578,13 @@ impl Instrument for FluidVoice {
     fn is_idle(&self) -> bool {
         self.active.is_empty()
     }
+
+    fn all_notes_off(&mut self) {
+        let keys: Vec<i32> = self.active.drain().map(|(_, key)| key).collect();
+        for key in keys {
+            let _ = self.call_note(false, key, 0);
+        }
+    }
 }
 
 // --- Munt MT-32 realtime voice ---
@@ -799,6 +806,13 @@ impl Instrument for Mt32Voice {
 
     fn is_idle(&self) -> bool {
         self.active.is_empty()
+    }
+
+    fn all_notes_off(&mut self) {
+        let keys: Vec<i32> = self.active.drain().map(|(_, key)| key).collect();
+        for key in keys {
+            self.play_msg(0x80 | ((key as u32) << 8));
+        }
     }
 }
 

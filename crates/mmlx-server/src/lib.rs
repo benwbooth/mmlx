@@ -6,16 +6,19 @@
 //!     (no JIT); any other expression evaluates it as a Note and plays it
 //!     from the start
 //!   reload [expr]    re-evaluate (default: current) and keep the playhead
-//!   stop             pause, keeping position
-//!   reset            stop and rewind to the start
+//!   stop             pause, keeping position (queued audio is dropped and
+//!     voices silenced too, so sound really pauses)
+//!   resume           continue paused playback without re-evaluating
+//!   reset            stop, rewind, and silence everything
 //!   loop on|off      toggle looping at the end of the stream
 //!   preview <expr>   evaluate `<expr>` (queued to audio when present)
 //!   roll <expr>      evaluate `<expr>` and emit its piano roll as
 //!     `rollrow <start> <midi> <dur> <instrument>` lines plus `rollend`
 //! stdout events:
 //!   ok <msg> | err <msg>
-//!   pos <tick> <ordinal>   `<ordinal>` = NoteOns with time <= now (1-based
-//!     count of the currently sounding note; -1 when stopped at the start)
+//!   pos <tick> <ordinal> <inst> <ch> <lane-ordinal>  global NoteOn ordinal
+//!     plus the sounding note's lane identity for exact source highlighting
+//!     (`- - -` when the lane is unknown; `-1` ordinal when idle)
 //!   ended                emitted once when a non-looping play finishes
 //!
 //! The clock is virtual (wall-clock rate), so position reporting works
@@ -25,6 +28,7 @@
 use anyhow::Result;
 use mmlx_core::{MusicalEventType, TimedMusicalEvent};
 use mmlx_repl::{EvalOutcome, ReplEnv};
+use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::time::Instant;
 
@@ -32,9 +36,14 @@ pub struct Player {
     repl: Option<ReplEnv>,
     queue: mmlx_audio::EventQueue,
     time: mmlx_audio::SynthTime,
+    instruments: mmlx_audio::InstrumentsMap,
     out: Sender<String>,
     events: Vec<TimedMusicalEvent>,
     noteon_times: Vec<f32>,
+    /// Per-NoteOn lane identity, parallel to `noteon_times`: (instrument,
+    /// channel, lane ordinal). Chip lanes pin `ym_channel`/`sn_channel`
+    /// params, so the editor can highlight the exact source lane.
+    noteon_lanes: Vec<(String, i64, i64)>,
     playing: bool,
     looping: bool,
     offset: f32,
@@ -48,6 +57,7 @@ impl Player {
     pub fn new(
         queue: mmlx_audio::EventQueue,
         time: mmlx_audio::SynthTime,
+        instruments: mmlx_audio::InstrumentsMap,
         out: Sender<String>,
     ) -> Result<Self> {
         // The evcxr context is built lazily (see `ensure_repl`): a cold
@@ -57,9 +67,11 @@ impl Player {
             repl: None,
             queue,
             time,
+            instruments,
             out,
             events: Vec::new(),
             noteon_times: Vec::new(),
+            noteon_lanes: Vec::new(),
             playing: false,
             looping: true,
             offset: 0.0,
@@ -82,26 +94,101 @@ impl Player {
         Ok(self.repl.as_mut().expect("repl built above"))
     }
 
-    /// Start playback of an evaluated `Note`, shared by `play` (both
-    /// compiled-in and JIT paths) and `reload`.
-    fn start_playing(&mut self, note: mmlx_core::Note, label: String) {
-        // Queue for the audio backend (drains to cpal when live; the JIT
-        // path queues inside `evaluate_line`, so do it here for parity —
-        // otherwise compiled-in songs play silently).
-        mmlx_audio::queue_note(note.clone(), &self.queue, &self.time);
+    /// Start playback of an evaluated `Note` from `from` seconds in.
+    /// Owns audio queueing outright (the JIT evaluates with queueing
+    /// disabled): drops anything queued, silences voices, collects the
+    /// highlight stream, and queues events rebased to the audio clock.
+    fn start_playing(&mut self, note: mmlx_core::Note, label: String, from: f32) {
+        self.silence();
         self.events = note.event_stream(0.0).collect();
-        self.noteon_times = self
-            .events
-            .iter()
-            .filter(|event| matches!(event.event, MusicalEventType::NoteOn { .. }))
-            .map(|event| event.time_seconds)
-            .collect();
-        self.offset = 0.0;
+        self.collect_noteons();
+        self.requeue_from(from);
+        self.offset = from;
         self.started = Some(Instant::now());
         self.playing = true;
         self.last_ordinal = -1;
         self.last_expr = Some(label);
         self.say(format!("ok playing {}", self.events.len()));
+    }
+
+    /// Rebuild the highlight stream + per-NoteOn lane identities from the
+    /// current events. Events arrive in time order, so lane ordinals
+    /// count up per lane in sounding order.
+    fn collect_noteons(&mut self) {
+        self.noteon_times.clear();
+        self.noteon_lanes.clear();
+        let mut lane_counts: HashMap<(String, i64), i64> = HashMap::new();
+        for event in &self.events {
+            if !matches!(event.event, MusicalEventType::NoteOn { .. }) {
+                continue;
+            }
+            self.noteon_times.push(event.time_seconds);
+            match Self::lane_key(event) {
+                Some((instrument, channel)) => {
+                    let count = lane_counts
+                        .entry((instrument.clone(), channel))
+                        .or_insert(0);
+                    *count += 1;
+                    self.noteon_lanes.push((instrument, channel, *count));
+                }
+                None => self
+                    .noteon_lanes
+                    .push((event.instrument_name.clone(), -1, -1)),
+            }
+        }
+    }
+
+    /// Lane identity for highlight mapping: chip lanes pin
+    /// `ym_channel`/`sn_channel` params on every note. Anything else
+    /// (or unpinned lanes) maps globally like before.
+    fn lane_key(event: &TimedMusicalEvent) -> Option<(String, i64)> {
+        let key = match event.instrument_name.as_str() {
+            "ym" => "ym_channel",
+            "psg" => "sn_channel",
+            _ => return None,
+        };
+        if let MusicalEventType::NoteOn { parameters, .. } = &event.event {
+            if let Some(mmlx_core::ParamValue::Number(channel)) = parameters.get(key) {
+                return Some((event.instrument_name.clone(), channel.round() as i64));
+            }
+        }
+        None
+    }
+
+    /// Drop queued audio and silence sounding voices immediately.
+    fn silence(&mut self) {
+        if let Ok(mut queue) = self.queue.lock() {
+            queue.clear();
+        }
+        #[cfg(feature = "audio")]
+        mmlx_audio::backend::all_notes_off(&self.instruments);
+        // Headless voices hold no sound; nothing to do.
+    }
+
+    /// Queue collected events at/after `from`, rebased so `from` sounds
+    /// now on the backend's audio clock. Diagnostic comments are skipped
+    /// (already logged on first play).
+    fn requeue_from(&mut self, from: f32) {
+        let audio_now = *self.time.lock().unwrap();
+        let mut rows: Vec<TimedMusicalEvent> = self
+            .events
+            .iter()
+            .filter(|event| {
+                event.time_seconds >= from && !matches!(event.event, MusicalEventType::Comment(_))
+            })
+            .cloned()
+            .collect();
+        rows.sort_by(|a, b| {
+            a.time_seconds
+                .partial_cmp(&b.time_seconds)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        if let Ok(mut queue) = self.queue.lock() {
+            for mut event in rows {
+                event.time_seconds = event.time_seconds - from + audio_now;
+                queue.push_back(event);
+            }
+        }
     }
 
     /// `name()` with nothing else: a bare song call. Plays the compiled-in
@@ -171,14 +258,16 @@ impl Player {
                 // song starts instantly with no JIT involved.
                 if let Some(name) = Self::bare_name(rest) {
                     if let Some(song) = mmlx_songs::song_by_name(name) {
-                        self.start_playing(song(), rest.to_string());
+                        self.start_playing(song(), rest.to_string(), 0.0);
                         return;
                     }
                 }
-                let outcome = self.ensure_repl().map(|repl| repl.evaluate_line(rest));
+                let outcome = self
+                    .ensure_repl()
+                    .map(|repl| repl.evaluate_line_no_queue(rest));
                 match outcome {
                     Ok(Ok(EvalOutcome::Note(note))) => {
-                        self.start_playing(note, rest.to_string());
+                        self.start_playing(note, rest.to_string(), 0.0);
                     }
                     Ok(Ok(EvalOutcome::IterDone(_))) => self.say(
                         "err infinite iterators are not playable, bound with .take(n)".to_string(),
@@ -212,16 +301,16 @@ impl Player {
                 } else {
                     rest.to_string()
                 };
-                match self.ensure_repl().map(|repl| repl.evaluate_line(&expr)) {
+                match self
+                    .ensure_repl()
+                    .map(|repl| repl.evaluate_line_no_queue(&expr))
+                {
                     Ok(Ok(EvalOutcome::Note(note))) => {
                         let position = self.now();
+                        self.silence();
                         self.events = note.event_stream(0.0).collect();
-                        self.noteon_times = self
-                            .events
-                            .iter()
-                            .filter(|event| matches!(event.event, MusicalEventType::NoteOn { .. }))
-                            .map(|event| event.time_seconds)
-                            .collect();
+                        self.collect_noteons();
+                        self.requeue_from(position);
                         self.offset = position.min(self.end());
                         if self.playing {
                             self.started = Some(Instant::now());
@@ -235,7 +324,9 @@ impl Player {
                 }
             }
             "roll" => {
-                let outcome = self.ensure_repl().map(|repl| repl.evaluate_line(rest));
+                let outcome = self
+                    .ensure_repl()
+                    .map(|repl| repl.evaluate_line_no_queue(rest));
                 match outcome {
                     Ok(Ok(EvalOutcome::Note(note))) => {
                         let events: Vec<_> = note.event_stream(0.0).collect();
@@ -249,11 +340,14 @@ impl Player {
                 }
             }
             "stop" => {
+                // Pause, keeping position: freeze the highlight clock and
+                // drop queued audio so sound stops too (`resume` re-queues).
                 if self.playing {
                     self.offset = self.now();
                 }
                 self.playing = false;
                 self.started = None;
+                self.silence();
                 self.say("ok stopped".to_string());
             }
             "reset" => {
@@ -261,8 +355,25 @@ impl Player {
                 self.started = None;
                 self.offset = 0.0;
                 self.last_ordinal = -1;
+                self.silence();
                 self.say("ok reset".to_string());
-                self.say("pos 0 -1".to_string());
+                self.say("pos 0 -1 - - -".to_string());
+            }
+            "resume" => {
+                // Continue paused playback without re-evaluating: re-queue
+                // from the kept offset. Instant (no JIT).
+                if self.playing {
+                    self.say("err already playing".to_string());
+                } else if self.events.is_empty() {
+                    self.say("err nothing to resume".to_string());
+                } else {
+                    self.silence();
+                    self.requeue_from(self.offset);
+                    self.started = Some(Instant::now());
+                    self.playing = true;
+                    self.last_ordinal = -1;
+                    self.say("ok resumed".to_string());
+                }
             }
             "loop" => {
                 self.looping = rest != "off";
@@ -299,7 +410,26 @@ impl Player {
         let ordinal = self.ordinal_at(now);
         if ordinal != self.last_ordinal {
             self.last_ordinal = ordinal;
-            self.say(format!("pos {} {ordinal}", self.tick));
+            // Lane-aware highlight: `pos <tick> <ordinal> <inst> <ch>
+            // <lane-ordinal>`. Chip lanes pin ym_channel/sn_channel, so
+            // the editor maps to the exact source lane; anything else
+            // carries `- - -` and maps by global ordinal as before.
+            let (inst, channel, lane_ordinal) = if ordinal >= 1 {
+                match self.noteon_lanes.get(ordinal as usize - 1) {
+                    Some((instrument, channel, lane_ordinal)) => (
+                        instrument.clone(),
+                        channel.to_string(),
+                        lane_ordinal.to_string(),
+                    ),
+                    None => ("-".to_string(), "-".to_string(), "-".to_string()),
+                }
+            } else {
+                ("-".to_string(), "-".to_string(), "-".to_string())
+            };
+            self.say(format!(
+                "pos {} {ordinal} {inst} {channel} {lane_ordinal}",
+                self.tick
+            ));
         }
         self.tick += 1;
     }
@@ -314,6 +444,7 @@ mod tests {
         let player = Player::new(
             mmlx_audio::new_queue(),
             mmlx_audio::new_synth_time(),
+            mmlx_audio::InstrumentsMap::default(),
             out_tx,
         )
         .expect("player");

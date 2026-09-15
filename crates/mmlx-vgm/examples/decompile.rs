@@ -40,7 +40,10 @@ fn main() {
     }
     let mut ranked: Vec<(u64, usize)> = durations.into_iter().collect();
     ranked.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
-    println!("top durations (samples): {:?}", &ranked[..ranked.len().min(10)]);
+    println!(
+        "top durations (samples): {:?}",
+        &ranked[..ranked.len().min(10)]
+    );
     println!(
         "approx timbres: {}",
         fm.iter().filter(|note| note.approx).count()
@@ -69,7 +72,12 @@ fn main() {
         let (intro, looping) = split_loop(mine, loop_sample);
         voices.push((format!("ym{channel}"), intro, looping));
     }
-    for (voice, name) in [(10u8, "psg0"), (11, "psg1"), (12, "psg2"), (13, "psg_noise")] {
+    for (voice, name) in [
+        (10u8, "psg0"),
+        (11, "psg1"),
+        (12, "psg2"),
+        (13, "psg_noise"),
+    ] {
         let mine: Vec<TrackNote> = psg
             .iter()
             .filter(|note| note.voice == voice)
@@ -102,6 +110,18 @@ fn voices_with_instruments(
                 }
                 "ym".to_string()
             } else {
+                // Pin the PSG lane the same way (psg0-2 tone channels,
+                // psg_noise shares the noise slot). Besides deterministic
+                // allocation, the pin is the highlight lane key.
+                let channel: u8 = match voice.as_str() {
+                    "psg0" => 0,
+                    "psg1" => 1,
+                    "psg2" => 2,
+                    _ => 3,
+                };
+                for note in intro.iter_mut().chain(looping.iter_mut()) {
+                    note.params.push(("sn_channel".to_string(), channel as f32));
+                }
                 "psg".to_string()
             };
             (instrument, intro, looping)

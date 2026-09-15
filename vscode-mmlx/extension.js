@@ -106,6 +106,9 @@ async function structure(doc) {
 // (Implicit `c4`, bare `p`, ties need surrounding context — not previewable.)
 const VAL = "(?:w|h|q|e|i|t|x)(?:ddd|dd|d)?";
 const NOTE_RE = new RegExp(`^(?:[a-g](?:ss|ff|[sfn]|nn)?(?:_\\d|\\d)${VAL}|r${VAL})$`);
+// Pitched notes only (no rests): the server counts NoteOns, and rests emit
+// none, so highlight ordinals index pitched atoms.
+const PITCH_RE = new RegExp(`^[a-g](?:ss|ff|[sfn]|nn)?(?:_\\d|\\d)${VAL}$`);
 
 // Atom-like identifiers in source order within the playing function. The
 // server's ordinal (count of NoteOns so far, 1-based) indexes this list.
@@ -194,8 +197,13 @@ function handleEvent(line) {
   if (!line) return;
   clearBusy();
   if (line.startsWith("pos ")) {
-    const ordinal = Number(line.split(/\s+/)[2]);
-    applyHighlight(ordinal);
+    // `pos <tick> <ordinal> [<inst> <ch> <lane-ordinal>]`
+    const parts = line.split(/\s+/);
+    const ordinal = Number(parts[2]);
+    const lane = parts.length >= 6 && parts[5] !== "-" && Number(parts[5]) >= 1
+      ? { inst: parts[3], ch: Number(parts[4]), ord: Number(parts[5]) }
+      : null;
+    applyHighlight(ordinal, lane);
     if (rollPanel) rollPanel.webview.postMessage({ ordinal });
     return;
   }
@@ -225,20 +233,111 @@ function editorFor(doc) {
   return vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === uri);
 }
 
-async function applyHighlight(ordinal) {
+async function applyHighlight(ordinal, lane) {
   if (!playing || ordinal < 1) return;
   const ed = editorFor(playing.doc);
   if (!ed) return;
-  let els;
-  if (playing.section != null) {
-    // Section play: map the ordinal into the section's own source spans.
-    els = await sectionElements(playing.doc, playing.sectionStart, playing.sectionSrc);
-  } else {
-    els = await songElements(playing.doc, playing.name);
+  let el = null;
+  if (lane && playing.section == null) {
+    // Exact lane path: the server pins ym_channel/sn_channel per lane,
+    // so the lane ordinal indexes pitched notes with repeat!-expansion.
+    const lanes = await laneMap(playing.doc, playing.name);
+    const match = lanes.find((l) => l.inst === lane.inst && l.ch === lane.ch);
+    if (match) el = match.els[lane.ord - 1] || null;
   }
-  const el = els[ordinal - 1];
+  if (!el) {
+    // Legacy path: global ordinal into all atom-like elements.
+    let els;
+    if (playing.section != null) {
+      // Section play: map the ordinal into the section's own source spans.
+      els = await sectionElements(playing.doc, playing.sectionStart, playing.sectionSrc);
+    } else {
+      els = await songElements(playing.doc, playing.name);
+    }
+    el = els[ordinal - 1];
+  }
   if (!el) return;
   ed.setDecorations(highlight, [new vscode.Range(playing.doc.positionAt(el.a), playing.doc.positionAt(el.b))]);
+}
+
+// Voice lanes of a function: the direct ser!/par! children of its outer
+// mix par!, in source order, with the instrument + pinned channel parsed
+// from each lane's setup and pitched elements with repeat!-expansion.
+// The server sends matching (inst, ch, lane-ordinal) in `pos` lines.
+const laneCache = new Map(); // uri -> { version, name, lanes }
+async function laneMap(doc, name) {
+  const key = doc.uri.toString();
+  const hit = laneCache.get(key);
+  if (hit && hit.version === doc.version && hit.name === name) return hit.lanes;
+  const lanes = [];
+  const { parser } = await ts;
+  const tree = parser.parse(doc.getText());
+  const fn = tree.rootNode.descendantsOfType("function_item").find((f) => {
+    const n = f.childForFieldName("name");
+    return n && n.text === name;
+  });
+  if (fn) {
+    // Outer mix: first top-level par!/parmin! invocation in the function.
+    const outer = fn.descendantsOfType("macro_invocation").find((node) => {
+      const macro = node.childForFieldName("macro");
+      if (!macro || (macro.text !== "par" && macro.text !== "parmin")) return false;
+      let parent = node.parent;
+      while (parent && parent !== fn) {
+        if (parent.type === "macro_invocation") return false;
+        parent = parent.parent;
+      }
+      return true;
+    });
+    if (outer) {
+      const kids = outer.descendantsOfType("macro_invocation").filter((node) => {
+        if (node === outer) return false;
+        const macro = node.childForFieldName("macro");
+        if (!macro || !["ser", "par", "parmin"].includes(macro.text)) return false;
+        // Direct child: no other ser/par/parmin/fork macro between.
+        let parent = node.parent;
+        while (parent && parent !== outer) {
+          if (parent.type === "macro_invocation") {
+            const pm = parent.childForFieldName("macro");
+            if (pm && ["ser", "par", "parmin", "forkseq", "forkser", "forkpar"].includes(pm.text)) return false;
+          }
+          parent = parent.parent;
+        }
+        return true;
+      });
+      kids.sort((a, b) => a.startIndex - b.startIndex);
+      const text = doc.getText();
+      for (const kid of kids) {
+        const src = text.slice(kid.startIndex, kid.endIndex);
+        const inst = (src.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
+        if (!inst) continue;
+        const chm = src.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/);
+        const els = [];
+        const seen = new Set();
+        let lastPitched = null;
+        for (const id of kid.descendantsOfType("identifier")) {
+          if (seen.has(id.startIndex)) continue;
+          seen.add(id.startIndex);
+          if (PITCH_RE.test(id.text)) {
+            const el = { a: id.startIndex, b: id.endIndex };
+            els.push(el);
+            lastPitched = el;
+          } else if (id.text === "repeat") {
+            const count = (text.slice(id.endIndex).match(/^\((\d+)\)/) || [])[1];
+            const extra = count ? Number(count) : 0;
+            // repeat!(N) replays the previous atom N more times; rests
+            // emit no NoteOns, so only pitched predecessors expand.
+            for (let k = 0; k < extra && lastPitched; k++) els.push(lastPitched);
+            lastPitched = null; // a repeat is not itself repeatable content
+          } else if (!/^(?:param|ser|par|parmin|comment|instrument|tempo|velocity)$/.test(id.text)) {
+            lastPitched = null; // anything else breaks a repeat chain
+          }
+        }
+        lanes.push({ inst, ch: chm ? Math.round(Number(chm[1])) : -1, els });
+      }
+    }
+  }
+  laneCache.set(key, { version: doc.version, name, lanes });
+  return lanes;
 }
 
 // Atom-like identifiers in a section's source text, rebased to absolute offsets.
@@ -269,7 +368,23 @@ function isCurrent(doc, name, section) {
 async function playToggle(doc, name, section) {
   if (isCurrent(doc, name, section)) {
     playing.paused = !playing.paused;
-    send(playing.paused ? "stop" : playing.section != null ? `play ${playing.sectionSrc}` : `play ${name}()`);
+    if (playing.paused) {
+      // Pause freezes both clocks and drops queued audio.
+      playing.frozenText = doc.getText();
+      send("stop");
+    } else if (playing.frozenText !== undefined && playing.frozenText !== doc.getText()) {
+      // Edited while paused: re-evaluate, keeping position.
+      playing.frozenText = undefined;
+      const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
+      fs.writeFileSync(tmp, doc.getText());
+      send(`load ${tmp}`);
+      send(`reload`);
+      markBusy("reloading…");
+    } else {
+      // Untouched: continue without re-evaluating (instant).
+      playing.frozenText = undefined;
+      send("resume");
+    }
     lensChanged.fire();
   } else if (section != null) {
     await playSection(doc, name, section);

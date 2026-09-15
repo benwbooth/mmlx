@@ -137,4 +137,8 @@ impl Instrument for Sid {
     fn is_idle(&self) -> bool {
         self.active.is_empty()
     }
+
+    fn all_notes_off(&mut self) {
+        self.active.clear();
+    }
 }

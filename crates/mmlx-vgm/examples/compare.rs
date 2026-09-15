@@ -40,8 +40,11 @@ fn main() {
     let to_ticks = |seconds: f32| (seconds / tick_secs).round() as i64;
     let mut reference: Vec<(i64, i64, u8, String, Vec<(String, f32)>)> = Vec::new();
     for channel in 0..6u8 {
-        let mine: Vec<TrackNote> =
-            fm.iter().filter(|note| note.voice == channel).cloned().collect();
+        let mine: Vec<TrackNote> = fm
+            .iter()
+            .filter(|note| note.voice == channel)
+            .cloned()
+            .collect();
         let (intro, looping) = split_loop(mine, loop_sample);
         for (notes, tag) in [(intro, "intro"), (looping, "loop")] {
             for note in snap_voice(&notes, tick) {
@@ -58,10 +61,25 @@ fn main() {
             }
         }
     }
-    for (voice, tag_voice) in [(10u8, "psg0"), (11, "psg1"), (12, "psg2"), (13, "psg_noise")] {
-        let mine: Vec<TrackNote> =
-            psg.iter().filter(|note| note.voice == voice).cloned().collect();
+    for (voice, tag_voice) in [
+        (10u8, "psg0"),
+        (11, "psg1"),
+        (12, "psg2"),
+        (13, "psg_noise"),
+    ] {
+        let mine: Vec<TrackNote> = psg
+            .iter()
+            .filter(|note| note.voice == voice)
+            .cloned()
+            .collect();
         let (intro, looping) = split_loop(mine, loop_sample);
+        // Must match the sn_channel pin in decompile's voice mapping.
+        let channel = match tag_voice {
+            "psg0" => 0.0,
+            "psg1" => 1.0,
+            "psg2" => 2.0,
+            _ => 3.0,
+        };
         for (notes, tag) in [(intro, "intro"), (looping, "loop")] {
             for note in snap_voice(&notes, tick) {
                 reference.push((
@@ -69,7 +87,14 @@ fn main() {
                     to_ticks(note.duration as f32 / 44100.0),
                     note.midi,
                     format!("psg:{tag_voice}:{tag}"),
-                    vec![("velocity".to_string(), (note.velocity * 1000.0).round() / 1000.0)],
+                    // Sorted to match the song side's key order.
+                    vec![
+                        ("sn_channel".to_string(), channel),
+                        (
+                            "velocity".to_string(),
+                            (note.velocity * 1000.0).round() / 1000.0,
+                        ),
+                    ],
                 ));
             }
         }
@@ -81,7 +106,12 @@ fn main() {
     let mut song: Vec<(i64, i64, u8, String, Vec<(String, f32)>)> = Vec::new();
     for (note, tag) in [(intro_song, "intro"), (loop_song, "loop")] {
         for event in note.event_stream(0.0) {
-            if let MusicalEventType::NoteOn { pitch_midi, velocity, parameters, .. } = &event.event
+            if let MusicalEventType::NoteOn {
+                pitch_midi,
+                velocity,
+                parameters,
+                ..
+            } = &event.event
             {
                 let instrument = event.instrument_name.clone();
                 let mut params: Vec<(String, f32)> = parameters
@@ -93,14 +123,16 @@ fn main() {
                         mmlx_core::ParamValue::String(_) => None,
                         _ => None,
                     })
-                    .filter(|(key, _)| key != "tempo" && key != "velocity" && key != "time_note" && key != "time_beat")
+                    .filter(|(key, _)| {
+                        key != "tempo"
+                            && key != "velocity"
+                            && key != "time_note"
+                            && key != "time_beat"
+                    })
                     .collect();
                 // FM loudness lives in TL params; velocity only matters for PSG.
                 if instrument == "psg" {
-                    params.push((
-                        "velocity".to_string(),
-                        (velocity * 1000.0).round() / 1000.0,
-                    ));
+                    params.push(("velocity".to_string(), (velocity * 1000.0).round() / 1000.0));
                 }
                 params.sort_by(|a, b| a.0.cmp(&b.0));
                 song.push((
@@ -117,7 +149,12 @@ fn main() {
     // Compare per section-tag-independent multisets keyed by voice family.
     let key = |(start, duration, midi, tag, params): (i64, i64, u8, String, Vec<(String, f32)>)| {
         let family = tag.split(':').next().unwrap_or("").to_string();
-        let section = if tag.ends_with(":intro") { "intro" } else { "loop" }.to_string();
+        let section = if tag.ends_with(":intro") {
+            "intro"
+        } else {
+            "loop"
+        }
+        .to_string();
         (
             start,
             duration,
@@ -134,7 +171,11 @@ fn main() {
     let mut song_keys: Vec<_> = song.into_iter().map(key).collect();
     reference_keys.sort();
     song_keys.sort();
-    println!("reference notes: {}, song notes: {}", reference_keys.len(), song_keys.len());
+    println!(
+        "reference notes: {}, song notes: {}",
+        reference_keys.len(),
+        song_keys.len()
+    );
     let mut mismatches = 0;
     for (index, (reference, actual)) in reference_keys.iter().zip(song_keys.iter()).enumerate() {
         if reference != actual {
@@ -198,8 +239,14 @@ fn main() {
         );
         now += frames as f32 / 44100.0;
     }
-    let peak = out.iter().map(|frame| frame[0].abs().max(frame[1].abs())).fold(0.0f32, f32::max);
-    println!("rendered {:.1}s loop, peak {peak:.3}", out.len() as f32 / 44100.0);
+    let peak = out
+        .iter()
+        .map(|frame| frame[0].abs().max(frame[1].abs()))
+        .fold(0.0f32, f32::max);
+    println!(
+        "rendered {:.1}s loop, peak {peak:.3}",
+        out.len() as f32 / 44100.0
+    );
     if args.len() >= 3 {
         write_wav(&args[2], &out, 44100);
         println!("wrote {}", args[2]);

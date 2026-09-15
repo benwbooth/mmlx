@@ -1110,7 +1110,7 @@ pub fn alisia_stage1() -> Note {
         a2i, o,
     ]),
         ser!([
-        param!(instrument="psg"), e3tdd!(velocity=93.13), rxd, a3i!(velocity=93.13), rx,
+        param!(instrument="psg", sn_channel=0), e3tdd!(velocity=93.13), rxd, a3i!(velocity=93.13), rx,
         e4i!(velocity=93.13), rx, b4e!(velocity=93.13), x, rx, e3i!(velocity=93.13), rx,
         b4i!(velocity=93.13), ro, f3i!(velocity=93.13), rx, c4i!(velocity=93.13), rx, a4e!(velocity=93.13),
         x, rx, c3i!(velocity=93.13), rx, a4i!(velocity=93.13), rx, g3i!(velocity=93.13), rx,
@@ -1279,7 +1279,7 @@ pub fn alisia_stage1() -> Note {
         o, rx, d6i!(velocity=84.67), x,
     ]),
         ser!([
-        param!(instrument="psg"), a3tdd!(velocity=93.13), rxd, c4i!(velocity=93.13), rx,
+        param!(instrument="psg", sn_channel=1), a3tdd!(velocity=93.13), rxd, c4i!(velocity=93.13), rx,
         e4i!(velocity=93.13), rid, g4i!(velocity=93.13), rx, a3i!(velocity=93.13), rx, g4i!(velocity=93.13),
         ro, a3i!(velocity=93.13), rx, c4i!(velocity=93.13), rid, f4i!(velocity=93.13), rx,
         f3i!(velocity=93.13), rx, fs4i!(velocity=93.13), rx, b3i!(velocity=93.13), rx, d4i!(velocity=93.13),
@@ -1444,7 +1444,7 @@ pub fn alisia_stage1() -> Note {
         rx, fs5i!(velocity=84.67), rxd, a5i!(velocity=84.67), x,
     ]),
         ser!([
-        ridd, o, param!(instrument="psg"), e3i!(velocity=76.20), rx, a3i!(velocity=76.20), rx,
+        ridd, o, param!(instrument="psg", sn_channel=2), e3i!(velocity=76.20), rx, a3i!(velocity=76.20), rx,
         e4i!(velocity=76.20), rx, b4e!(velocity=76.20), x, ro, e3i!(velocity=76.20), rx,
         b4i!(velocity=76.20), rx, f3i!(velocity=76.20), rx, c4i!(velocity=76.20), rx, a4e!(velocity=76.20),
         x, rx, c3i!(velocity=76.20), rx, a4i!(velocity=76.20), rx, g3i!(velocity=76.20), rx,
@@ -1626,7 +1626,8 @@ pub fn alisia_stage1() -> Note {
     ]),
         ser!([
         rwdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd, wdd,
-        wdd, wdd, wdd, wdd, wdd, wdd, wdd, w, edd, param!(instrument="psg"), c4w!(velocity=101.60), q, t,
+        wdd, wdd, wdd, wdd, wdd, wdd, wdd, w, edd, param!(instrument="psg", sn_channel=3),
+        c4w!(velocity=101.60), q, t,
     ])
     ])
 }
@@ -2169,8 +2170,8 @@ pub fn loop_alisia_stage1() -> Note {
         a2i,
     ]),
         ser!([
-        param!(instrument="psg"), a3e!(velocity=67.73), td, rq, tdd, a3q!(velocity=84.67), i, x, redd,
-        f3e!(velocity=84.67), t, c3h!(velocity=84.67), t, o, rx, d3e!(velocity=84.67), t,
+        param!(instrument="psg", sn_channel=0), a3e!(velocity=67.73), td, rq, tdd, a3q!(velocity=84.67), i,
+        x, redd, f3e!(velocity=84.67), t, c3h!(velocity=84.67), t, o, rx, d3e!(velocity=84.67), t,
         g3e!(velocity=84.67), t, o, re, xd, a3i!(velocity=84.67), x, e3i!(velocity=84.67), x,
         g3i!(velocity=84.67), x, e3q!(velocity=84.67), re, xd, a3e!(velocity=84.67), t, o, ri, o,
         a3eddd!(velocity=84.67), o, redd, o, f3e!(velocity=84.67), t, d3qd!(velocity=84.67), rx,
@@ -2229,8 +2230,8 @@ pub fn loop_alisia_stage1() -> Note {
         e3xd!(velocity=84.67), rxd, e3i!(velocity=84.67), x,
     ]),
         ser!([
-        param!(instrument="psg"), e4e!(velocity=67.73), td, rq, tdd, e4q!(velocity=84.67), i, x, redd,
-        c4e!(velocity=84.67), t, g3h!(velocity=84.67), t, o, rx, a3e!(velocity=84.67), t,
+        param!(instrument="psg", sn_channel=1), e4e!(velocity=67.73), td, rq, tdd, e4q!(velocity=84.67), i,
+        x, redd, c4e!(velocity=84.67), t, g3h!(velocity=84.67), t, o, rx, a3e!(velocity=84.67), t,
         ds4e!(velocity=84.67), t, o, re, xd, e4i!(velocity=84.67), x, b3i!(velocity=84.67), x,
         d4i!(velocity=84.67), x, b3q!(velocity=84.67), re, xd, e4e!(velocity=84.67), t, o, ri, o,
         e4eddd!(velocity=84.67), o, redd, o, c4e!(velocity=84.67), t, a3qd!(velocity=84.67), rxd,
@@ -2289,28 +2290,29 @@ pub fn loop_alisia_stage1() -> Note {
         gs4xd!(velocity=84.67), rxd, a4i!(velocity=84.67), x,
     ]),
         ser!([
-        rwdd, wdd, wdd, e, t, param!(instrument="psg"), d6o!(velocity=8.47), e6i!(velocity=50.80), o,
-        ds4i!(velocity=50.80), o, ro, a5i!(velocity=50.80), o, ro, a4i!(velocity=50.80), o, ro,
-        f5i!(velocity=50.80), o, ro, f4i!(velocity=50.80), o, ro, b4i!(velocity=50.80), o, rx,
-        b5e!(velocity=50.80), xd, ro, f4i!(velocity=50.80), o, ro, e5i!(velocity=50.80), o, ro,
-        as4i!(velocity=50.80), rx, b4i!(velocity=50.80), rx, g4i!(velocity=50.80), rx, d5i!(velocity=50.80),
-        rxd, b5e!(velocity=50.80), x, rx, as4i!(velocity=50.80), ro, g5i!(velocity=50.80), o, rx,
-        g4i!(velocity=50.80), rx, ds5i!(velocity=50.80), o, ro, e4i!(velocity=50.80), o, ro,
-        as4i!(velocity=50.80), o, rx, a5e!(velocity=50.80), xd, ro, b4i!(velocity=50.80), o, ro,
-        e5xd!(velocity=50.80), rqdd, xd, g4o!(velocity=8.47), gs4i!(velocity=50.80), ro,
-        ds4i!(velocity=50.80), rxd, a5i!(velocity=50.80), rx, a4i!(velocity=50.80), rx, f5i!(velocity=50.80),
-        rxd, f4i!(velocity=50.80), ro, b4i!(velocity=50.80), o, ro, b5e!(velocity=50.80), xd, rx,
-        f4i!(velocity=50.80), o, ro, e5i!(velocity=50.80), o, ro, as4i!(velocity=50.80), o, ro,
-        b4i!(velocity=50.80), o, ro, g4i!(velocity=50.80), o, ro, d5i!(velocity=50.80), o, ro,
-        b5e!(velocity=50.80), xd, ro, as4i!(velocity=50.80), o, ro, g5i!(velocity=50.80), rxd,
-        g4i!(velocity=50.80), rx, d5i!(velocity=50.80), rx, a4i!(velocity=50.80), rx, f5i!(velocity=50.80),
-        rx, b5e!(velocity=50.80), x, rx, ds4i!(velocity=50.80), o, rx, a5xd!(velocity=50.80),
+        rwdd, wdd, wdd, e, t, param!(instrument="psg", sn_channel=2), d6o!(velocity=8.47),
+        e6i!(velocity=50.80), o, ds4i!(velocity=50.80), o, ro, a5i!(velocity=50.80), o, ro,
+        a4i!(velocity=50.80), o, ro, f5i!(velocity=50.80), o, ro, f4i!(velocity=50.80), o, ro,
+        b4i!(velocity=50.80), o, rx, b5e!(velocity=50.80), xd, ro, f4i!(velocity=50.80), o, ro,
+        e5i!(velocity=50.80), o, ro, as4i!(velocity=50.80), rx, b4i!(velocity=50.80), rx,
+        g4i!(velocity=50.80), rx, d5i!(velocity=50.80), rxd, b5e!(velocity=50.80), x, rx,
+        as4i!(velocity=50.80), ro, g5i!(velocity=50.80), o, rx, g4i!(velocity=50.80), rx,
+        ds5i!(velocity=50.80), o, ro, e4i!(velocity=50.80), o, ro, as4i!(velocity=50.80), o, rx,
+        a5e!(velocity=50.80), xd, ro, b4i!(velocity=50.80), o, ro, e5xd!(velocity=50.80), rqdd, xd,
+        g4o!(velocity=8.47), gs4i!(velocity=50.80), ro, ds4i!(velocity=50.80), rxd, a5i!(velocity=50.80), rx,
+        a4i!(velocity=50.80), rx, f5i!(velocity=50.80), rxd, f4i!(velocity=50.80), ro, b4i!(velocity=50.80),
+        o, ro, b5e!(velocity=50.80), xd, rx, f4i!(velocity=50.80), o, ro, e5i!(velocity=50.80), o, ro,
+        as4i!(velocity=50.80), o, ro, b4i!(velocity=50.80), o, ro, g4i!(velocity=50.80), o, ro,
+        d5i!(velocity=50.80), o, ro, b5e!(velocity=50.80), xd, ro, as4i!(velocity=50.80), o, ro,
+        g5i!(velocity=50.80), rxd, g4i!(velocity=50.80), rx, d5i!(velocity=50.80), rx, a4i!(velocity=50.80),
+        rx, f5i!(velocity=50.80), rx, b5e!(velocity=50.80), x, rx, ds4i!(velocity=50.80), o, rx,
+        a5xd!(velocity=50.80),
     ]),
         ser!([
-        rwdd, i, param!(instrument="psg"), c4wdd!(velocity=101.60), e, t, rh, idd, c4w!(velocity=84.67), i,
-        o, rwdd, q, idd, c4qdd!(velocity=101.60), rwdd, q, id, o, c4qdd!(velocity=101.60), xd, rwdd, wdd,
-        hdd, tdd, c4h!(velocity=101.60), e, rwdd, wd, i, o, c4qddd!(velocity=101.60), o, rh, e, o,
-        c4eddd!(velocity=101.60), o,
+        rwdd, i, param!(instrument="psg", sn_channel=3), c4wdd!(velocity=101.60), e, t, rh, idd,
+        c4w!(velocity=84.67), i, o, rwdd, q, idd, c4qdd!(velocity=101.60), rwdd, q, id, o,
+        c4qdd!(velocity=101.60), xd, rwdd, wdd, hdd, tdd, c4h!(velocity=101.60), e, rwdd, wd, i, o,
+        c4qddd!(velocity=101.60), o, rh, e, o, c4eddd!(velocity=101.60), o,
     ])
     ])
 }

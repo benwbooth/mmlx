@@ -11,20 +11,23 @@ fn main() -> Result<()> {
 
     let queue;
     let time;
+    let instruments;
     #[cfg(feature = "audio")]
     let _stream;
     #[cfg(feature = "audio")]
     {
-        let (queue_, time_, _instruments, stream) = mmlx_audio::backend::setup_audio()?;
+        let (queue_, time_, instruments_, stream) = mmlx_audio::backend::setup_audio()?;
         mmlx_audio::backend::play_stream(&stream)?;
         _stream = stream;
         queue = queue_;
         time = time_;
+        instruments = instruments_;
     }
     #[cfg(not(feature = "audio"))]
     {
         queue = mmlx_audio::new_queue();
         time = mmlx_audio::new_synth_time();
+        instruments = mmlx_audio::InstrumentsMap::default();
     }
 
     let (line_tx, line_rx) = mpsc::channel::<String>();
@@ -43,7 +46,7 @@ fn main() -> Result<()> {
         }
     });
 
-    let mut player = Player::new(queue, time, out_tx)?;
+    let mut player = Player::new(queue, time, instruments, out_tx)?;
     loop {
         while let Ok(line) = line_rx.try_recv() {
             player.handle_line(&line);

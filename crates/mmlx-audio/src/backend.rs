@@ -295,7 +295,10 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
             }
 
             // Fill CPAL Buffer applying global low-pass filter per channel
-            // One-pole LPF is applied sample-by-sample for left and right
+            // One-pole LPF is applied sample-by-sample for left and right.
+            // The mix of all voices can exceed full scale (six FM channels
+            // plus PSG); hard-clamp so the device never wraps or harshly
+            // clips on stacked peaks.
             for frame_index in 0..chunk_size_frames {
                 let buffer_index = frame_index * channels as usize;
                 let x_l = pre_allocated_mix_buffer[frame_index][0];
@@ -304,8 +307,8 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
                 let y_r = lp_alpha * last_lp_r + lp_beta * x_r;
                 last_lp_l = y_l;
                 last_lp_r = y_r;
-                data[buffer_index] = y_l;
-                data[buffer_index + 1] = y_r;
+                data[buffer_index] = y_l.clamp(-1.0, 1.0);
+                data[buffer_index + 1] = y_r.clamp(-1.0, 1.0);
             }
 
             // Update Shared Synth Time
@@ -348,6 +351,20 @@ pub fn play_stream(stream: &Stream) -> Result<()> {
     use cpal::traits::StreamTrait;
     stream.play()?;
     Ok(())
+}
+
+/// Silence every voice immediately (transport stop/pause/reset).
+/// Lock order matches the render callback (map, then one voice at a
+/// time), so this never deadlocks against it.
+pub fn all_notes_off(instruments: &InstrumentsMap) {
+    let Ok(map) = instruments.lock() else {
+        return;
+    };
+    for voice in map.values() {
+        if let Ok(mut voice) = voice.lock() {
+            voice.all_notes_off();
+        }
+    }
 }
 
 // Queueing lives in the crate root (`mmlx_audio::queue_note`) so it works

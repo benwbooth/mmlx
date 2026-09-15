@@ -996,6 +996,10 @@ impl Instrument for BasicSynth {
         self.active_notes.is_empty()
     }
 
+    fn all_notes_off(&mut self) {
+        self.active_notes.clear();
+    }
+
     fn process_events(
         &mut self,
         events: Box<dyn Iterator<Item = TimedMusicalEvent> + Send + Sync>,
