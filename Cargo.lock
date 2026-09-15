@@ -1467,6 +1467,7 @@ dependencies = [
  "cpal",
  "log",
  "mmlx-core",
+ "mmlx-fx",
  "mmlx-synth",
 ]
 

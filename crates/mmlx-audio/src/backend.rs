@@ -3,12 +3,62 @@ use anyhow::Result;
 use cpal::traits::{DeviceTrait, HostTrait};
 use cpal::Stream;
 use log::{debug, error, info, warn};
-use mmlx_core::{Instrument, MusicalEventType};
+use mmlx_core::{Instrument, MusicalEventType, ParamValue, TimedMusicalEvent};
+use mmlx_fx::BusMixer;
 use mmlx_synth::BasicSynth;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex}; // Import Stream
 
-// We'll use CPAL's built-in ALSA configuration instead of direct configuration
+// Text-DAW routing: which mix bus each instrument renders into.
+// Updated live from `param!(bus = "...")` SetParameter events.
+struct BusState {
+    bus_of: HashMap<String, String>,
+    mixer: BusMixer,
+}
+
+fn route_event(state: &mut BusState, event: &TimedMusicalEvent) {
+    if let MusicalEventType::SetParameter { key, value } = &event.event {
+        if key == "bus" {
+            match value {
+                ParamValue::String(bus) => {
+                    state
+                        .bus_of
+                        .insert(event.instrument_name.clone(), bus.clone());
+                }
+                ParamValue::Unset => {
+                    state.bus_of.remove(&event.instrument_name);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+/// Render every instrument into its bus buffer, then sum buses to `out`.
+/// `out` must be zeroed by the caller; unrouted instruments go to "main".
+fn mix_segment(
+    instruments: &[(String, Arc<Mutex<dyn Instrument>>)],
+    state: &BusState,
+    out: &mut [[f32; 2]],
+    rate: usize,
+) {
+    let mut buses: HashMap<String, Vec<[f32; 2]>> = HashMap::new();
+    for (name, inst_arc) in instruments {
+        let samples = inst_arc.lock().unwrap().generate_samples(out.len(), rate);
+        let bus = state.bus_of.get(name).map(String::as_str).unwrap_or("main");
+        let entry = buses
+            .entry(bus.to_string())
+            .or_insert_with(|| vec![[0.0; 2]; out.len()]);
+        for (frame, sample) in entry.iter_mut().zip(samples.iter()) {
+            frame[0] += sample[0];
+            frame[1] += sample[1];
+        }
+    }
+    for (i, frame) in state.mixer.mixdown(&buses).iter().enumerate() {
+        out[i][0] += frame[0];
+        out[i][1] += frame[1];
+    }
+}
 
 /// Sets up the audio host, device, stream, and shared state.
 ///
@@ -92,6 +142,10 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
     let eq_clone = event_queue.clone();
     let im_clone = instruments_map.clone();
     let st_clone = synth_time.clone();
+    let bus_clone: Arc<Mutex<BusState>> = Arc::new(Mutex::new(BusState {
+        bus_of: HashMap::new(),
+        mixer: BusMixer::new(),
+    }));
     let mut samples_generated: u64 = 0;
     let mut last_callback_time = std::time::Instant::now();
     let mut callback_count = 0;
@@ -166,10 +220,12 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
 
             // Process pre-block events immediately and collect instruments
             pre_allocated_instruments.clear();
+            let mut bus_state = bus_clone.lock().unwrap();
             {
                 let im_guard = im_clone.lock().unwrap();
                 // Handle parameter and note events before start of this block
                 for event in &pre_block_events {
+                    route_event(&mut bus_state, event);
                     if let MusicalEventType::Comment(s) = &event.event {
                         info!("[< {} >] @ {:.4}s", s, event.time_seconds);
                     } else if let Some(inst_arc) = im_guard.get(&event.instrument_name) {
@@ -177,9 +233,9 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
                         inst.process_event(&event, actual_sample_rate as usize);
                     }
                 }
-                // Collect active instruments - keys of instrument map
-                for (_name, inst_arc) in im_guard.iter() {
-                    pre_allocated_instruments.push(inst_arc.clone());
+                // Collect active instruments with names for bus routing
+                for (name, inst_arc) in im_guard.iter() {
+                    pre_allocated_instruments.push((name.clone(), inst_arc.clone()));
                 }
             }
 
@@ -191,16 +247,13 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
             }
 
             if mid_block_events.is_empty() {
-                // No mid-block events: fast path
-                for inst_arc in &pre_allocated_instruments {
-                    let mut inst = inst_arc.lock().unwrap();
-                    let samples =
-                        inst.generate_samples(chunk_size_frames, actual_sample_rate as usize);
-                    for frame in 0..chunk_size_frames {
-                        pre_allocated_mix_buffer[frame][0] += samples[frame][0];
-                        pre_allocated_mix_buffer[frame][1] += samples[frame][1];
-                    }
-                }
+                // No mid-block events: fast path through the bus mixer
+                mix_segment(
+                    &pre_allocated_instruments,
+                    &bus_state,
+                    &mut pre_allocated_mix_buffer[..chunk_size_frames],
+                    actual_sample_rate as usize,
+                );
             } else {
                 // Sort mid-block events by time
                 mid_block_events.sort_by(|a, b| {
@@ -220,18 +273,15 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
                     }
                     let seg_len = offset.saturating_sub(prev_offset);
                     if seg_len > 0 {
-                        for inst_arc in &pre_allocated_instruments {
-                            let mut inst = inst_arc.lock().unwrap();
-                            let samples =
-                                inst.generate_samples(seg_len, actual_sample_rate as usize);
-                            for i in 0..seg_len {
-                                let idx = prev_offset + i;
-                                pre_allocated_mix_buffer[idx][0] += samples[i][0];
-                                pre_allocated_mix_buffer[idx][1] += samples[i][1];
-                            }
-                        }
+                        mix_segment(
+                            &pre_allocated_instruments,
+                            &bus_state,
+                            &mut pre_allocated_mix_buffer[prev_offset..offset],
+                            actual_sample_rate as usize,
+                        );
                     }
                     // Process this mid-block event now
+                    route_event(&mut bus_state, event);
                     if let MusicalEventType::Comment(s) = &event.event {
                         info!("[< {} >] @ {:.4}s", s, event.time_seconds);
                     } else if let Some(inst_arc) =
@@ -245,15 +295,12 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
                 // Final segment after last event
                 let rem_len = chunk_size_frames.saturating_sub(prev_offset);
                 if rem_len > 0 {
-                    for inst_arc in &pre_allocated_instruments {
-                        let mut inst = inst_arc.lock().unwrap();
-                        let samples = inst.generate_samples(rem_len, actual_sample_rate as usize);
-                        for i in 0..rem_len {
-                            let idx = prev_offset + i;
-                            pre_allocated_mix_buffer[idx][0] += samples[i][0];
-                            pre_allocated_mix_buffer[idx][1] += samples[i][1];
-                        }
-                    }
+                    mix_segment(
+                        &pre_allocated_instruments,
+                        &bus_state,
+                        &mut pre_allocated_mix_buffer[prev_offset..chunk_size_frames],
+                        actual_sample_rate as usize,
+                    );
                 }
             }
 

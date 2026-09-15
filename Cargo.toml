@@ -21,3 +21,4 @@ mmlx-core = { path = "crates/mmlx-core" }
 mmlx-macros = { path = "crates/mmlx-macros" }
 mmlx-synth = { path = "crates/mmlx-synth" }
 mmlx-audio = { path = "crates/mmlx-audio" }
+mmlx-fx = { path = "crates/mmlx-fx" }

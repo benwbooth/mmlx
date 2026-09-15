@@ -10,6 +10,7 @@ audio = ["dep:cpal", "dep:anyhow"]
 [dependencies]
 mmlx-core = { workspace = true }
 mmlx-synth = { workspace = true }
+mmlx-fx = { workspace = true }
 log = "0.4"
 cpal = { version = "0.15.3", optional = true }
 anyhow = { version = "1.0", optional = true }
