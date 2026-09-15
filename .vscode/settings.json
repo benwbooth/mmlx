@@ -1,0 +1,6 @@
+{
+  // This is a music project: play compositions with live sound.
+  // Requires the nix devshell (ALSA headers for the cpal backend).
+  // Set to false on headless machines (highlight-only playback).
+  "mmlx.audio": true
+}

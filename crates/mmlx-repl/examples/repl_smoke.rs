@@ -23,6 +23,16 @@ fn main() {
         EvalOutcome::Text(text) => println!("RAW OK: {text}"),
         other => panic!("expected Text, got {}", describe(&other)),
     }
+    // Regression: item-only `execute_code` (song files) must compile.
+    // evcxr emits a dummy `(mut x …)` shim for expression-less executes,
+    // whose parameter trips E0530 against the prelude's `x` tie const;
+    // `execute_code` appends `()` to suppress it.
+    env.execute_code("pub fn smoke_song() -> Note { ser!([c4q]) }")
+        .expect("item load");
+    match env.evaluate_line("smoke_song()").expect("eval") {
+        EvalOutcome::Note(_) => println!("ITEM LOAD OK"),
+        other => panic!("expected Note, got {}", describe(&other)),
+    }
     println!("SMOKE PASS");
 }
 

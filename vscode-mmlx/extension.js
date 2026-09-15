@@ -179,8 +179,20 @@ function send(cmd) {
   if (server && server.proc.stdin.writable) server.proc.stdin.write(cmd + "\n");
 }
 
+// Cold evcxr compiles take minutes with no server output; keep a visible
+// "working" message until the server answers with anything.
+let busyMsg = null;
+function markBusy(text) {
+  if (busyMsg) busyMsg.dispose();
+  busyMsg = vscode.window.setStatusBarMessage(`$(sync~spin) mmlx: ${text}`);
+}
+function clearBusy() {
+  if (busyMsg) { busyMsg.dispose(); busyMsg = null; }
+}
+
 function handleEvent(line) {
   if (!line) return;
+  clearBusy();
   if (line.startsWith("pos ")) {
     const ordinal = Number(line.split(/\s+/)[2]);
     applyHighlight(ordinal);
@@ -272,6 +284,7 @@ async function play(doc, name) {
   playing = { doc, name, section: null, paused: false };
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   writeAndSend();
+  markBusy("loading…");
   lensChanged.fire();
 }
 
@@ -292,6 +305,7 @@ async function playSection(doc, name, index) {
   fs.writeFileSync(tmp, doc.getText());
   send(`load ${tmp}`);
   send(`play ${src}`);
+  markBusy("loading…");
   lensChanged.fire();
 }
 
@@ -331,6 +345,7 @@ async function showRoll(doc, name) {
   fs.writeFileSync(tmp, doc.getText());
   send(`load ${tmp}`);
   send(`roll ${name}()`);
+  markBusy("loading…");
 }
 
 async function reloadIfPlaying() {
@@ -339,6 +354,7 @@ async function reloadIfPlaying() {
   fs.writeFileSync(tmp, playing.doc.getText());
   send(`load ${tmp}`);
   send(`reload`); // server re-evaluates the current expr, keeping position
+  markBusy("reloading…");
 }
 
 async function functionAt(doc, line) {

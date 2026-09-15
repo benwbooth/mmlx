@@ -122,8 +122,15 @@ impl ReplEnv {
 
     /// Execute arbitrary code (e.g. a song file's items) in the context.
     /// Returns trimmed text output, if any.
+    ///
+    /// A trailing `()` is appended so item-only code still contains an
+    /// expression: evcxr emits a dummy `pub extern "C" fn …(mut x …)`
+    /// shim for expression-less executes, whose parameter trips E0530
+    /// against the prelude's `x` duration-tie constant. (The constructor
+    /// prelude already relies on this via its own trailing `()`.)
     pub fn execute_code(&mut self, code: &str) -> Result<String> {
-        let output = self.execute(code)?;
+        let code = format!("{code}\n()");
+        let output = self.execute(&code)?;
         Ok(Self::plain_text(&output).unwrap_or("").trim().to_string())
     }
 
