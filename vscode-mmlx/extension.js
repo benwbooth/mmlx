@@ -270,6 +270,17 @@ async function applyHighlight(ordinal, lane) {
 // lane ser! blocks are NOT macro_invocation AST nodes — split the outer
 // par!'s [...] region by scanning brackets in text instead.
 const laneCache = new Map(); // uri -> { version, name, lanes }
+// Strip leading line/block comments (staff labels like `// melody (psg)`)
+// so lane-head detection sees the `ser!`/`par!` underneath.
+function stripLeadingComments(s) {
+  let t = s;
+  for (;;) {
+    const m = t.match(/^\s*(\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)/);
+    if (!m) return t;
+    t = t.slice(m[0].length);
+  }
+}
+
 async function laneMap(doc, name) {
   const key = doc.uri.toString();
   const hit = laneCache.get(key);
@@ -290,16 +301,84 @@ async function laneMap(doc, name) {
       const macro = node.childForFieldName("macro");
       return macro && (macro.text === "par" || macro.text === "parmin");
     });
-    const isLaneHead = (s) => /^(?:ser|par|parmin)\s*!/.test(s);
+    const isLaneHead = (s) => /^(?:ser|par|parmin)\s*!/.test(stripLeadingComments(s).trim());
+    // Voice programs hoist instrument + channel pins out of lanes
+    // (`voice_melody()` sets them via nested-ser ambient leak), so
+    // resolve lane identity through voice definitions when the lane
+    // itself carries no pin. Staff comments (`// melody (psg)`) are a
+    // final fallback.
+    const voiceMap = new Map();
+    for (const m of text.matchAll(/fn\s+(voice_\w+)\s*\(\)\s*->\s*Note\s*\{([\s\S]*?)\n\}/g)) {
+      const body = m[2];
+      const vi = (body.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
+      const vc = (body.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/) || [])[1];
+      if (vi) voiceMap.set(m[1], { inst: vi, ch: vc !== undefined ? Math.round(Number(vc)) : -1 });
+    }
+    // Phrase functions (`bassl_seg_3()`) splice their bodies inline at
+    // every call site, so highlight ordinals index the *expanded* note
+    // stream. Expand seg calls to their definition offsets (shared
+    // across call sites, like the phrase itself).
+    const PRE = "fn _w() -> Note { ";
+    const segBodies = new Map();
+    for (const m of text.matchAll(/fn\s+(\w+_seg_\d+)\s*\(\)\s*->\s*Note\s*\{([\s\S]*?)\n\}/g)) {
+      const body = m[2];
+      segBodies.set(m[1], { src: body, start: m.index + m[0].indexOf(body) });
+    }
+    const segElsCache = new Map();
+    const NONPITCH_OK = /^(?:param|ser|par|parmin|comment|instrument|tempo|velocity)$/;
+    function segPitchEls(segName, stack) {
+      if (segElsCache.has(segName)) return segElsCache.get(segName);
+      if (stack.includes(segName)) return [];
+      const body = segBodies.get(segName);
+      if (!body) return [];
+      // Placeholder breaks reference cycles (segs never nest, but stay safe).
+      segElsCache.set(segName, []);
+      const tree = parser.parse(PRE + body.src + " }");
+      const segFn = tree.rootNode.descendantsOfType("function_item")[0];
+      const ids = segFn ? segFn.descendantsOfType("identifier") : [];
+      const els = [];
+      const seen = new Set();
+      let lastPitched = null;
+      const nextStack = stack.concat([segName]);
+      for (const id of ids) {
+        const a = body.start + id.startIndex - PRE.length;
+        if (seen.has(a)) continue;
+        seen.add(a);
+        if (PITCH_RE.test(id.text)) {
+          const el = { a, b: a + (id.endIndex - id.startIndex) };
+          els.push(el);
+          lastPitched = el;
+        } else if (id.text === "repeat") {
+          const b = body.start + id.endIndex - PRE.length;
+          const count = (text.slice(b).match(/^!\((\d+)\)/) || [])[1];
+          const extra = count ? Number(count) : 0;
+          for (let k = 0; k < extra && lastPitched; k++) els.push(lastPitched);
+          lastPitched = null;
+        } else if (segBodies.has(id.text)) {
+          els.push(...segPitchEls(id.text, nextStack));
+          lastPitched = null;
+        } else if (!NONPITCH_OK.test(id.text)) {
+          lastPitched = null;
+        }
+      }
+      segElsCache.set(segName, els);
+      return els;
+    }
     for (const item of splitTopLevel(text, fn, outer)) {
+      const clean = stripLeadingComments(item.src).trim();
       if (!isLaneHead(item.src)) continue;
-      const inst = (item.src.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
+      let inst = (clean.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
+      let chm = clean.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/);
+      if (!inst) {
+        const vcall = (clean.match(/\b(voice_\w+)\s*\(\)/) || [])[1];
+        const v = vcall && voiceMap.get(vcall);
+        if (v) { inst = v.inst; if (!chm && v.ch >= 0) chm = [null, String(v.ch)]; }
+      }
+      if (!inst) inst = (item.src.match(/\/\/\s*[\w-]+\s*\((\w+)\)/) || [])[1];
       if (!inst) continue;
-      const chm = item.src.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/);
       // Re-parse the lane on its own: whole-file identifier queries
       // truncate on large files, but a per-lane parse is complete.
       // (Offsets rebase from the wrapper prefix back to the document.)
-      const PRE = "fn _w() -> Note { ";
       const laneTree = parser.parse(PRE + item.src + " }");
       const laneFn = laneTree.rootNode.descendantsOfType("function_item")[0];
       const laneIds = laneFn
@@ -324,7 +403,12 @@ async function laneMap(doc, name) {
           // emit no NoteOns, so only pitched predecessors expand.
           for (let k = 0; k < extra && lastPitched; k++) els.push(lastPitched);
           lastPitched = null; // a repeat is not itself repeatable content
-        } else if (!/^(?:param|ser|par|parmin|comment|instrument|tempo|velocity)$/.test(id.text)) {
+        } else if (segBodies.has(id.text)) {
+          // Phrase call: splice the definition's notes inline so ordinals
+          // track the expanded stream the server counts.
+          els.push(...segPitchEls(id.text, []));
+          lastPitched = null;
+        } else if (!NONPITCH_OK.test(id.text)) {
           lastPitched = null; // anything else breaks a repeat chain
         }
       }
@@ -335,14 +419,17 @@ async function laneMap(doc, name) {
   return lanes;
 }
 
-// Split the outer par!'s [...] region into top-level comma-separated
-// items (with absolute offsets), aware of nested brackets, strings,
-// char literals, and line/block comments. Returns [] when not found.
+// Split the outer par!'s top-level items (with absolute offsets), aware
+// of nested brackets, strings, char literals, and line/block comments.
+// Supports both the bracket form `par!([...])` and the terse paren form
+// `par!(...)` (no brackets, space/comma-separated). Returns [] when not
+// found.
 function splitTopLevel(text, fn, outer) {
   if (!outer) return [];
   const head = text.slice(outer.startIndex, outer.endIndex);
-  const m = head.match(/^(?:par|parmin)\s*!\s*\(\s*\[/);
+  const m = head.match(/^(?:par|parmin)\s*!\s*\(\s*(\[?)/);
   if (!m) return [];
+  const bracket = m[1] === "[";
   let depth = 0;
   let start = -1;
   let i = outer.startIndex + m[0].length;
@@ -382,7 +469,7 @@ function splitTopLevel(text, fn, outer) {
       depth++;
     } else if (ch === "]" || ch === ")" || ch === "}") {
       if (depth === 0) {
-        if (ch === "]") push(i);
+        if ((bracket && ch === "]") || (!bracket && ch === ")")) push(i);
         break;
       }
       depth--;
