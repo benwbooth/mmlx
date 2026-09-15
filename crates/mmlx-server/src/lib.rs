@@ -44,6 +44,10 @@ pub struct Player {
     /// channel, lane ordinal). Chip lanes pin `ym_channel`/`sn_channel`
     /// params, so the editor can highlight the exact source lane.
     noteon_lanes: Vec<(String, i64, i64)>,
+    /// Active generator song, if playing one: each loop wrap pulls the
+    /// next body (intro once, then loop forever) with bounded memory.
+    /// `None` replays the single collected body as before.
+    stream: Option<mmlx_core::NoteIterator>,
     playing: bool,
     looping: bool,
     offset: f32,
@@ -72,6 +76,7 @@ impl Player {
             events: Vec::new(),
             noteon_times: Vec::new(),
             noteon_lanes: Vec::new(),
+            stream: None,
             playing: false,
             looping: true,
             offset: 0.0,
@@ -99,6 +104,39 @@ impl Player {
     /// disabled): drops anything queued, silences voices, collects the
     /// highlight stream, and queues events rebased to the audio clock.
     fn start_playing(&mut self, note: mmlx_core::Note, label: String, from: f32) {
+        self.stream = None;
+        self.load_body(note, from);
+        self.last_expr = Some(label);
+        self.say(format!("ok playing {}", self.events.len()));
+    }
+
+    /// Start playback of a generator song from the top. Pulls one body
+    /// per loop wrap (see `poll`), so infinite performances page with
+    /// bounded memory; highlight ordinals restart per body.
+    fn start_streaming(&mut self, stream: mmlx_core::NoteIterator, label: String) {
+        self.stream = Some(stream);
+        if self.pull_stream() {
+            self.last_expr = Some(label);
+            self.say(format!("ok playing {}", self.events.len()));
+        } else {
+            self.stream = None;
+            self.say("err stream yielded no bodies".to_string());
+        }
+    }
+
+    /// Pull the next generator body into the highlight stream and audio
+    /// queue from its top. False when a finite stream is exhausted.
+    fn pull_stream(&mut self) -> bool {
+        let next = match self.stream.as_mut().and_then(|s| s.next()) {
+            Some(note) => note,
+            None => return false,
+        };
+        self.load_body(next, 0.0);
+        true
+    }
+
+    /// Shared body setup: silence, collect events + highlight, requeue.
+    fn load_body(&mut self, note: mmlx_core::Note, from: f32) {
         self.silence();
         self.events = note.event_stream(0.0).collect();
         self.collect_noteons();
@@ -107,8 +145,6 @@ impl Player {
         self.started = Some(Instant::now());
         self.playing = true;
         self.last_ordinal = -1;
-        self.last_expr = Some(label);
-        self.say(format!("ok playing {}", self.events.len()));
     }
 
     /// Rebuild the highlight stream + per-NoteOn lane identities from the
@@ -255,10 +291,15 @@ impl Player {
             },
             "play" => {
                 // lotw `rom` path: a bare `name()` call for a compiled-in
-                // song starts instantly with no JIT involved.
+                // song starts instantly with no JIT involved. Generator
+                // songs (intro once, loop forever) page per cycle.
                 if let Some(name) = Self::bare_name(rest) {
                     if let Some(song) = mmlx_songs::song_by_name(name) {
                         self.start_playing(song(), rest.to_string(), 0.0);
+                        return;
+                    }
+                    if let Some(stream) = mmlx_songs::song_stream_by_name(name) {
+                        self.start_streaming(stream(), rest.to_string());
                         return;
                     }
                 }
@@ -288,8 +329,23 @@ impl Player {
                 }
             }
             // Re-evaluate the current expression (or `reload <expr>`) and keep
-            // the playhead: live-editing without losing position.
+            // the playhead: live-editing without losing position. Generator
+            // songs restart from the top (infinite streams have no end to
+            // keep position against).
             "reload" => {
+                if self.stream.is_some() {
+                    if let Some(name) = self
+                        .last_expr
+                        .as_ref()
+                        .and_then(|expr| Self::bare_name(expr))
+                        .and_then(mmlx_songs::song_stream_by_name)
+                    {
+                        let label = self.last_expr.clone().unwrap();
+                        self.start_streaming(name(), label);
+                        return;
+                    }
+                    self.stream = None;
+                }
                 let expr = if rest.is_empty() {
                     match self.last_expr.clone() {
                         Some(expr) => expr,
@@ -355,6 +411,27 @@ impl Player {
                 self.started = None;
                 self.offset = 0.0;
                 self.last_ordinal = -1;
+                // Parked streams rewind: rebuild the generator and collect
+                // the first body (no queueing while stopped) so resume
+                // restarts the performance from the top, not mid-loop.
+                if self.stream.is_some() {
+                    if let Some(name) = self
+                        .last_expr
+                        .as_ref()
+                        .and_then(|expr| Self::bare_name(expr))
+                        .and_then(mmlx_songs::song_stream_by_name)
+                    {
+                        self.stream = Some(name());
+                        if let Some(note) = self.stream.as_mut().and_then(|s| s.next()) {
+                            self.events = note.event_stream(0.0).collect();
+                            self.collect_noteons();
+                        } else {
+                            self.stream = None;
+                        }
+                    } else {
+                        self.stream = None;
+                    }
+                }
                 self.silence();
                 self.say("ok reset".to_string());
                 self.say("pos 0 -1 - - -".to_string());
@@ -395,7 +472,14 @@ impl Player {
         let now = self.now();
         let end = self.end();
         if !self.events.is_empty() && now >= end {
-            if self.looping {
+            if self.stream.is_some() {
+                // Generator song: page the next body (intro once, then
+                // loop forever). Exhausted finite streams end instead.
+                if self.pull_stream() {
+                    return;
+                }
+                self.stream = None;
+            } else if self.looping {
                 self.offset -= end;
                 self.started = Some(Instant::now());
                 self.last_ordinal = -1;
@@ -478,5 +562,23 @@ mod tests {
         }
         // Unknown names miss the registry (covered in mmlx-songs tests).
         assert!(mmlx_songs::song_by_name("no_such_song").is_none());
+    }
+
+    #[test]
+    fn stream_play_pages_bodies() {
+        // Generator songs start instantly (no JIT) and page one body per
+        // pull; finite streams report exhaustion instead of hanging.
+        let (mut player, out_rx) = test_player();
+        player.handle_line("play alisia_stage1_full()");
+        assert!(player.stream.is_some(), "stream parked");
+        assert!(!player.events.is_empty(), "intro body collected");
+        assert!(out_rx.try_recv().unwrap().starts_with("ok playing"));
+        // Second body (first loop) re-collects highlight + queue.
+        assert!(player.pull_stream(), "infinite stream keeps yielding");
+        assert!(!player.events.is_empty());
+        // A finite stream exhausts cleanly.
+        player.stream = Some(Box::new(vec![mmlx_songs::all_features()].into_iter()));
+        assert!(player.pull_stream(), "one body");
+        assert!(!player.pull_stream(), "then exhausted");
     }
 }

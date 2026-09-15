@@ -19,6 +19,11 @@ const QUERY = `
   return_type: (type_identifier) @ret
   body: (block) @body
   (#eq? @ret "Note"))
+(function_item
+  name: (identifier) @name
+  return_type: (type_identifier) @ret
+  body: (block) @body
+  (#eq? @ret "NoteIterator"))
 `;
 
 let ts = null; // Promise<{ parser, query }>
@@ -768,4 +773,4 @@ function deactivate() {
 
 module.exports = { activate, deactivate };
 // Exported for headless testing (node harness with a vscode stub).
-module.exports.__test = { laneMap, songElements, sectionElements, NOTE_RE, PITCH_RE, initTreeSitter, splitTopLevel, splitNested };
+module.exports.__test = { laneMap, songElements, sectionElements, structure, NOTE_RE, PITCH_RE, initTreeSitter, splitTopLevel, splitNested };

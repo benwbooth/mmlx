@@ -340,6 +340,7 @@ CP437 `castle_audio_repl*` (evcxr-based: try `Note`, then `Iterator<Item=Note>`,
 
 * `mmlx-server`: stdin commands `src <tmpfile> <index> [section] | sfxsrc ... | play | stop | reset | loop on|off | preview <ch> <tempo> <token>`; stdout `pos <tick> <t0> <t1> <t2> <t3> | ended | err ...`. Compiles `mmlx-songs` cdylib/JIT or interprets event stream directly; patches playback in place preserving position (lotw `editor/extension.js` protocol, adapted from `song/section/line` to `ser/par` + section index).
 * VSCode extension (full lotw port): CodeLens `▶/⏸ ⏹ 🔁` per song fn + per top-level `ser!` section; green highlight of sounding atoms per channel (map server token index → source span via tree-sitter; `env!` = 1 token); debounced live reload; type-to-play preview voice on complete token (`c4e`, `hite`-equivalent `rq`, ...).
+* Generator songs: `pub fn <name>_full() -> NoteIterator` yields the intro once, then the loop body forever (`gen!`/`yield_!`, one body per pull). The server pages one body per loop wrap with bounded memory instead of replaying one collected stream; highlight ordinals restart per body, and pause/stop/resume/reload keep their finite-song semantics (reload and reset restart the performance from the top).
 
 ---
 
