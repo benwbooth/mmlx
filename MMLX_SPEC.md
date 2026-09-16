@@ -92,7 +92,7 @@ All take array/`IntoIterator<Item=Note>`. Functions `ser/par/parmin/forkseq/fork
 Body forms (all equivalent — a proc-macro frontend splits items, the
 runtime functions resolve): `ser!([c4q, d4q])` (legacy) ≡ `ser!(c4q, d4q)`
 ≡ `ser!(c4q d4q)`. Whitespace separation recognizes notes, rests, ties,
-`repeat!`/`param!`/`comment!`, nested `ser!`/`par!`, per-note `!(...)`
+`repeat!`/`param!`, nested `ser!`/`par!`, per-note `!(...)`
 attrs, `::` paths and block constructs as units; a lone `(...)` group
 passes through as one expression. Items are borrowed (`vec![&...]`) and
 cloned inside the block fns, so `let`-bound programs splice bare
@@ -106,31 +106,30 @@ cloned inside the block fns, so `let`-bound programs splice bare
 | `forkser!([...])` / `forkseq` | **0** | isolated clone | sequential fork playing alongside following siblings. |
 | `forkpar!([...])` | **0** | isolated clone | parallel fork alongside siblings. |
 | `repeat!(n)` → `RepeatMarker(n)` | repeats previous item `n` extra times | inherits context at each repetition | must follow atom/rest/`ser`/`par`; `0` = no-op. See §5.4. |
-| `comment!("...")` | 0 | none | yields `Comment` event for logging/highlight. |
 | `legato!(note, t)` → `Legato` | `t` 128th-note ticks | inner sounds with ambient + baked params (tempo read like its atom) | sounds full duration (NoteOff at true end); rests cover the span. Tied-over-barline sustain. |
 
 `ser!([c4q, forkser!([e4q, g4q]), d4q])`: `e+g` starts at `c4q` end, runs alongside `d4q`.
 
 Nesting is free: `par!([ser!([...]), ser!([...])])` is the standard multi-voice pattern;
-decompiled songs stream it per body from one plain fn —
-`::std::iter::once(intro).chain(::std::iter::repeat(loop_body))`, intro once
-then loop forever (plain std iterators, no generator machinery, so song
-edits recompile in seconds) — so one function is the whole performance
-(`impl SongStream`).
-decompiled songs use the bar-major form `ser!(par!(ser!(...) ...), ...)` —
-one `par!` per bar, one channel `ser!` per staff. Within a bar, notes
-align vertically by point in time (subdivided at event boundaries,
-content-sized columns, whitespace only — the stream resolves
-identically).
+decompiled songs yield it per body from one generator fn —
+`gen!` with intro `yield_!` once, then `loop` yielding forever —
+so one function is the whole performance (`NoteIterator`, boxed at the
+song boundary since the generator itself is not an `Iterator`).
+decompiled songs use the bar-major form `ser!(bar!(track!(...) ...), ...)` —
+one `bar!` per bar, one channel `track!` per staff. `track!` is `ser!`
+spelled as a lane; `bar!` means `par!` plus compile-splitting (each bar
+outlines into its own closure with voice bindings threaded as args, so
+codegen fans out while the source stays one readable score). Within a
+bar, notes align vertically by point in time (subdivided at event
+boundaries, content-sized columns, whitespace only — the stream
+resolves identically).
 
 Voice programs as variables: a `param!` setter block splices
 like any nested block — its params leak forward to following siblings
-(`nested_ser_shares_ambient_params`). Decompiled songs bind each recurring
-voice program once as `let voice_<role>: Note` and splice
-it bare (`voice`, cloned inside the block), so a bar reads as program
-changes plus notes; programs
-used exactly once inline as `param!(...)` and small tweaks stay inline
-`param!` diffs. Recurring PSG velocity levels become `VEL_*` dynamics
+(`nested_ser_shares_ambient_params`). Decompiled songs bind each voice program once as `let voice_<role>: Note`
+and splice it bare (`voice`, cloned inside the block), so a bar reads as
+program changes plus notes; even single-use programs bind (inline groups
+crowd bar lines) and small tweaks stay inline `param!` diffs. Recurring PSG velocity levels become `VEL_*` dynamics
 consts (nibble loudness as MIDI velocity); rarer ones stay literals. Bars emit channels in score order
 (melody on top, drums at the bottom) with one `par! // bar N` per bar, so
 parts align vertically like staff systems. Every sounding channel restates
@@ -310,7 +309,7 @@ Any key in §6 accepting `Number/Env` is a legal target; canonical: `volume velo
 ```rust
 TimedMusicalEvent { time_seconds: f32, real_duration: f32, event: MusicalEventType, instrument_name: String }
 MusicalEventType::{ NoteOn{note_id,pitch_midi,velocity,parameters,attack_envelope,sustain_envelope,release_envelope,other_envelopes},
-  NoteOff{note_id}, Rest{duration_secs}, SetParameter{key,value}, Comment(String) }
+  NoteOff{note_id}, Rest{duration_secs}, SetParameter{key,value} }
 ```
 
 * `note_id: u64` monotonic (`generate_unique_note_id`). Every `NoteOn` gets a paired `NoteOff` at `start+real_duration`.
@@ -349,7 +348,7 @@ CP437 `castle_audio_repl*` (evcxr-based: try `Note`, then `Iterator<Item=Note>`,
 
 * `mmlx-server`: stdin commands `src <tmpfile> <index> [section] | sfxsrc ... | play | stop | reset | loop on|off | preview <ch> <tempo> <token>`; stdout `pos <tick> <t0> <t1> <t2> <t3> | ended | err ...`. Compiles `mmlx-songs` cdylib/JIT or interprets event stream directly; patches playback in place preserving position (lotw `editor/extension.js` protocol, adapted from `song/section/line` to `ser/par` + section index).
 * VSCode extension (full lotw port): CodeLens `▶/⏸ ⏹ 🔁` per song fn + per top-level `ser!` section; green highlight of sounding atoms per channel (map server token index → source span via tree-sitter; `env!` = 1 token); debounced live reload; type-to-play preview voice on complete token (`c4e`, `hite`-equivalent `rq`, ...).
-* Streaming songs: `pub fn <name>() -> impl SongStream` returns the intro once, then the loop body forever (`::std::iter::once(intro).chain(::std::iter::repeat(loop_body))`, one body per pull; `SongStream` is blanket-implemented so the song file needs no adapters). Plain std iterators keep song-only rebuilds to seconds (no generator state machine); hand-written infinite algo lines may still use `gen!`/`yield_!`. The server pages one body per loop wrap with bounded memory instead of replaying one collected stream; highlight ordinals restart per body, and pause/stop/resume/reload keep their finite-song semantics (reload and reset restart the performance from the top).
+* Streaming songs: `pub fn <name>() -> NoteIterator` yields the intro once, then the loop body forever (`gen!`/`yield_!`, one body per pull, boxed at the song boundary). The server pages one body per loop wrap with bounded memory instead of replaying one collected stream; highlight ordinals restart per body, and pause/stop/resume/reload keep their finite-song semantics (reload and reset restart the performance from the top).
 
 ---
 
@@ -360,7 +359,6 @@ Everything below is still `Note` text — no binary project files:
 * Sections: top-level `ser!([sectionA, sectionB, ...])` where each is `par!([pulse1_ser, pulse2_ser, tri_ser, noise_ser])` or any voice count (we exceed MIDI 16 by construction; voice = `instrument` param, not channel number).
 * Mixer: `param!(instrument="...", volume=..., patch=...)` at section/voice scope; future `param!(bus="...", send=...)`.
 * Automation lanes: block `param!(volume = env!(...))` spanning a section.
-* Markers: `comment!("verse")` doubles as arrange markers + log lines.
 
 ---
 
