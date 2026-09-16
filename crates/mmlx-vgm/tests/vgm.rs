@@ -170,3 +170,53 @@ fn emitter_is_exact_and_compressed() {
         "inline program:\n{src}"
     );
 }
+
+#[test]
+fn bar_columns_align_by_time() {
+    // Two lanes with offset rhythms: hits at the same tick share a
+    // column; earlier ticks sit strictly left (whitespace-only layout).
+    fn note(start: u64, dur: u64, midi: u8) -> TrackNote {
+        TrackNote {
+            start,
+            duration: dur,
+            voice: 0,
+            midi,
+            velocity: 1.0,
+            params: Vec::new(),
+            approx: false,
+        }
+    }
+    let lead = vec![note(0, 32, 60), note(32, 32, 62)];
+    let lead2 = vec![
+        note(0, 16, 69),
+        note(16, 16, 71),
+        note(32, 16, 72),
+        note(48, 16, 74),
+    ];
+    let src = emit_song(
+        "align",
+        &[
+            ("ym".to_string(), "lead".to_string(), lead, Vec::new()),
+            ("ym".to_string(), "lead2".to_string(), lead2, Vec::new()),
+        ],
+        1, // one sample per tick: exact grid, no rounding
+        120.0,
+        128,
+    );
+    let bar = src.split("par!( // bar 1").nth(1).expect("intro bar 1");
+    let sers: Vec<&str> = bar
+        .lines()
+        .filter(|line| line.contains("ser!("))
+        .take(2)
+        .collect();
+    assert_eq!(sers.len(), 2, "two channel lines:\n{bar}");
+    let (a, b) = (sers[0], sers[1]);
+    // Tick-32 hits carry no glued prefixes: same tick, same column.
+    let col_a = a.find("d4q").expect("lead tick-32 hit");
+    let col_b = b.find("c5e").expect("lead2 tick-32 hit");
+    assert_eq!(col_a, col_b, "tick-32 alignment:\n{a}\n{b}");
+    // The tick-16 hit sits strictly between tick 0 and tick 32.
+    let col_16 = b.find("b4e").expect("lead2 tick-16 hit");
+    let col_0 = b.find("a4e").expect("lead2 tick-0 hit");
+    assert!(col_0 < col_16 && col_16 < col_b, "time order:\n{b}");
+}

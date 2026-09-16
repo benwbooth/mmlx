@@ -118,7 +118,10 @@ then loop forever (plain std iterators, no generator machinery, so song
 edits recompile in seconds) — so one function is the whole performance
 (`impl SongStream`).
 decompiled songs use the bar-major form `ser!(par!(ser!(...) ...), ...)` —
-one `par!` per bar, one channel `ser!` per staff.
+one `par!` per bar, one channel `ser!` per staff. Within a bar, notes
+align vertically by point in time (subdivided at event boundaries,
+content-sized columns, whitespace only — the stream resolves
+identically).
 
 Voice programs as variables: a `param!` setter block splices
 like any nested block — its params leak forward to following siblings

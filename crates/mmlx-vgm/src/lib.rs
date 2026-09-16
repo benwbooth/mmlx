@@ -907,9 +907,12 @@ fn role_rank(role: &str) -> u64 {
 }
 
 /// Repeat runs within one bar's items (runs never cross bars by
-/// construction, so partition-exactness holds).
-fn compress_runs(items: &[String]) -> Vec<String> {
+/// construction, so partition-exactness holds). Lengths thread through:
+/// a `repeat!(k)` marker carries the `k` elided copies' ticks, so the
+/// total span is unchanged and downstream layout stays exact.
+fn compress_runs(items: &[String], lens: &[u64]) -> (Vec<String>, Vec<u64>) {
     let mut compressed: Vec<String> = Vec::new();
+    let mut compressed_lens: Vec<u64> = Vec::new();
     let mut index = 0;
     while index < items.len() {
         let mut run = 1;
@@ -920,29 +923,37 @@ fn compress_runs(items: &[String]) -> Vec<String> {
             run += 1;
         }
         compressed.push(items[index].clone());
+        compressed_lens.push(lens[index]);
         if run > 1 {
+            // The marker carries the elided copies' exact ticks.
+            let elided: u64 = lens[index + 1..index + run].iter().sum();
             compressed.push(format!("repeat!({})", run - 1));
+            compressed_lens.push(elided);
         }
         index += run;
     }
-    compressed
+    (compressed, compressed_lens)
 }
 
-/// A whole-bar rest (`rw` for 4/4, decomposed otherwise) for wholly-silent
-/// bars, keeping bar numbering exact across lanes.
-fn full_bar_rest(bar_ticks: u64) -> String {
+/// A whole-bar rest (`rw` for 4/4, decomposed otherwise) as separate
+/// pieces with exact tick lengths, keeping bar numbering exact across
+/// lanes and feeding time-aligned bar columns.
+fn full_bar_pieces(bar_ticks: u64) -> (Vec<String>, Vec<u64>) {
     if bar_ticks == 0 {
-        return "rw".to_string();
+        return (vec!["rw".to_string()], vec![0]);
     }
-    let mut pieces = Vec::new();
+    let mut items = Vec::new();
+    let mut lens = Vec::new();
     for (i, suffix) in ticks_to_durations(bar_ticks).iter().enumerate() {
-        if i == 0 {
-            pieces.push(format!("r{suffix}"));
+        let piece = if i == 0 {
+            format!("r{suffix}")
         } else {
-            pieces.push(suffix.to_string());
-        }
+            suffix.to_string()
+        };
+        lens.push(suffix_ticks(suffix));
+        items.push(piece);
     }
-    pieces.join(" ")
+    (items, lens)
 }
 
 /// Rest pieces for `[start, start + gap)` with an explicit `r` head opening
@@ -1048,13 +1059,16 @@ fn program_snapshot(note: &TrackNote) -> Vec<(String, f32)> {
     snapshot
 }
 
-/// One bar of one lane: compressed display items plus the ambient setup
-/// at the bar's start (for program restatement in bar-major assembly).
+/// One bar of one lane: compressed display items with their exact tick
+/// lengths plus the ambient setup at the bar's start (for program
+/// restatement in bar-major assembly). Lengths make time-aligned
+/// columns exact downstream (restatement prefixes are zero-length).
 /// `start_setup` is the running setup after the last pre-bar item
 /// (empty for the opening bar).
 pub struct LaneBar {
     pub bar: u64,
     pub items: Vec<String>,
+    pub lens: Vec<u64>,
     pub start_setup: HashMap<String, f32>,
 }
 
@@ -1259,10 +1273,12 @@ pub fn emit_voice(
     let mut position = 0u64;
     let mut current_bar = 0u64;
     let mut current: Vec<String> = Vec::new();
+    let mut current_lens: Vec<u64> = Vec::new();
     let mut current_start_setup: HashMap<String, f32> = HashMap::new();
     let mut running_setup: HashMap<String, f32> = HashMap::new();
     let mut started = false;
     // Flush the open bar (compressed) with its recorded start setup.
+    // Lengths compress alongside so every bar keeps exact tick spans.
     for (item, (len, setup)) in items.iter().zip(item_lens.iter().zip(item_setups.iter())) {
         // Zero-len bare ties merge BACKWARD into their head's atom at
         // resolution, so they join the head's bar even when sitting
@@ -1281,18 +1297,23 @@ pub fn emit_voice(
             current_start_setup = running_setup.clone();
             started = true;
         } else if bar != current_bar {
+            let (flushed, flushed_lens) = compress_runs(&current, &current_lens);
             bars.push(LaneBar {
                 bar: current_bar,
-                items: compress_runs(&current),
+                items: flushed,
+                lens: flushed_lens,
                 start_setup: std::mem::take(&mut current_start_setup),
             });
             current = Vec::new();
+            current_lens = Vec::new();
             // Fill wholly-silent bars so numbering stays exact.
             let mut missing = current_bar + 1;
             while missing < bar {
+                let (fill_items, fill_lens) = full_bar_pieces(bar_ticks);
                 bars.push(LaneBar {
                     bar: missing,
-                    items: vec![full_bar_rest(bar_ticks)],
+                    items: fill_items,
+                    lens: fill_lens,
                     start_setup: running_setup.clone(),
                 });
                 missing += 1;
@@ -1301,13 +1322,16 @@ pub fn emit_voice(
             current_start_setup = running_setup.clone();
         }
         current.push(item.clone());
+        current_lens.push(*len);
         running_setup = setup.clone();
         position += len;
     }
     if !current.is_empty() || bars.is_empty() {
+        let (flushed, flushed_lens) = compress_runs(&current, &current_lens);
         bars.push(LaneBar {
             bar: current_bar,
-            items: compress_runs(&current),
+            items: flushed,
+            lens: flushed_lens,
             start_setup: current_start_setup,
         });
     }
@@ -1683,6 +1707,145 @@ fn bar_sounds(items: &[String]) -> bool {
 /// param when it differs from default. Empty setups need nothing: the
 /// bar's own items establish everything (lane heads). Voice calls use
 /// the `{name}()` form here; the downstream let/inline pass rewrites them.
+/// Time-aligned bar columns: one `ser!` body per channel with items
+/// starting at the same tick in the same column, so rhythm reads
+/// vertically like staff systems. Subdivides the bar at every segment
+/// start, sizes each slice by its widest content (plus one gap), pads
+/// the rest. Zero-length items glue forward (params/voice shape what
+/// follows) except bare ties (merge backward into their head) and
+/// `repeat!` (extends the repeated hit). Whitespace-only change: the
+/// note stream resolves identically.
+fn align_bar(channels: &[Vec<String>], lens: &[Vec<u64>], bar_ticks: u64) -> Vec<String> {
+    struct Seg {
+        start: u64,
+        len: u64,
+        text: String,
+    }
+    let mut all: Vec<Vec<Seg>> = Vec::new();
+    for (items, ls) in channels.iter().zip(lens.iter()) {
+        let mut segs: Vec<Seg> = Vec::new();
+        let mut pending: Vec<String> = Vec::new();
+        let mut pos = 0u64;
+        for (item, len) in items.iter().zip(ls.iter()) {
+            if *len == 0 && is_bare_tie(item) {
+                // Ties merge backward into their head (resolution glues
+                // them there too).
+                match segs.last_mut() {
+                    Some(prev) => {
+                        prev.text.push(' ');
+                        prev.text.push_str(item);
+                    }
+                    None => pending.push(item.clone()),
+                }
+            } else if item.starts_with("repeat!(") {
+                // Repeats extend the hit they follow (elided ticks ride
+                // the marker); other channels' starts inside still slice.
+                match segs.last_mut() {
+                    Some(prev) => {
+                        prev.text.push(' ');
+                        prev.text.push_str(item);
+                        prev.len += len;
+                    }
+                    None => {
+                        let mut text = pending.join(" ");
+                        pending.clear();
+                        if !text.is_empty() {
+                            text.push(' ');
+                        }
+                        text.push_str(item);
+                        segs.push(Seg {
+                            start: pos,
+                            len: *len,
+                            text,
+                        });
+                        pos += len;
+                    }
+                }
+            } else if *len == 0 {
+                pending.push(item.clone());
+            } else {
+                let mut text = pending.join(" ");
+                pending.clear();
+                if !text.is_empty() {
+                    text.push(' ');
+                }
+                text.push_str(item);
+                segs.push(Seg {
+                    start: pos,
+                    len: *len,
+                    text,
+                });
+                pos += len;
+            }
+        }
+        if !pending.is_empty() {
+            // Defensive: trailing setup with nothing following (emission
+            // always leaves a sounding item last); glue backward.
+            match segs.last_mut() {
+                Some(prev) => {
+                    prev.text.push(' ');
+                    prev.text.push_str(&pending.join(" "));
+                }
+                None => segs.push(Seg {
+                    start: 0,
+                    len: 0,
+                    text: pending.join(" "),
+                }),
+            }
+        }
+        all.push(segs);
+    }
+    if all.iter().all(|segs| segs.is_empty()) {
+        return channels.iter().map(|items| items.join(" ")).collect();
+    }
+    // Slice at every segment start; the span end closes the last slice.
+    let mut bounds: Vec<u64> = vec![0];
+    let mut end = bar_ticks;
+    for segs in &all {
+        for seg in segs {
+            bounds.push(seg.start);
+            end = end.max(seg.start + seg.len);
+        }
+    }
+    bounds.push(end);
+    bounds.sort();
+    bounds.dedup();
+    let nslices = bounds.len().saturating_sub(1);
+    let slice_of = |start: u64| bounds.iter().position(|b| *b == start).unwrap_or(0);
+    let mut widths = vec![0usize; nslices];
+    for segs in &all {
+        for seg in segs {
+            if let Some(width) = widths.get_mut(slice_of(seg.start)) {
+                *width = (*width).max(seg.text.len());
+            }
+        }
+    }
+    for (j, width) in widths.iter_mut().enumerate() {
+        if j + 1 < nslices {
+            *width += 1;
+        }
+    }
+    let mut bodies = Vec::new();
+    for segs in &all {
+        let mut line = String::new();
+        for j in 0..nslices {
+            let text = segs
+                .iter()
+                .find(|seg| slice_of(seg.start) == j)
+                .map(|seg| seg.text.as_str())
+                .unwrap_or("");
+            line.push_str(text);
+            if j + 1 < nslices {
+                for _ in text.len()..widths[j] {
+                    line.push(' ');
+                }
+            }
+        }
+        bodies.push(line.trim_end().to_string());
+    }
+    bodies
+}
+
 fn restate_bar(
     reg: &mut ProgramReg,
     role: &str,
@@ -1719,6 +1882,90 @@ fn restate_bar(
     prefix
 }
 
+/// One assembled bar: score-ordered channel items with exact tick
+/// lengths, pre-substitution (`voice()` calls, literals). Alignment and
+/// all text substitutions run on this structure so every width they
+/// change is accounted before columns are laid out.
+struct AsmCh {
+    role: String,
+    instrument: String,
+    items: Vec<String>,
+    lens: Vec<u64>,
+}
+struct AsmBar {
+    no: u64,
+    channels: Vec<AsmCh>,
+}
+
+/// Substring occurrences of `pat` across structured bars (matches never
+/// span items, so this equals the old whole-mix text count).
+fn bar_uses(bars: &[AsmBar], pat: &str) -> usize {
+    bars.iter()
+        .flat_map(|bar| bar.channels.iter())
+        .flat_map(|ch| ch.items.iter())
+        .map(|item| item.matches(pat).count())
+        .sum()
+}
+
+/// First item containing `pat` (bar-major order) gets one replacement.
+fn replace_first_in_bars(bars: &mut [AsmBar], pat: &str, rep: &str) -> bool {
+    for bar in bars {
+        for ch in &mut bar.channels {
+            for item in &mut ch.items {
+                if item.contains(pat) {
+                    *item = item.replacen(pat, rep, 1);
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Every occurrence in every item replaced; true when anything matched.
+fn replace_all_in_bars(bars: &mut [AsmBar], pat: &str, rep: &str) -> bool {
+    let mut hit = false;
+    for bar in bars {
+        for ch in &mut bar.channels {
+            for item in &mut ch.items {
+                if item.contains(pat) {
+                    *item = item.replace(pat, rep);
+                    hit = true;
+                }
+            }
+        }
+    }
+    hit
+}
+
+/// Render structured bars to bar-major text, laying time-aligned columns
+/// per bar (labels on the first system only, sheet-music convention).
+fn render_section(bars: &[AsmBar], bar_ticks: u64) -> String {
+    let mut bar_texts: Vec<String> = Vec::new();
+    for (bar_idx, bar) in bars.iter().enumerate() {
+        let ch_items: Vec<Vec<String>> = bar.channels.iter().map(|ch| ch.items.clone()).collect();
+        let ch_lens: Vec<Vec<u64>> = bar.channels.iter().map(|ch| ch.lens.clone()).collect();
+        let bodies = align_bar(&ch_items, &ch_lens, bar_ticks);
+        let mut channels: Vec<String> = Vec::new();
+        for (body, ch) in bodies.iter().zip(bar.channels.iter()) {
+            if bar_idx == 0 {
+                channels.push(format!(
+                    "            // {} ({})\n            ser!({body})",
+                    ch.role, ch.instrument
+                ));
+            } else {
+                channels.push(format!("            ser!({body})"));
+            }
+        }
+        bar_texts.push(format!(
+            "        par!( // bar {}\n{},\n        )",
+            bar.no + 1,
+            channels.join(",\n")
+        ));
+    }
+    bar_texts.join(",\n")
+}
+
 /// Full song: intro + loop voices as bar-major scores — outer `ser!` of
 /// per-bar `par!`s, each a score-ordered stack of channel `ser!`s.
 /// `voices`: (instrument, role, intro notes, loop notes). `tempo` heads
@@ -1726,7 +1973,8 @@ fn restate_bar(
 /// Voice programs bind once per song fn as `let voice_*` variables
 /// (`voice.clone()` splices); single-use programs inline as `param!(...)`.
 /// Every sounding channel restates its program per bar (par branches
-/// reset ambient); rest-only bars carry bare rests.
+/// reset ambient); rest-only bars carry bare rests. Within a bar, notes
+/// align vertically by point in time (whitespace only).
 pub fn emit_song(
     name: &str,
     voices: &[(String, String, Vec<TrackNote>, Vec<TrackNote>)],
@@ -1793,67 +2041,65 @@ pub fn emit_song(
         seg_defs.append(&mut intro_segs);
         seg_defs.append(&mut loop_segs);
     }
-    // Bar-major assembly: outer ser of per-bar pars, each a score-ordered
-    // stack of channel sers. Par branches reset ambient, so every sounding
-    // channel restates its program (voice call + velocity); rest-only bars
-    // need nothing (voices ignore rests).
+    // Bar-major assembly (structured): outer ser of per-bar pars, each a
+    // score-ordered stack of channel sers. Par branches reset ambient, so
+    // every sounding channel restates its program (voice call + velocity);
+    // rest-only bars need nothing (voices ignore rests). Stays structured
+    // through every text substitution below; columns lay out last.
     fn assemble_section(
         lanes: &[(String, String, Vec<LaneBar>)],
         regs: &mut [(String, ProgramReg)],
         bar_ticks: u64,
-    ) -> String {
+    ) -> Vec<AsmBar> {
         let nbars = lanes
             .iter()
             .map(|(_, _, bars)| bars.len())
             .max()
             .unwrap_or(0);
-        let mut bar_texts: Vec<String> = Vec::new();
+        let mut bars: Vec<AsmBar> = Vec::new();
         for bar_idx in 0..nbars {
-            let mut channels: Vec<String> = Vec::new();
-            for (role, instrument, bars) in lanes {
+            let mut channels: Vec<AsmCh> = Vec::new();
+            for (role, instrument, lane_bars) in lanes {
                 let reg = regs
                     .iter_mut()
                     .find(|(name, _)| name == role)
                     .map(|(_, reg)| reg)
                     .expect("registry per role");
-                let (items, start_setup) = match bars.get(bar_idx) {
-                    Some(bar) => (bar.items.clone(), bar.start_setup.clone()),
-                    None => (vec![full_bar_rest(bar_ticks)], HashMap::new()),
+                let (items, lens, start_setup) = match lane_bars.get(bar_idx) {
+                    Some(bar) => (bar.items.clone(), bar.lens.clone(), bar.start_setup.clone()),
+                    None => {
+                        let (fill_items, fill_lens) = full_bar_pieces(bar_ticks);
+                        (fill_items, fill_lens, HashMap::new())
+                    }
                 };
-                let mut ch_items = if bar_sounds(&items) {
+                let mut full_items = if bar_sounds(&items) {
                     restate_bar(reg, role, instrument, &start_setup, &items)
                 } else {
                     Vec::new()
                 };
-                ch_items.extend(items);
-                // Staff labels on the first system only (sheet-music
-                // convention); order stays fixed after that.
-                if bar_idx == 0 {
-                    channels.push(format!(
-                        "            // {role} ({instrument})\n            ser!({})",
-                        ch_items.join(" ")
-                    ));
-                } else {
-                    channels.push(format!("            ser!({})", ch_items.join(" ")));
-                }
+                let mut full_lens = vec![0u64; full_items.len()];
+                full_items.extend(items);
+                full_lens.extend(lens);
+                channels.push(AsmCh {
+                    role: role.clone(),
+                    instrument: instrument.clone(),
+                    items: full_items,
+                    lens: full_lens,
+                });
             }
-            let bar_no = lanes
+            let no = lanes
                 .iter()
-                .filter_map(|(_, _, bars)| bars.get(bar_idx).map(|bar| bar.bar))
+                .filter_map(|(_, _, lane_bars)| lane_bars.get(bar_idx).map(|bar| bar.bar))
                 .next()
                 .unwrap_or(bar_idx as u64);
-            bar_texts.push(format!(
-                "        par!( // bar {}\n{},\n        )",
-                bar_no + 1,
-                channels.join(",\n")
-            ));
+            bars.push(AsmBar { no, channels });
         }
-        bar_texts.join(",\n")
+        bars
     }
-    // Assemble bar-major mixes (interning restatement programs on demand),
+    // Assemble bar-major bars (interning restatement programs on demand),
     // then collect the full program list including those.
-    let mut intro_mix = assemble_section(&intro_lanes, &mut regs, bar_ticks);
-    let mut loop_mix = assemble_section(&loop_lanes, &mut regs, bar_ticks);
+    let mut intro_bars = assemble_section(&intro_lanes, &mut regs, bar_ticks);
+    let mut loop_bars = assemble_section(&loop_lanes, &mut regs, bar_ticks);
     // Staff order headline (first-system labels live on bar 1).
     let staff_order = ordered
         .iter()
@@ -1879,31 +2125,28 @@ pub fn emit_song(
     }
     // Bar programs: a single call site inlines the `param!(...)` group;
     // the rest bind once per song fn (`let voice: Note`) and splice bare
-    // (blocks borrow items, cloning inside).
+    // (blocks borrow items, cloning inside). Runs on structured bars so
+    // the final widths feed column layout below.
     let mut intro_lets: Vec<String> = Vec::new();
     let mut loop_lets: Vec<String> = Vec::new();
     for (_, name, snapshot, instrument) in &programs {
         let pat = format!("{name}()");
-        let uses = intro_mix.matches(pat.as_str()).count() + loop_mix.matches(pat.as_str()).count();
+        let uses = bar_uses(&intro_bars, pat.as_str()) + bar_uses(&loop_bars, pat.as_str());
         if uses == 0 {
             continue;
         }
         let group = program_param_group(instrument, snapshot);
         if uses == 1 {
-            if intro_mix.contains(pat.as_str()) {
-                intro_mix = intro_mix.replacen(pat.as_str(), &group, 1);
-            } else {
-                loop_mix = loop_mix.replacen(pat.as_str(), &group, 1);
+            if !replace_first_in_bars(&mut intro_bars, pat.as_str(), &group) {
+                replace_first_in_bars(&mut loop_bars, pat.as_str(), &group);
             }
         } else {
             let binding = format!("let {name}: Note = {group};");
             let use_site = name.clone();
-            if intro_mix.contains(pat.as_str()) {
-                intro_mix = intro_mix.replace(pat.as_str(), &use_site);
+            if replace_all_in_bars(&mut intro_bars, pat.as_str(), use_site.as_str()) {
                 intro_lets.push(binding.clone());
             }
-            if loop_mix.contains(pat.as_str()) {
-                loop_mix = loop_mix.replace(pat.as_str(), &use_site);
+            if replace_all_in_bars(&mut loop_bars, pat.as_str(), use_site.as_str()) {
                 loop_lets.push(binding);
             }
         }
@@ -1985,8 +2228,19 @@ pub fn emit_song(
             }
         }
         let mut freq: HashMap<String, usize> = HashMap::new();
-        scan_velocities(&intro_mix, &mut freq);
-        scan_velocities(&loop_mix, &mut freq);
+        // Scan structured bar items plus seg defs (mix syntax carries no
+        // velocities, so this matches the old whole-mix scan exactly).
+        let scan_bars = |bars: &[AsmBar], freq: &mut HashMap<String, usize>| {
+            for bar in bars {
+                for ch in &bar.channels {
+                    for item in &ch.items {
+                        scan_velocities(item, freq);
+                    }
+                }
+            }
+        };
+        scan_bars(&intro_bars, &mut freq);
+        scan_bars(&loop_bars, &mut freq);
         for seg in &seg_defs {
             scan_velocities(seg, &mut freq);
         }
@@ -2009,8 +2263,13 @@ pub fn emit_song(
             named.push((*value, lit.clone(), band.to_string()));
         }
         for (_, lit, name) in &named {
-            replace_velocity(&mut intro_mix, lit, name);
-            replace_velocity(&mut loop_mix, lit, name);
+            for bar in [&mut intro_bars, &mut loop_bars] {
+                for ch in bar.iter_mut().flat_map(|bar| bar.channels.iter_mut()) {
+                    for item in ch.items.iter_mut() {
+                        replace_velocity(item, lit, name);
+                    }
+                }
+            }
             for seg in seg_defs.iter_mut() {
                 replace_velocity(seg, lit, name);
             }
@@ -2060,11 +2319,11 @@ pub fn emit_song(
                 .join(" ");
             defs.push((seg_name, format!("ser!({body})")));
         }
-        // Names referenced anywhere (mixes + seg bodies), for dead-def GC.
+        // Names referenced anywhere (bars + seg bodies), for dead-def GC.
+        // Matches never span items, so structured counts equal text counts.
         let uses_of = |seg_name: &str| {
             let pat = format!("{seg_name}()");
-            let mut n =
-                intro_mix.matches(pat.as_str()).count() + loop_mix.matches(pat.as_str()).count();
+            let mut n = bar_uses(&intro_bars, pat.as_str()) + bar_uses(&loop_bars, pat.as_str());
             for def in &seg_defs {
                 n += def.matches(pat.as_str()).count();
             }
@@ -2095,15 +2354,15 @@ pub fn emit_song(
         }
         for (seg_name, expr) in &singles {
             let pat = format!("{seg_name}()");
-            if intro_mix.contains(pat.as_str()) {
-                intro_mix = intro_mix.replacen(pat.as_str(), expr, 1);
-            } else if loop_mix.contains(pat.as_str()) {
-                loop_mix = loop_mix.replacen(pat.as_str(), expr, 1);
-            } else {
-                for def in seg_defs.iter_mut() {
-                    if def.contains(pat.as_str()) {
-                        *def = def.replacen(pat.as_str(), expr, 1);
-                        break;
+            // The nested expr keeps its call site's item slot (whose tick
+            // length already equals the expansion), so layout stays exact.
+            if !replace_first_in_bars(&mut intro_bars, pat.as_str(), expr) {
+                if !replace_first_in_bars(&mut loop_bars, pat.as_str(), expr) {
+                    for def in seg_defs.iter_mut() {
+                        if def.contains(pat.as_str()) {
+                            *def = def.replacen(pat.as_str(), expr, 1);
+                            break;
+                        }
                     }
                 }
             }
@@ -2121,7 +2380,10 @@ pub fn emit_song(
                 .any(|(seg_name, _)| seg_name == &rest[..paren])
         });
     }
-    // Loop bars sit one level deeper (inside `loop { ... }`).
+    // Render bar-major mixes last, after every substitution, so column
+    // layout sees final widths. Loop bars sit one level deeper.
+    let intro_mix = render_section(&intro_bars, bar_ticks);
+    let loop_mix = render_section(&loop_bars, bar_ticks);
     let loop_indented = if loop_mix.is_empty() {
         String::new()
     } else {
