@@ -269,7 +269,67 @@ async function applyHighlight(ordinal, lane) {
     el = els[ordinal - 1];
   }
   if (!el) return;
-  ed.setDecorations(highlight, [new vscode.Range(playing.doc.positionAt(el.a), playing.doc.positionAt(el.b))]);
+  // Follow window: pos events carry NoteOns only, so recency approximates
+  // the sounding set. Highlight them all and keep the screen on the music:
+  // center the oldest, expanding to fit everything sounding if it fits.
+  const now = Date.now();
+  playing.recent = (playing.recent || []).filter((e) => now - e.t < FOLLOW_MS);
+  playing.recent.push({ a: el.a, b: el.b, t: now });
+  if (playing.recent.length > 60) playing.recent.splice(0, playing.recent.length - 60);
+  ed.setDecorations(
+    highlight,
+    playing.recent.map((e) => new vscode.Range(playing.doc.positionAt(e.a), playing.doc.positionAt(e.b)))
+  );
+  followRecent(ed);
+}
+
+// Sounding-note window (ms) for follow-playback.
+const FOLLOW_MS = 2000;
+
+// Pure follow decision, headless-testable. `spans` are sounding notes in
+// time order (oldest first) as line spans; the viewport is inclusive.
+// Returns 'full' (min..max fits: show it all, centered), 'first' (too
+// tall: center the oldest), or 'none' (oldest already visible).
+function pickReveal(spans, visStart, visEnd) {
+  if (!spans.length) return { action: "none" };
+  const first = spans[0];
+  if (first.aLine >= visStart && first.aLine <= visEnd) return { action: "none" };
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const s of spans) {
+    lo = Math.min(lo, s.aLine);
+    hi = Math.max(hi, s.bLine);
+  }
+  const visLines = Math.max(1, visEnd - visStart + 1);
+  if (hi - lo + 1 <= visLines) return { action: "full", lo, hi };
+  return { action: "first", lo: first.aLine, hi: first.bLine };
+}
+
+function followRecent(ed) {
+  const recent = playing && playing.recent;
+  if (!recent || !recent.length) return;
+  const doc = playing.doc;
+  const spans = recent.map((e) => {
+    const a = doc.positionAt(e.a);
+    const b = doc.positionAt(e.b);
+    return { a: e.a, b: e.b, aLine: a.line, bLine: b.line };
+  });
+  const vis = ed.visibleRanges && ed.visibleRanges[0];
+  const pick = vis
+    ? pickReveal(spans, vis.start.line, vis.end.line)
+    : pickReveal(spans, -1, -2);
+  if (pick.action === "none") return;
+  let minA = Infinity;
+  let maxB = -Infinity;
+  for (const e of recent) {
+    minA = Math.min(minA, e.a);
+    maxB = Math.max(maxB, e.b);
+  }
+  const range =
+    pick.action === "full"
+      ? new vscode.Range(doc.positionAt(minA), doc.positionAt(maxB))
+      : new vscode.Range(doc.positionAt(spans[0].a), doc.positionAt(spans[0].b));
+  ed.revealRange(range, vscode.TextEditorRevealType.InCenter);
 }
 
 // Voice lanes of a function, bar-major: the outer mix is a top-level
@@ -310,8 +370,8 @@ async function laneMap(doc, name) {
   });
   if (fn) {
     // Mix roots to walk: a plain song fn has one tail-expression mix;
-    // a streaming song fn (`once(intro).chain(repeat(loop))`) carries one
-    // mix per body (intro first, then loop). Voice lets precede them.
+    // a generator fn (`gen!` block) yields one mix per body (intro first,
+    // then loop). Voice lets precede them in both shapes.
     const MIX = new Set(["ser", "par", "parmin"]);
     const FAMILY = new Set(["ser", "par", "parmin", "forkseq", "forkser", "forkpar"]);
     const isTop = (node) => {
@@ -325,11 +385,8 @@ async function laneMap(doc, name) {
       }
       return true;
     };
-    // Top-level `once(...)` / `repeat(...)` argument spans (streaming-song
-    // bodies) inside a fn body, in order. Same balanced-paren scanner for
-    // both; the `!` guard keeps `repeat!(N)` markers from matching.
-    function splitCallArgs(genSrc, base, word) {
-      const wordRe = new RegExp("^" + word + "\\s*\\(");
+    // Top-level `yield_!` argument spans inside a gen! body, in order.
+    function splitYields(genSrc, base) {
       const items = [];
       const end = genSrc.length;
       let i = 0;
@@ -357,9 +414,9 @@ async function laneMap(doc, name) {
         } else if (ch === "/" && nx === "*") {
           mode = "block";
         } else if (
-          genSrc.startsWith(word, i) &&
+          genSrc.startsWith("yield_", i) &&
           !isIdent(genSrc[i - 1] || " ") &&
-          wordRe.test(genSrc.slice(i))
+          /^yield_!\s*\(/.test(genSrc.slice(i))
         ) {
           const open = genSrc.indexOf("(", i);
           let dd = 0;
@@ -405,16 +462,20 @@ async function laneMap(doc, name) {
       }
       return items;
     }
-    // Mix roots: streaming-song once/repeat bodies in order, else the
-    // single tail mix.
+    const genNode = fn.descendantsOfType("macro_invocation").find((node) => {
+      const macro = node.childForFieldName("macro");
+      return macro && macro.text === "gen" && isTop(node);
+    });
+    // Mix roots: generator yields in order, else the single tail mix.
     let introRoots = [];
     let loopRoots = [];
-    const fnSrc = text.slice(fn.startIndex, fn.endIndex);
-    const onceArgs = splitCallArgs(fnSrc, fn.startIndex, "once");
-    const repeatArgs = splitCallArgs(fnSrc, fn.startIndex, "repeat");
-    if (onceArgs.length > 0 && repeatArgs.length > 0) {
-      introRoots = [onceArgs[0]];
-      loopRoots = repeatArgs;
+    if (genNode) {
+      const genSrc = text.slice(genNode.startIndex, genNode.endIndex);
+      const yields = splitYields(genSrc, genNode.startIndex);
+      if (yields.length > 0) {
+        introRoots = [yields[0]];
+        loopRoots = yields.slice(1);
+      }
     } else {
       const outers = fn.descendantsOfType("macro_invocation").filter((node) => {
         const macro = node.childForFieldName("macro");
@@ -429,8 +490,8 @@ async function laneMap(doc, name) {
         }];
       }
     }
-    const isBarHead = (s) => /^(?:par|parmin)\s*!/.test(stripLeadingComments(s).trim());
-    const isChHead = (s) => /^(?:ser|par|parmin|forkseq|forkser|forkpar)\s*!/.test(stripLeadingComments(s).trim());
+    const isBarHead = (s) => /^(?:par|parmin|bar)\s*!/.test(stripLeadingComments(s).trim());
+    const isChHead = (s) => /^(?:ser|par|parmin|forkseq|forkser|forkpar|track)\s*!/.test(stripLeadingComments(s).trim());
     // Voice programs hoist instrument + channel pins out of lanes
     // (bare `voice_melody` splices a `let voice_melody` binding — blocks
     // borrow items; older songs call `voice_melody()` fns or splice
@@ -462,7 +523,7 @@ async function laneMap(doc, name) {
       segBodies.set(m[1], { src: body, start: m.index + m[0].indexOf(body) });
     }
     const segElsCache = new Map();
-    const NONPITCH_OK = /^(?:param|ser|par|parmin|comment|instrument|tempo|velocity)$/;
+    const NONPITCH_OK = /^(?:param|ser|par|parmin|instrument|tempo|velocity|bar|track)$/;
     // Pitched elements (with repeat!/seg expansion) of one source unit,
     // rebased to absolute document offsets. Shared by channels and segs.
     function walkEls(src, absBase, stack) {
@@ -574,7 +635,7 @@ async function laneMap(doc, name) {
 // `par!(...)` (no brackets, space/comma-separated). Returns [] when not
 // found.
 const MIX_HEAD = /^(?:ser|par|parmin)\s*!\s*\(\s*(\[?)/;
-const NEST_HEAD = /^(?:ser|par|parmin|forkseq|forkser|forkpar)\s*!\s*\(\s*(\[?)/;
+const NEST_HEAD = /^(?:ser|par|parmin|forkseq|forkser|forkpar|bar|track)\s*!\s*\(\s*(\[?)/;
 function splitTopLevel(text, fn, outer) {
   if (!outer) return [];
   const head = text.slice(outer.startIndex, outer.endIndex);
@@ -704,7 +765,7 @@ async function playToggle(doc, name, section) {
 async function play(doc, name) {
   ensureServer(doc);
   out.appendLine(`▶ ${name}`);
-  playing = { doc, name, section: null, paused: false };
+  playing = { doc, name, section: null, paused: false, recent: [] };
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   if (bufferMatchesDisk(doc)) {
     // Saved file: the server plays its compiled-in copy instantly
@@ -744,7 +805,7 @@ async function playSection(doc, name, index) {
     .join(" ");
   const src = doc.getText(new vscode.Range(doc.positionAt(section.start), doc.positionAt(section.end))).replace(/\s+/g, " ");
   out.appendLine(`▶ ${name} §${index + 1}`);
-  playing = { doc, name, section: index, sectionSrc: src, sectionStart: section.start, paused: false };
+  playing = { doc, name, section: index, sectionSrc: src, sectionStart: section.start, paused: false, recent: [] };
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
   fs.writeFileSync(tmp, doc.getText());
@@ -812,7 +873,14 @@ async function functionAt(doc, line) {
 class Lenses {
   get onDidChangeCodeLenses() { return lensChanged.event; }
   async provideCodeLenses(doc) {
-    const fns = await structure(doc);
+    // Never throw: a failed lens pass must not blank the transport.
+    let fns = [];
+    try {
+      fns = await structure(doc);
+    } catch (e) {
+      out.appendLine(`lenses: structure failed (${e && e.message || e})`);
+      return [];
+    }
     const lenses = [];
     const at = (off) => { const p = doc.positionAt(off); return new vscode.Range(p, p); };
     for (const fn of fns) {
@@ -893,4 +961,4 @@ function deactivate() {
 
 module.exports = { activate, deactivate };
 // Exported for headless testing (node harness with a vscode stub).
-module.exports.__test = { laneMap, songElements, sectionElements, structure, NOTE_RE, PITCH_RE, initTreeSitter, splitTopLevel, splitNested };
+module.exports.__test = { laneMap, songElements, sectionElements, structure, pickReveal, NOTE_RE, PITCH_RE, initTreeSitter, splitTopLevel, splitNested };
