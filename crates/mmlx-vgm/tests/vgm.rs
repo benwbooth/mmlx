@@ -139,8 +139,10 @@ fn emitter_is_exact_and_compressed() {
     );
     assert!(src.contains("gen!("), "generator body:\n{src}");
     assert!(src.contains("yield_!"), "yields:\n{src}");
-    assert!(src.contains("Box::new"), "boxed stream:\n{src}");
     assert!(src.contains("NoteIterator"), "streaming return:\n{src}");
+    // Our fork's `gen!` boxes the stream itself: no adapters in songs.
+    assert!(!src.contains("Box::new"), "no boxing:\n{src}");
+    assert!(!src.contains("into_iter()"), "no adapter:\n{src}");
     // Flow shape: voices, then music straight through the yields —
     // no hoisted section lets, no wrappers.
     assert!(src.contains("yield_!(ser!("), "inline yield mixes:\n{src}");

@@ -2339,7 +2339,7 @@ pub fn emit_song(
          {segs}\
          #[rustfmt::skip]\n\
          pub fn {name}() -> NoteIterator {{\n\
-         \x20   Box::new(gen!({{\n\
+         \x20   gen!({{\n\
          {voicelets}\
          \x20   yield_!(ser!(\n\
          \x20       param!(tempo={tempo}),\n\
@@ -2351,7 +2351,7 @@ pub fn emit_song(
          {lp}\n\
          \x20       ));\n\
          \x20   }}\n\
-         \x20   }}).into_iter())\n\
+         }})\n\
          }}",
         segs = if seg_defs.is_empty() {
             String::new()

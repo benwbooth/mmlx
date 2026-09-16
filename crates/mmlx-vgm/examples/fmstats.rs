@@ -84,12 +84,7 @@ fn write_wav(path: &str, samples: &[[f32; 2]], rate: u32) {
     std::fs::write(path, bytes).expect("write wav");
 }
 
-fn render(
-    events: &[TimedMusicalEvent],
-    end: f32,
-    ym_only: bool,
-    psg_only: bool,
-) -> Vec<[f32; 2]> {
+fn render(events: &[TimedMusicalEvent], end: f32, ym_only: bool, psg_only: bool) -> Vec<[f32; 2]> {
     let mut ym = mmlx_ym::Ym2612Voice::new(mmlx_ym::YM2612_CLOCK_NTSC, 44100).expect("ym");
     let mut psg_voice = mmlx_chip::PsgVoice::new();
     let mut out: Vec<[f32; 2]> = Vec::new();

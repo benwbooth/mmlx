@@ -26,7 +26,7 @@ const VEL_FFF: f32 = 101.6; // 12/15
 
 #[rustfmt::skip]
 pub fn alisia_stage1() -> NoteIterator {
-    Box::new(gen!({
+    gen!({
     // voices
     let voice_melody: Note = param!(instrument="psg", sn_channel=2);
     let voice_lead: Note = param!(instrument="ym", op1_ar=15, op1_dr=18, op1_mult=3, op1_rr=8, op1_sl=15, op1_sr=0, op1_tl=8, op2_ar=15, op2_dr=15, op2_mult=1, op2_rr=8, op2_sl=0, op2_sr=0, op2_tl=36, op3_ar=13, op3_dr=18, op3_mult=2, op3_rr=8, op3_sl=2, op3_sr=2, op3_tl=28, op4_ar=15, op4_dr=15, op4_mult=1, op4_rr=8, op4_sl=1, op4_sr=0, op4_tl=24, ym_algo=4, ym_channel=4, ym_feedback=7);
@@ -967,5 +967,5 @@ pub fn alisia_stage1() -> NoteIterator {
             )
         ));
     }
-    }).into_iter())
+})
 }

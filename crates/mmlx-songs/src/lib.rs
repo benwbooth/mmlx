@@ -118,7 +118,6 @@ pub fn infinite_arp() -> impl Iterator<Item = Note> + Send + Sync + 'static {
             yield_!(c5q);
         }
     })
-    .into_iter()
 }
 
 #[cfg(test)]
