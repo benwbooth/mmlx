@@ -1223,8 +1223,12 @@ YM2612->en3 = ENV_TAB[(CH->SLOT[S3].Ecnt >> ENV_LBITS)] + CH->SLOT[S3].TLL + (en
   if ((YM2612->Inter_Cnt += YM2612->Inter_Step) & 0x04000)      \
   {                                                             \
     YM2612->Inter_Cnt &= 0x3FFF;                                \
-    CH->Old_OUTd = (((YM2612->Inter_Cnt ^ 0x3FFF) * CH->OUTd) + \
-                    (YM2612->Inter_Cnt * CH->Old_OUTd)) >> 14;  \
+    /* Signed interpolation: Inter_Cnt is unsigned, so cast each \
+       term to int first. Otherwise a negative mix wraps through \
+       the logical >> 14 and every negative half-wave rails near \
+       full scale. */                                           \
+    CH->Old_OUTd = (int)(((int)(YM2612->Inter_Cnt ^ 0x3FFF) * CH->OUTd + \
+                    (int)YM2612->Inter_Cnt * CH->Old_OUTd) >> 14); \
     buf[0][i] += CH->Old_OUTd & CH->LEFT;                       \
     buf[1][i] += CH->Old_OUTd & CH->RIGHT;                      \
   }                                                             \

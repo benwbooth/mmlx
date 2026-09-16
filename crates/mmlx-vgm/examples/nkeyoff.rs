@@ -14,7 +14,15 @@ fn params(pairs: &[(&str, f32)]) -> HashMap<String, ParamValue> {
 }
 
 fn main() {
-    let mut prog = params(&[("ym_algo", 0.0), ("ym_feedback", 0.0), ("ym_channel", 1.0)]);
+    let ch: u8 = std::env::args()
+        .nth(1)
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(1);
+    let mut prog = params(&[
+        ("ym_algo", 0.0),
+        ("ym_feedback", 0.0),
+        ("ym_channel", ch as f32),
+    ]);
     for op in 1..=4 {
         for (k, v) in [
             ("ar", 31.0),
