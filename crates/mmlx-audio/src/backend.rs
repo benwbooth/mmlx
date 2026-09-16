@@ -216,9 +216,7 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
                 // Handle parameter and note events before start of this block
                 for event in &pre_block_events {
                     route_event(&mut bus_state, event);
-                    if let MusicalEventType::Comment(s) = &event.event {
-                        info!("[< {} >] @ {:.4}s", s, event.time_seconds);
-                    } else if let Some(inst_arc) = im_guard.get(&event.instrument_name) {
+                    if let Some(inst_arc) = im_guard.get(&event.instrument_name) {
                         let mut inst = inst_arc.lock().unwrap();
                         inst.process_event(&event, actual_sample_rate as usize);
                     }
@@ -272,11 +270,7 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
                     }
                     // Process this mid-block event now
                     route_event(&mut bus_state, event);
-                    if let MusicalEventType::Comment(s) = &event.event {
-                        info!("[< {} >] @ {:.4}s", s, event.time_seconds);
-                    } else if let Some(inst_arc) =
-                        im_clone.lock().unwrap().get(&event.instrument_name)
-                    {
+                    if let Some(inst_arc) = im_clone.lock().unwrap().get(&event.instrument_name) {
                         let mut inst = inst_arc.lock().unwrap();
                         inst.process_event(&event, actual_sample_rate as usize);
                     }

@@ -208,16 +208,13 @@ impl Player {
     }
 
     /// Queue collected events at/after `from`, rebased so `from` sounds
-    /// now on the backend's audio clock. Diagnostic comments are skipped
-    /// (already logged on first play).
+    /// now on the backend's audio clock.
     fn requeue_from(&mut self, from: f32) {
         let audio_now = *self.time.lock().unwrap();
         let mut rows: Vec<TimedMusicalEvent> = self
             .events
             .iter()
-            .filter(|event| {
-                event.time_seconds >= from && !matches!(event.event, MusicalEventType::Comment(_))
-            })
+            .filter(|event| event.time_seconds >= from)
             .cloned()
             .collect();
         rows.sort_by(|a, b| {
