@@ -232,6 +232,7 @@ function handleEvent(line) {
     if (playing) playing.paused = true;
     const ed = playing && editorFor(playing.doc);
     if (ed) ed.setDecorations(highlight, []);
+    vscode.commands.executeCommand("setContext", "mmlxPlaying", false);
     lensChanged.fire();
     return;
   }
@@ -773,6 +774,7 @@ async function play(doc, name) {
   out.appendLine(`▶ ${name}`);
   playing = { doc, name, section: null, paused: false, recent: [] };
   playing.playWall = Date.now();
+  vscode.commands.executeCommand("setContext", "mmlxPlaying", true);
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   if (bufferMatchesDisk(doc)) {
     // Saved file: the server plays its compiled-in copy instantly
@@ -814,6 +816,7 @@ async function playSection(doc, name, index) {
   out.appendLine(`▶ ${name} §${index + 1}`);
   playing = { doc, name, section: index, sectionSrc: src, sectionStart: section.start, paused: false, recent: [] };
   playing.playWall = Date.now();
+  vscode.commands.executeCommand("setContext", "mmlxPlaying", true);
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
   fs.writeFileSync(tmp, doc.getText());
@@ -932,6 +935,7 @@ function activate(ctx) {
       const ed = playing ? editorFor(playing.doc) : vscode.window.activeTextEditor;
       if (ed) ed.setDecorations(highlight, []);
       playing = null;
+      vscode.commands.executeCommand("setContext", "mmlxPlaying", false);
       lensChanged.fire();
     }),
     vscode.commands.registerCommand("mmlx.toggleLoop", (doc, name) => {

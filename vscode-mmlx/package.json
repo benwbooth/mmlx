@@ -20,6 +20,13 @@
       { "command": "mmlx.toggleLoop", "title": "mmlx: Toggle loop" },
       { "command": "mmlx.showRoll", "title": "mmlx: Show piano roll" }
     ],
+    "keybindings": [
+      {
+        "command": "mmlx.stop",
+        "key": "Escape",
+        "when": "editorTextFocus && mmlxPlaying"
+      }
+    ],
     "configuration": {
       "title": "mmlx",
       "properties": {
