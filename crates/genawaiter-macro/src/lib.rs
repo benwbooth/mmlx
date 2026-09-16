@@ -38,10 +38,15 @@ macro_rules! rc_gen {
     };
 }
 
+/// mmlx: `gen!` yields the boxed stream directly, so song files end
+/// with a bare `gen!({...})` — no `Box::new`/`into_iter()` at use sites.
+/// (Diverges from upstream, where `gen!` returns the bare `Gen`; the
+/// iterator type is unnameable, so boxing anywhere else needs the same
+/// adapter with worse readability.)
 #[macro_export]
 #[cfg(feature = "proc_macro")]
 macro_rules! sync_gen {
     ($body:expr) => {
-        ::genawaiter::sync::Gen::new(::genawaiter::sync_producer!($body))
+        Box::new(::genawaiter::sync::Gen::new(::genawaiter::sync_producer!($body)).into_iter())
     };
 }

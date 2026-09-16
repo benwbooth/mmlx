@@ -13,7 +13,8 @@ You can create a basic generator with [`gen!`] and [`yield_!`].
 let mut my_generator = gen!({
     yield_!(10);
 });
-# my_generator.resume();
+assert_eq!(my_generator.next(), Some(10));
+assert_eq!(my_generator.next(), None);
 # }
 ```
 
@@ -128,13 +129,14 @@ Like any closure, you can capture values from outer scopes.
 ```rust
 # #[cfg(feature = "proc_macro")]
 # fn feature_gate() {
-# use genawaiter::{sync::gen, yield_, GeneratorState};
+# use genawaiter::{sync::gen, yield_};
 #
 let two = 2;
 let mut multiply = gen!({
     yield_!(10 * two);
 });
-assert_eq!(multiply.resume(), GeneratorState::Yielded(20));
+assert_eq!(multiply.next(), Some(20));
+assert_eq!(multiply.next(), None);
 # }
 ```
 
@@ -149,12 +151,12 @@ assert_eq!(multiply.resume(), GeneratorState::Yielded(20));
 #     for n in (1..).step_by(2).take_while(|&n| n < 10) { yield_!(n); }
 # });
 #
-assert_eq!(odds_under_ten.resume(), GeneratorState::Yielded(1));
-assert_eq!(odds_under_ten.resume(), GeneratorState::Yielded(3));
-assert_eq!(odds_under_ten.resume(), GeneratorState::Yielded(5));
-assert_eq!(odds_under_ten.resume(), GeneratorState::Yielded(7));
-assert_eq!(odds_under_ten.resume(), GeneratorState::Yielded(9));
-assert_eq!(odds_under_ten.resume(), GeneratorState::Complete(()));
+assert_eq!(odds_under_ten.next(), Some(1));
+assert_eq!(odds_under_ten.next(), Some(3));
+assert_eq!(odds_under_ten.next(), Some(5));
+assert_eq!(odds_under_ten.next(), Some(7));
+assert_eq!(odds_under_ten.next(), Some(9));
+assert_eq!(odds_under_ten.next(), None);
 # }
 ```
 
@@ -169,15 +171,15 @@ place the value could go where the generator could observe it.
 ```rust
 # #[cfg(feature = "proc_macro")]
 # fn feature_gate() {
-# use genawaiter::{sync::gen, yield_};
+# use genawaiter::{sync::Gen, sync_producer as producer, yield_};
 #
-let mut check_numbers = gen!({
+let mut check_numbers = Gen::new(producer!({
     let num = yield_!(());
     assert_eq!(num, 1);
 
     let num = yield_!(());
     assert_eq!(num, 2);
-});
+}));
 
 check_numbers.resume_with(0);
 check_numbers.resume_with(1);
@@ -193,13 +195,13 @@ yielded.
 ```rust
 # #[cfg(feature = "proc_macro")]
 # fn feature_gate() {
-# use genawaiter::{sync::gen, yield_, GeneratorState};
+# use genawaiter::{sync::Gen, sync_producer as producer, yield_, GeneratorState};
 #
-let mut numbers_then_string = gen!({
+let mut numbers_then_string = Gen::new(producer!({
     yield_!(10);
     yield_!(20);
     "done!"
-});
+}));
 
 assert_eq!(numbers_then_string.resume(), GeneratorState::Yielded(10));
 assert_eq!(numbers_then_string.resume(), GeneratorState::Yielded(20));

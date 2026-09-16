@@ -125,13 +125,13 @@ ways:
   ```rust
   # #[cfg(feature = "proc_macro")]
   # fn feature_gate() {
-  # use genawaiter::{sync::gen, yield_, GeneratorState};
+  # use genawaiter::{sync::gen, yield_};
   #
   let mut generator = gen!({
       yield_!(10);
   });
-  let ten = generator.resume();
-  assert_eq!(ten, GeneratorState::Yielded(10));
+  assert_eq!(generator.next(), Some(10));
+  assert_eq!(generator.next(), None);
   # }
   ```
 
@@ -159,14 +159,16 @@ receives them from the future returned by `yield_`.
 ```rust
 # #[cfg(feature = "proc_macro")]
 # fn feature_gate() {
-# use genawaiter::{sync::gen, yield_};
+# use genawaiter::{sync::Gen, sync_producer as producer, yield_};
 #
-let mut printer = gen!({
+// mmlx fork: `gen!` yields a one-way boxed stream; two-way resume stays
+// on `Gen::new` + producers.
+let mut printer = Gen::new(producer!({
     loop {
         let string = yield_!(());
         println!("{}", string);
     }
-});
+}));
 printer.resume_with("hello");
 printer.resume_with("world");
 # }
@@ -180,12 +182,12 @@ function. The consumer will receive this value as a `GeneratorState::Complete`.
 ```rust
 # #[cfg(feature = "proc_macro")]
 # fn feature_gate() {
-# use genawaiter::{sync::gen, yield_, GeneratorState};
+# use genawaiter::{sync::Gen, sync_producer as producer, yield_, GeneratorState};
 #
-let mut generator = gen!({
+let mut generator = Gen::new(producer!({
     yield_!(10);
     "done"
-});
+}));
 assert_eq!(generator.resume(), GeneratorState::Yielded(10));
 assert_eq!(generator.resume(), GeneratorState::Complete("done"));
 # }
@@ -230,12 +232,12 @@ works even without the `futures03` feature.)
 ```rust
 # #[cfg(feature = "proc_macro")]
 # async fn feature_gate() {
-# use genawaiter::{sync::gen, yield_, GeneratorState};
+# use genawaiter::{sync::Gen, sync_producer as producer, yield_, GeneratorState};
 # use std::task::Poll;
 #
-# let mut gen = gen!({
+# let mut gen = Gen::new(producer!({
 #     yield_!(10);
-# });
+# }));
 #
 match gen.async_resume().await {
     GeneratorState::Yielded(_) => {}
