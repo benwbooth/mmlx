@@ -2,5 +2,10 @@
   // This is a music project: play compositions with live sound.
   // Requires the nix devshell (ALSA headers for the cpal backend).
   // Set to false on headless machines (highlight-only playback).
-  "mmlx.audio": true
+  "mmlx.audio": true,
+  // rust-analyzer builds in target/rust-analyzer/ instead of target/.
+  // Its toolchain differs from the shell's (nix vs rustup sysroots share
+  // nothing), so a shared target dir meant every save queued all local
+  // cargo jobs behind full-workspace checks. Separate dirs, separate locks.
+  "rust-analyzer.cargo.targetDir": true
 }

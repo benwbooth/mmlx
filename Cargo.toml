@@ -28,3 +28,9 @@ mmlx-ym = { path = "crates/mmlx-ym" }
 mmlx-audio = { path = "crates/mmlx-audio" }
 mmlx-fx = { path = "crates/mmlx-fx" }
 mmlx-algo = { path = "crates/mmlx-algo" }
+
+[profile.dev]
+# Fast iteration: line tables keep backtraces usable; full debuginfo on
+# macro-generated song crates costs minutes per link for no daily benefit.
+# Release/audit builds keep full details; override per-command if needed.
+debug = 1

@@ -112,17 +112,23 @@ cloned inside the block fns, so `let`-bound programs splice bare
 `ser!([c4q, forkser!([e4q, g4q]), d4q])`: `e+g` starts at `c4q` end, runs alongside `d4q`.
 
 Nesting is free: `par!([ser!([...]), ser!([...])])` is the standard multi-voice pattern;
+decompiled songs stream it per body from one plain fn —
+`::std::iter::once(intro).chain(::std::iter::repeat(loop_body))`, intro once
+then loop forever (plain std iterators, no generator machinery, so song
+edits recompile in seconds) — so one function is the whole performance
+(`impl SongStream`).
 decompiled songs use the bar-major form `ser!(par!(ser!(...) ...), ...)` —
 one `par!` per bar, one channel `ser!` per staff.
 
-Voice programs as variables: a `ser!` holding only `param!` setters splices
+Voice programs as variables: a `param!` setter block splices
 like any nested block — its params leak forward to following siblings
 (`nested_ser_shares_ambient_params`). Decompiled songs bind each recurring
-voice program once per song fn as `let voice_<role>: Note` and splice
+voice program once as `let voice_<role>: Note` and splice
 it bare (`voice`, cloned inside the block), so a bar reads as program
 changes plus notes; programs
 used exactly once inline as `param!(...)` and small tweaks stay inline
-`param!` diffs. Bars emit channels in score order
+`param!` diffs. Recurring PSG velocity levels become `VEL_*` dynamics
+consts (nibble loudness as MIDI velocity); rarer ones stay literals. Bars emit channels in score order
 (melody on top, drums at the bottom) with one `par! // bar N` per bar, so
 parts align vertically like staff systems. Every sounding channel restates
 its program per bar (par branches reset ambient); rest-only bars carry bare
@@ -340,7 +346,7 @@ CP437 `castle_audio_repl*` (evcxr-based: try `Note`, then `Iterator<Item=Note>`,
 
 * `mmlx-server`: stdin commands `src <tmpfile> <index> [section] | sfxsrc ... | play | stop | reset | loop on|off | preview <ch> <tempo> <token>`; stdout `pos <tick> <t0> <t1> <t2> <t3> | ended | err ...`. Compiles `mmlx-songs` cdylib/JIT or interprets event stream directly; patches playback in place preserving position (lotw `editor/extension.js` protocol, adapted from `song/section/line` to `ser/par` + section index).
 * VSCode extension (full lotw port): CodeLens `▶/⏸ ⏹ 🔁` per song fn + per top-level `ser!` section; green highlight of sounding atoms per channel (map server token index → source span via tree-sitter; `env!` = 1 token); debounced live reload; type-to-play preview voice on complete token (`c4e`, `hite`-equivalent `rq`, ...).
-* Generator songs: `pub fn <name>_full() -> NoteIterator` yields the intro once, then the loop body forever (`gen!`/`yield_!`, one body per pull). The server pages one body per loop wrap with bounded memory instead of replaying one collected stream; highlight ordinals restart per body, and pause/stop/resume/reload keep their finite-song semantics (reload and reset restart the performance from the top).
+* Streaming songs: `pub fn <name>() -> impl SongStream` returns the intro once, then the loop body forever (`::std::iter::once(intro).chain(::std::iter::repeat(loop_body))`, one body per pull; `SongStream` is blanket-implemented so the song file needs no adapters). Plain std iterators keep song-only rebuilds to seconds (no generator state machine); hand-written infinite algo lines may still use `gen!`/`yield_!`. The server pages one body per loop wrap with bounded memory instead of replaying one collected stream; highlight ordinals restart per body, and pause/stop/resume/reload keep their finite-song semantics (reload and reset restart the performance from the top).
 
 ---
 
