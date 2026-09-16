@@ -1,5 +1,7 @@
 //! Dump per-lane NoteOn sequences for the highlight harness.
-//! Usage: lanedump <song-fn> -> JSON lines: {"inst","ch","midis":[...]}.
+//! Usage: lanedump <song-fn> [body] -> JSON lines: {"inst","ch","midis":[...]}.
+//! Plain `Note` songs ignore the body index; generator songs pull that
+//! body (0 = intro, 1+ = loop cycles).
 use mmlx_core::{MusicalEventType, ParamValue};
 use std::collections::HashMap;
 
@@ -19,8 +21,22 @@ fn channel_of(event: &mmlx_core::TimedMusicalEvent) -> Option<(String, i64)> {
 
 fn main() {
     let name = std::env::args().nth(1).expect("song fn name");
-    let note = mmlx_songs::song_by_name(&name).expect("known song")();
-    let events: Vec<_> = note.event_stream(0.0).collect();
+    let body: usize = std::env::args()
+        .nth(2)
+        .map(|arg| arg.parse().expect("body index"))
+        .unwrap_or(0);
+    let events: Vec<_> = if let Some(song) = mmlx_songs::song_by_name(&name) {
+        assert!(body == 0, "plain songs have one body");
+        song().event_stream(0.0).collect()
+    } else if let Some(stream) = mmlx_songs::song_stream_by_name(&name) {
+        stream()
+            .nth(body)
+            .expect("stream body")
+            .event_stream(0.0)
+            .collect()
+    } else {
+        panic!("unknown song {name}");
+    };
     let mut lanes: HashMap<(String, i64), Vec<u8>> = HashMap::new();
     let mut order: Vec<(String, i64)> = Vec::new();
     for event in &events {

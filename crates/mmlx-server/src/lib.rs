@@ -3,8 +3,8 @@
 //! stdin commands (one per line):
 //!   load <path>      execute a Rust song file's items in the eval context
 //!   play <expr>      bare `name()` of a compiled-in song plays instantly
-//!     (no JIT); any other expression evaluates it as a Note and plays it
-//!     from the start
+//!     (no JIT); generator songs page one body per loop wrap. Any other
+//!     expression evaluates it as a Note and plays it from the start
 //!   reload [expr]    re-evaluate (default: current) and keep the playhead
 //!   stop             pause, keeping position (queued audio is dropped and
 //!     voices silenced too, so sound really pauses)
@@ -16,9 +16,11 @@
 //!     `rollrow <start> <midi> <dur> <instrument>` lines plus `rollend`
 //! stdout events:
 //!   ok <msg> | err <msg>
-//!   pos <tick> <ordinal> <inst> <ch> <lane-ordinal>  global NoteOn ordinal
-//!     plus the sounding note's lane identity for exact source highlighting
-//!     (`- - -` when the lane is unknown; `-1` ordinal when idle)
+//!   pos <tick> <ordinal> <inst> <ch> <lane-ordinal> <cycle>  global NoteOn
+//!     ordinal plus the sounding note's lane identity for exact source
+//!     highlighting (`- - -` when the lane is unknown; `-1` ordinal when
+//!     idle). `cycle` counts generator-song bodies (0 = intro) so the
+//!     editor maps ordinals into the right section.
 //!   ended                emitted once when a non-looping play finishes
 //!
 //! The clock is virtual (wall-clock rate), so position reporting works
@@ -46,8 +48,10 @@ pub struct Player {
     noteon_lanes: Vec<(String, i64, i64)>,
     /// Active generator song, if playing one: each loop wrap pulls the
     /// next body (intro once, then loop forever) with bounded memory.
+    /// `cycle` counts pulled bodies (0 = intro) for highlight mapping.
     /// `None` replays the single collected body as before.
     stream: Option<mmlx_core::NoteIterator>,
+    cycle: u64,
     playing: bool,
     looping: bool,
     offset: f32,
@@ -77,6 +81,7 @@ impl Player {
             noteon_times: Vec::new(),
             noteon_lanes: Vec::new(),
             stream: None,
+            cycle: 0,
             playing: false,
             looping: true,
             offset: 0.0,
@@ -115,6 +120,7 @@ impl Player {
     /// bounded memory; highlight ordinals restart per body.
     fn start_streaming(&mut self, stream: mmlx_core::NoteIterator, label: String) {
         self.stream = Some(stream);
+        self.cycle = 0;
         if self.pull_stream() {
             self.last_expr = Some(label);
             self.say(format!("ok playing {}", self.events.len()));
@@ -428,6 +434,7 @@ impl Player {
                         } else {
                             self.stream = None;
                         }
+                        self.cycle = 0;
                     } else {
                         self.stream = None;
                     }
@@ -474,8 +481,10 @@ impl Player {
         if !self.events.is_empty() && now >= end {
             if self.stream.is_some() {
                 // Generator song: page the next body (intro once, then
-                // loop forever). Exhausted finite streams end instead.
-                if self.pull_stream() {
+                // loop forever) unless looping is off, and count the cycle
+                // for highlight mapping. Exhausted finite streams end.
+                if self.looping && self.pull_stream() {
+                    self.cycle += 1;
                     return;
                 }
                 self.stream = None;
@@ -511,8 +520,8 @@ impl Player {
                 ("-".to_string(), "-".to_string(), "-".to_string())
             };
             self.say(format!(
-                "pos {} {ordinal} {inst} {channel} {lane_ordinal}",
-                self.tick
+                "pos {} {ordinal} {inst} {channel} {lane_ordinal} {}",
+                self.tick, self.cycle
             ));
         }
         self.tick += 1;
@@ -569,7 +578,7 @@ mod tests {
         // Generator songs start instantly (no JIT) and page one body per
         // pull; finite streams report exhaustion instead of hanging.
         let (mut player, out_rx) = test_player();
-        player.handle_line("play alisia_stage1_full()");
+        player.handle_line("play alisia_stage1()");
         assert!(player.stream.is_some(), "stream parked");
         assert!(!player.events.is_empty(), "intro body collected");
         assert!(out_rx.try_recv().unwrap().starts_with("ok playing"));
