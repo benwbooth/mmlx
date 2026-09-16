@@ -100,9 +100,11 @@ fn main() {
         }
     }
 
-    // Song streams, split the same way.
-    let intro_song = mmlx_songs::vgm::alisia_stage1::alisia_stage1();
-    let loop_song = mmlx_songs::vgm::alisia_stage1::loop_alisia_stage1();
+    // Song streams, split the same way: first pull is the intro, the
+    // second the loop body (later pulls repeat it).
+    let mut full = mmlx_songs::vgm::alisia_stage1::alisia_stage1();
+    let intro_song = full.next().expect("intro body");
+    let loop_song = full.next().expect("loop body");
     let mut song: Vec<(i64, i64, u8, String, Vec<(String, f32)>)> = Vec::new();
     for (note, tag) in [(intro_song, "intro"), (loop_song, "loop")] {
         for event in note.event_stream(0.0) {
@@ -201,7 +203,10 @@ fn main() {
     }
 
     // Render the loop body through the exact voices for listening.
-    let loop_events: Vec<_> = mmlx_songs::vgm::alisia_stage1::loop_alisia_stage1()
+    let loop_events: Vec<_> = mmlx_songs::vgm::alisia_stage1::alisia_stage1()
+        .into_iter()
+        .nth(1)
+        .expect("loop body")
         .event_stream(0.0)
         .collect();
     let end = loop_events

@@ -1896,7 +1896,7 @@ pub fn emit_song(
                 loop_mix = loop_mix.replacen(pat.as_str(), &group, 1);
             }
         } else {
-            let binding = format!("let {name}: Note = ser!({group});");
+            let binding = format!("let {name}: Note = {group};");
             let use_site = name.clone();
             if intro_mix.contains(pat.as_str()) {
                 intro_mix = intro_mix.replace(pat.as_str(), &use_site);
@@ -1908,15 +1908,129 @@ pub fn emit_song(
             }
         }
     }
-    let intro_lets_block = if intro_lets.is_empty() {
+    // One voice roster shared by intro and loop (both yields borrow it),
+    // in registry order.
+    let mut voice_lets: Vec<String> = Vec::new();
+    for binding in intro_lets.into_iter().chain(loop_lets) {
+        if !voice_lets.contains(&binding) {
+            voice_lets.push(binding);
+        }
+    }
+    let voice_lets_block = if voice_lets.is_empty() {
         String::new()
     } else {
-        format!("    // voices\n    {}\n", intro_lets.join("\n    "))
+        format!("    // voices\n    {}\n", voice_lets.join("\n    "))
     };
-    let loop_lets_block = if loop_lets.is_empty() {
-        String::new()
-    } else {
-        format!("    // voices\n    {}\n", loop_lets.join("\n    "))
+    // Recurring velocity levels become named dynamics constants
+    // (`param!(velocity=VEL_F)`); rarer ones stay inline literals.
+    // Same recurrence philosophy as voices/segs; replacement is
+    // bit-exact (matched literal text, never reformatted floats).
+    let vel_consts_block = {
+        fn scan_velocities(text: &str, freq: &mut HashMap<String, usize>) {
+            let mut rest = text;
+            while let Some(pos) = rest.find("velocity=") {
+                let num_start = pos + "velocity=".len();
+                let num_len = rest[num_start..]
+                    .bytes()
+                    .take_while(|b| b.is_ascii_digit() || *b == b'.')
+                    .count();
+                if num_len > 0 {
+                    *freq
+                        .entry(rest[num_start..num_start + num_len].to_string())
+                        .or_default() += 1;
+                }
+                rest = &rest[num_start.max(pos + 1)..];
+            }
+        }
+        fn replace_velocity(text: &mut String, lit: &str, name: &str) {
+            let pat = format!("velocity={lit}");
+            let mut out = String::with_capacity(text.len());
+            let mut rest = text.as_str();
+            while let Some(pos) = rest.find(&pat) {
+                let after = pos + pat.len();
+                let boundary = rest[after..]
+                    .chars()
+                    .next()
+                    .map(|c| !c.is_ascii_digit() && c != '.')
+                    .unwrap_or(true);
+                out.push_str(&rest[..pos]);
+                if boundary {
+                    out.push_str("velocity=");
+                    out.push_str(name);
+                } else {
+                    out.push_str(&pat);
+                }
+                rest = &rest[after..];
+            }
+            out.push_str(rest);
+            *text = out;
+        }
+        // Relative dynamics by loudness fraction (documented per const
+        // with its exact fraction + source nibble).
+        fn dynamics_name(frac: f32) -> &'static str {
+            if frac < 0.15 {
+                "VEL_PPP"
+            } else if frac < 0.45 {
+                "VEL_P"
+            } else if frac < 0.57 {
+                "VEL_MP"
+            } else if frac < 0.63 {
+                "VEL_MF"
+            } else if frac < 0.70 {
+                "VEL_F"
+            } else if frac < 0.77 {
+                "VEL_FF"
+            } else {
+                "VEL_FFF"
+            }
+        }
+        let mut freq: HashMap<String, usize> = HashMap::new();
+        scan_velocities(&intro_mix, &mut freq);
+        scan_velocities(&loop_mix, &mut freq);
+        for seg in &seg_defs {
+            scan_velocities(seg, &mut freq);
+        }
+        // Frequent first; a band name goes to its first claimant, later
+        // same-band values stay inline (exactness over naming).
+        let mut lits: Vec<(f32, String)> = freq
+            .into_iter()
+            .filter(|(_, count)| *count >= 3)
+            .filter_map(|(lit, _)| lit.parse::<f32>().ok().map(|v| (v, lit)))
+            .collect();
+        lits.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        let mut claimed: HashMap<&str, String> = HashMap::new();
+        let mut named: Vec<(f32, String, String)> = Vec::new();
+        for (value, lit) in &lits {
+            let band = dynamics_name(value / 127.0);
+            if claimed.contains_key(band) {
+                continue;
+            }
+            claimed.insert(band, lit.clone());
+            named.push((*value, lit.clone(), band.to_string()));
+        }
+        for (_, lit, name) in &named {
+            replace_velocity(&mut intro_mix, lit, name);
+            replace_velocity(&mut loop_mix, lit, name);
+            for seg in seg_defs.iter_mut() {
+                replace_velocity(seg, lit, name);
+            }
+        }
+        if named.is_empty() {
+            String::new()
+        } else {
+            let mut lines =
+                vec!["// Voice dynamics (PSG nibble loudness as MIDI velocity).".to_string()];
+            for (value, lit, name) in &named {
+                let nibble = (value / 127.0 * 15.0).round();
+                let note = if (nibble / 15.0 * 127.0 * 100.0).round() / 100.0 == *value {
+                    format!("{}/15", nibble as i64)
+                } else {
+                    format!("{:.2}", value / 127.0)
+                };
+                lines.push(format!("const {name}: f32 = {lit}; // {note}"));
+            }
+            lines.join("\n") + "\n\n"
+        }
     };
     // Seg phrases called exactly once inline as nested `ser!` blocks and
     // drop their definitions (same single-use rule as voices). Fixpoint:
@@ -2007,60 +2121,47 @@ pub fn emit_song(
                 .any(|(seg_name, _)| seg_name == &rest[..paren])
         });
     }
+    // Loop bars sit one level deeper (inside `loop { ... }`).
+    let loop_indented = if loop_mix.is_empty() {
+        String::new()
+    } else {
+        format!("    {}", loop_mix.replace('\n', "\n    "))
+    };
     format!(
         "/// Decompiled `{name}` (tempo {tempo}, bar = {bar_ticks} ticks).\n\
-         /// `{name}` plays the intro once; `loop_{name}` is the looping body;\n\
-         /// `{name}_full` is the whole performance (intro once, loop forever).\n\
+         /// One performance: intro once, then the loop body forever.\n\
          /// Bar-major score: outer `ser!` of `par!` bars, each a stack of\n\
          /// channel `ser!`s in score order ({staff_order}); every sounding\n\
          /// channel restates its voice (`#[rustfmt::skip]` keeps it).\n\
-         /// Voice programs bind once per song fn as `let voice_*`\n\
-         /// variables (spliced bare); single-use programs inline as\n\
-         /// `param!(...)`; `seg_*()` phrases are bar-local repeats (single-\n\
-         /// call segs inline too); cross-bar sustains are `legato!` plus\n\
-         /// rest cover.\n\
+         /// Voice programs bind once as `let voice_*` variables (spliced\n\
+         /// bare); single-use programs inline as `param!(...)`; `seg_*()`\n\
+         /// phrases are bar-local repeats (single-call segs inline too);\n\
+         /// cross-bar sustains are `legato!` plus rest cover.\n\
+         /// Streams as `once(intro).chain(repeat(loop))` (plain std\n\
+         /// iterators, no generator machinery) so song edits recompile fast.\n\
          use mmlx_core::prelude::*;\n\
          \n\
+         {velconsts}\
          {segs}\
          #[rustfmt::skip]\n\
-         pub fn {name}() -> Note {{\n\
-         {intro_lets_block}\
-         \x20   ser!(\n\
+         pub fn {name}() -> impl SongStream {{\n\
+         {voicelets}\
+         \x20   ::std::iter::once(ser!(\n\
          \x20       param!(tempo={tempo}),\n\
          {intro}\n\
-         \x20   )\n\
-         }}\n\
-         \n\
-         #[rustfmt::skip]\n\
-         pub fn loop_{name}() -> Note {{\n\
-         {loop_lets_block}\
-         \x20   ser!(\n\
+         \x20   )).chain(::std::iter::repeat(ser!(\n\
          \x20       param!(tempo={tempo}),\n\
          {lp}\n\
-         \x20   )\n\
-         }}\n\
-         \n\
-         /// Full performance: intro once, then the loop body forever.\n\
-         /// A generator (not a `Note`): each pull builds one body, so the\n\
-         /// server pages per cycle with bounded memory instead of replaying\n\
-         /// one collected stream.\n\
-         pub fn {name}_full() -> NoteIterator {{\n\
-         \x20   use genawaiter::sync::gen;\n\
-         \x20   use genawaiter::yield_;\n\
-         \x20   Box::new(gen!({{\n\
-         \x20       yield_!({name}());\n\
-         \x20       loop {{\n\
-         \x20           yield_!(loop_{name}());\n\
-         \x20       }}\n\
-         \x20   }})\n\
-         \x20   .into_iter())\n\
+         \x20   )))\n\
          }}",
         segs = if seg_defs.is_empty() {
             String::new()
         } else {
             seg_defs.join("\n\n") + "\n\n"
         },
+        velconsts = vel_consts_block,
         intro = intro_mix,
-        lp = loop_mix,
+        lp = loop_indented,
+        voicelets = voice_lets_block,
     )
 }

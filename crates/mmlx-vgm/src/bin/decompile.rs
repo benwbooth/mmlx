@@ -1,6 +1,6 @@
 //! Decompile a VGM file to an mmlx song module.
 //!
-//! Usage: `cargo run -p mmlx-vgm --example decompile -- <song.vgm> <name> <out.rs> [meter]`
+//! Usage: `cargo run -p mmlx-vgm --bin decompile -- <song.vgm> <name> <out.rs> [meter]`
 //! The VGM stays out of the repo; only the transcription is committed.
 //! Meter like `4/4` sets the bar grid (default `4/4`).
 

@@ -133,8 +133,27 @@ fn emitter_is_exact_and_compressed() {
     assert!(src.contains("a4q"), "note literal:\n{src}");
     assert!(src.contains("repeat!(1)"), "run compression:\n{src}");
     assert!(src.contains("pub fn synth()"), "song fn");
-    assert!(src.contains("pub fn loop_synth()"), "loop fn");
-    assert!(src.contains("pub fn synth_full()"), "full generator fn");
+    assert!(
+        !src.contains("pub fn loop_synth()"),
+        "single streaming fn, no loop twin:\n{src}"
+    );
+    assert!(
+        src.contains("::std::iter::once("),
+        "intro-once head:\n{src}"
+    );
+    assert!(
+        src.contains("::std::iter::repeat("),
+        "loop-repeat tail:\n{src}"
+    );
+    assert!(!src.contains("gen!("), "no generator machinery:\n{src}");
+    assert!(!src.contains("yield_!"), "no yields:\n{src}");
+    assert!(
+        !src.contains("genawaiter"),
+        "no genawaiter dependency:\n{src}"
+    );
+    assert!(src.contains("impl SongStream"), "streaming return:\n{src}");
+    assert!(!src.contains("Box::new"), "no boxing:\n{src}");
+    assert!(!src.contains("into_iter()"), "no adapter:\n{src}");
     assert!(src.contains("tempo=112.5"), "tempo header");
     assert!(src.contains("ym_algo"), "raw program");
     // Terse form: voice program variable, no bracket bodies.
