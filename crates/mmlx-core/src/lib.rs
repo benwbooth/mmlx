@@ -32,6 +32,7 @@ pub use macros::resolve_key_value;
 
 // Composition-body frontend: `ser!(c4q d4q)` ≡ `ser!([c4q, d4q])`.
 // The proc macro only splits items; runtime `ser()`/`par()`/… resolve.
+pub use mmlx_macros::bar;
 pub use mmlx_macros::seq_items;
 
 // Re-export note module functions
@@ -51,10 +52,13 @@ pub mod prelude {
     // NOT re-exported here (the names would collide). They are available via
     // `#[macro_use] extern crate mmlx_core;` or full path (`mmlx_core::ser!`).
     // All other macros are safe to glob-import.
-    pub use crate::{comment, legato, repeat};
     pub use crate::{
         cosen, cosenv, cuben, cubenv, en, env, expen, expenv, linen, linenv, param, param_opt,
     };
+    pub use crate::{legato, repeat, track};
+    // Bar splitter (proc macro): re-exported here so song files using the
+    // prelude glob get bare `bar!` with no extra import.
+    pub use mmlx_macros::bar;
 
     // Re-export helpers
     pub use super::{

@@ -175,7 +175,6 @@ pub enum Note {
     ParallelMin(Vec<Note>),
     ForkSequence(Vec<Note>),
     ForkParallel(Vec<Note>),
-    Comment(String),
 }
 
 impl Duration {
@@ -688,9 +687,6 @@ impl std::fmt::Display for Note {
                     write!(f, "])")
                 }
             }
-            Note::Comment(comment) => {
-                write!(f, "// {}", comment)
-            }
         }
     }
 }
@@ -865,8 +861,6 @@ pub enum MusicalEventType {
     SetParameter { key: String, value: ParamValue },
     /// Stop playing a specific note instance identified by its ID.
     NoteOff { note_id: u64 },
-    /// Represents a comment to be logged.
-    Comment(String),
     /// Logical end of a branch/sub-stream for advance accounting. Par heaps
     /// and top-level streaming consume it (never yield it): sustains
     /// (`Legato`) emit events past their advance, so advance must come
@@ -918,8 +912,7 @@ impl Note {
             Note::Atom { duration, .. } => Some(*duration),
             Note::Rest { duration, .. } => Some(*duration),
             Note::Legato { note, .. } => note.get_base_duration(),
-            Note::Comment(_) => None, // Comments have no duration
-            _ => None,                // All other variants don't have a single base duration
+            _ => None, // All other variants don't have a single base duration
         }
     }
 
@@ -956,11 +949,8 @@ impl Note {
                     .map(|n| n.clone().param(key.clone(), value.clone()))
                     .collect();
             }
-            Note::ParamSetter { .. }
-            | Note::Envelope(_)
-            | Note::RepeatMarker(_)
-            | Note::Comment(_) // Comments don't have parameters
-            => { /* No-op for variants without parameters */ }
+            Note::ParamSetter { .. } | Note::Envelope(_) | Note::RepeatMarker(_) => { /* No-op for variants without parameters */
+            }
         }
         self
     }
@@ -1639,19 +1629,6 @@ impl Note {
                 // Param updates are discarded, like regular Parallel
                 start_time // Return the original start time, ignoring the parallel block duration
             }
-            Note::Comment(comment_str) => {
-                let instrument_name = get_string_param(active_params, "instrument")
-                    .unwrap_or_else(|| "basic_synth".to_string());
-                producer
-                    .yield_(TimedMusicalEvent {
-                        time_seconds: start_time,
-                        real_duration: 0.0, // Comments take no musical time
-                        event: MusicalEventType::Comment(comment_str.clone()),
-                        instrument_name,
-                    })
-                    .await;
-                start_time // Does not advance time
-            }
             Note::Legato {
                 note,
                 advance_ticks,
@@ -1726,14 +1703,11 @@ impl Note {
 pub type NoteIterator = Box<dyn Iterator<Item = Note> + Send + Sync + 'static>;
 
 /// A streaming song body: intro once, loop body forever (or any finite
-/// or infinite sequence of bodies). Blanket-implemented for any
-/// Send+Sync `Note` iterator, so song functions return terse
-/// `impl SongStream` with no adapters in the song file. Iterator-based
-/// (not `IntoIterator`): boxing or pulling an `into_iter()` off an
-/// opaque `IntoIterator` loses the thread-safety bounds, so songs hand
-/// over the iterator itself.
-pub trait SongStream: Iterator<Item = Note> + Send + Sync + 'static {}
-impl<T> SongStream for T where T: Iterator<Item = Note> + Send + Sync + 'static {}
+/// or infinite sequence of bodies). Blanket-implemented for anything
+/// yielding `Note`s across threads, so song functions return terse
+/// `impl SongStream` with no adapters in the song file.
+pub trait SongStream: IntoIterator<Item = Note> + Send + Sync + 'static {}
+impl<T> SongStream for T where T: IntoIterator<Item = Note> + Send + Sync + 'static {}
 
 /// Iterator over TimedMusicalEvents
 pub type TimedMusicalEventIterator =
@@ -2533,30 +2507,32 @@ fn apply_parameters(mut note: Note, params: &LinkedHashMap<String, ParamValue>) 
         Note::Atom { parameters, .. }
         | Note::Rest { parameters, .. }
         | Note::AtomImplicitDuration { parameters, .. }
-        | Note::PreviousPitch { parameters, .. } => { // Combined arm for variants with parameters
+        | Note::PreviousPitch { parameters, .. } => {
+            // Combined arm for variants with parameters
             // Iterate through the input params and update/insert into the note's Vec
             for (key_to_apply, value_to_apply) in params.iter() {
-                 if key_to_apply == "key" { continue; } // Skip applying 'key'
+                if key_to_apply == "key" {
+                    continue;
+                } // Skip applying 'key'
 
-                 // Find if the key already exists in the note's parameters
-                 if let Some(existing_param) = parameters.iter_mut().find(|(k, _)| k == key_to_apply) {
-                     // Update existing parameter
-                     existing_param.1 = value_to_apply.clone();
-                 } else {
-                     // Insert new parameter
-                     parameters.push((key_to_apply.clone(), value_to_apply.clone()));
-                 }
-             }
-        },
+                // Find if the key already exists in the note's parameters
+                if let Some(existing_param) = parameters.iter_mut().find(|(k, _)| k == key_to_apply)
+                {
+                    // Update existing parameter
+                    existing_param.1 = value_to_apply.clone();
+                } else {
+                    // Insert new parameter
+                    parameters.push((key_to_apply.clone(), value_to_apply.clone()));
+                }
+            }
+        }
         Note::DurationTie { .. }
         | Note::RepeatMarker(_)
         | Note::ParamSetter { .. }
-        | Note::Envelope(_)
-        | Note::Comment(_) // Comments don't receive parameters
-        => {
+        | Note::Envelope(_) => {
             // These variants do not have parameters applied to them directly
             /* No-op */
-        },
+        }
         Note::Serial(notes) | Note::Parallel(notes) => {
             for n in notes.iter_mut() {
                 *n = apply_parameters(n.clone(), params);
@@ -2565,12 +2541,12 @@ fn apply_parameters(mut note: Note, params: &LinkedHashMap<String, ParamValue>) 
         Note::Legato { note, .. } => {
             let inner = apply_parameters((**note).clone(), params);
             *note = Box::new(inner);
-        },
+        }
         Note::ParallelMin(notes) | Note::ForkSequence(notes) | Note::ForkParallel(notes) => {
-             for n in notes.iter_mut() {
+            for n in notes.iter_mut() {
                 *n = apply_parameters(n.clone(), params);
             }
-        },
+        }
     }
     note
 }
@@ -2710,7 +2686,6 @@ pub fn transpose_note(note: &Note, offset: i8) -> Note {
         | Note::ParamSetter { .. }
         | Note::Envelope(_)
         | Note::DurationTie { .. }
-        | Note::RepeatMarker(_)
-        | Note::Comment(_) => note.clone(),
+        | Note::RepeatMarker(_) => note.clone(),
     }
 }

@@ -549,15 +549,6 @@ macro_rules! repeat {
     };
 }
 
-/// Zero-duration marker in the event stream: `comment!("approx timbre")`.
-/// Takes no musical time and affects no params; shows in logs and renders.
-#[macro_export]
-macro_rules! comment {
-   ($($arg:tt)*) => {
-       $crate::Note::Comment(format!($($arg)*))
-   };
-}
-
 // --- mmlx canonical aliases (CP437 compat) ---
 
 /// Canonical envelope constructor (alias of `en!`).
@@ -589,6 +580,16 @@ macro_rules! cubenv {
 /// `ser!([...])` ≡ `ser!(a, b)` ≡ `ser!(a b)`: sequential composition.
 #[macro_export]
 macro_rules! ser {
+    ($($t:tt)*) => {
+        $crate::ser($crate::seq_items!($($t)*))
+    };
+}
+/// `track!(...)` ≡ `ser!(...)`: one channel lane (stave) of a bar.
+/// Transparent alias; the name marks lane structure for readers and
+/// tooling (highlight maps lanes to `track!` bodies). Lives inside
+/// `bar!(...)`, which outlines each bar for parallel codegen.
+#[macro_export]
+macro_rules! track {
     ($($t:tt)*) => {
         $crate::ser($crate::seq_items!($($t)*))
     };
