@@ -16,15 +16,12 @@ const path = require("path");
 const QUERY = `
 (function_item
   name: (identifier) @name
-  return_type: (type_identifier) @ret
-  body: (block) @body
-  (#eq? @ret "Note"))
-(function_item
-  name: (identifier) @name
-  return_type: (type_identifier) @ret
-  body: (block) @body
-  (#eq? @ret "NoteIterator"))
+  return_type: (_) @ret
+  body: (block) @body)
 `;
+// Return types counting as songs: plain notes plus generator songs
+// (`impl IntoIterator<Item = Note> ...` has no single identifier).
+const SONG_RET = /Note|SongStream/;
 
 let ts = null; // Promise<{ parser, query }>
 let server = null; // { proc }
@@ -72,7 +69,7 @@ async function structure(doc) {
   for (const m of query.matches(tree.rootNode)) {
     const cap = {};
     for (const c of m.captures) cap[c.name] = c.node;
-    if (cap.name && cap.body) {
+    if (cap.name && cap.body && cap.ret && SONG_RET.test(cap.ret.text)) {
       fns.push({ name: cap.name.text, nameAt: cap.name.startIndex, bodyA: cap.body.startIndex, bodyB: cap.body.endIndex, sections: [] });
     }
   }
@@ -206,12 +203,15 @@ function handleEvent(line) {
   if (!line) return;
   clearBusy();
   if (line.startsWith("pos ")) {
-    // `pos <tick> <ordinal> [<inst> <ch> <lane-ordinal>]`
+    // `pos <tick> <ordinal> [<inst> <ch> <lane-ordinal> [<cycle>]]`
     const parts = line.split(/\s+/);
     const ordinal = Number(parts[2]);
     const lane = parts.length >= 6 && parts[5] !== "-" && Number(parts[5]) >= 1
       ? { inst: parts[3], ch: Number(parts[4]), ord: Number(parts[5]) }
       : null;
+    // Generator-song body index (0 = intro): picks the lane section.
+    const cycle = parts.length >= 7 ? Number(parts[6]) || 0 : 0;
+    if (playing) playing.cycle = cycle;
     applyHighlight(ordinal, lane);
     if (rollPanel) rollPanel.webview.postMessage({ ordinal });
     return;
@@ -250,7 +250,10 @@ async function applyHighlight(ordinal, lane) {
   if (lane && playing.section == null) {
     // Exact lane path: the server pins ym_channel/sn_channel per lane,
     // so the lane ordinal indexes pitched notes with repeat!-expansion.
-    const lanes = await laneMap(playing.doc, playing.name);
+    // Generator songs restart ordinals per body; the cycle picks intro
+    // (first body) vs loop.
+    const sections = await laneMap(playing.doc, playing.name);
+    const lanes = (playing.cycle >= 1 && sections.loop.length > 0) ? sections.loop : sections.intro;
     const match = lanes.find((l) => l.inst === lane.inst && l.ch === lane.ch);
     if (match) el = match.els[lane.ord - 1] || null;
   }
@@ -273,9 +276,10 @@ async function applyHighlight(ordinal, lane) {
 // `ser!` of `par!` bars, each a score-ordered stack of channel `ser!`s.
 // Lanes collect per-channel pitched elements across bars in time order,
 // with the instrument + pinned channel parsed per channel (direct pins,
-// `voice_*` lets spliced as `.clone()`, staff comments as fallback) and
-// seg-phrase expansion like before. The server sends matching
-// (inst, ch, lane-ordinal) in `pos` lines.
+// bare `voice_*` lets, staff comments as fallback) and seg-phrase
+// expansion like before. The server sends matching (inst, ch,
+// lane-ordinal, cycle) in `pos` lines; generator songs restart ordinals
+// per yielded body, picked by cycle (0 = intro).
 //
 // NOTE: tree-sitter-rust keeps macro bodies as opaque token soup, so the
 // mix/bar/channel splits below scan brackets in text instead of walking
@@ -305,9 +309,9 @@ async function laneMap(doc, name) {
     return n && n.text === name;
   });
   if (fn) {
-    // Split the outer mix (tail-expression ser!/par!/parmin!; voice lets
-    // precede it) into top-level items, then each par! bar into its
-    // channel ser!s in score order.
+    // Mix roots to walk: a plain song fn has one tail-expression mix;
+    // a streaming song fn (`once(intro).chain(repeat(loop))`) carries one
+    // mix per body (intro first, then loop). Voice lets precede them.
     const MIX = new Set(["ser", "par", "parmin"]);
     const FAMILY = new Set(["ser", "par", "parmin", "forkseq", "forkser", "forkpar"]);
     const isTop = (node) => {
@@ -321,11 +325,110 @@ async function laneMap(doc, name) {
       }
       return true;
     };
-    const outers = fn.descendantsOfType("macro_invocation").filter((node) => {
-      const macro = node.childForFieldName("macro");
-      return macro && MIX.has(macro.text) && isTop(node);
-    });
-    const outer = outers[outers.length - 1];
+    // Top-level `once(...)` / `repeat(...)` argument spans (streaming-song
+    // bodies) inside a fn body, in order. Same balanced-paren scanner for
+    // both; the `!` guard keeps `repeat!(N)` markers from matching.
+    function splitCallArgs(genSrc, base, word) {
+      const wordRe = new RegExp("^" + word + "\\s*\\(");
+      const items = [];
+      const end = genSrc.length;
+      let i = 0;
+      let mode = null; // "str", "chr", "line", "block"
+      const isIdent = (ch) => /[A-Za-z0-9_]/.test(ch);
+      while (i < end) {
+        const ch = genSrc[i];
+        const nx = i + 1 < end ? genSrc[i + 1] : "";
+        if (mode === "str") {
+          if (ch === "\\") i++;
+          else if (ch === '"') mode = null;
+        } else if (mode === "chr") {
+          if (ch === "\\") i++;
+          else if (ch === "'") mode = null;
+        } else if (mode === "line") {
+          if (ch === "\n") mode = null;
+        } else if (mode === "block") {
+          if (ch === "*" && nx === "/") { mode = null; i++; }
+        } else if (ch === '"') {
+          mode = "str";
+        } else if (ch === "'") {
+          mode = "chr";
+        } else if (ch === "/" && nx === "/") {
+          mode = "line";
+        } else if (ch === "/" && nx === "*") {
+          mode = "block";
+        } else if (
+          genSrc.startsWith(word, i) &&
+          !isIdent(genSrc[i - 1] || " ") &&
+          wordRe.test(genSrc.slice(i))
+        ) {
+          const open = genSrc.indexOf("(", i);
+          let dd = 0;
+          let k = open;
+          let mm = null;
+          // Balanced parens from the yield's open paren.
+          for (let j = open; j < end; j++) {
+            const c2 = genSrc[j];
+            const n2 = j + 1 < end ? genSrc[j + 1] : "";
+            if (mm === "str") {
+              if (c2 === "\\") j++;
+              else if (c2 === '"') mm = null;
+            } else if (mm === "chr") {
+              if (c2 === "\\") j++;
+              else if (c2 === "'") mm = null;
+            } else if (mm === "line") {
+              if (c2 === "\n") mm = null;
+            } else if (mm === "block") {
+              if (c2 === "*" && n2 === "/") { mm = null; j++; }
+            } else if (c2 === '"') {
+              mm = "str";
+            } else if (c2 === "'") {
+              mm = "chr";
+            } else if (c2 === "/" && n2 === "/") {
+              mm = "line";
+            } else if (c2 === "/" && n2 === "*") {
+              mm = "block";
+            } else if (c2 === "(" || c2 === "[" || c2 === "{") {
+              dd++;
+            } else if (c2 === ")" || c2 === "]" || c2 === "}") {
+              dd--;
+              if (dd === 0) { k = j; break; }
+            }
+          }
+          if (dd !== 0) break; // unbalanced; give up
+          const a = open + 1;
+          const src = genSrc.slice(a, k).trim();
+          if (src) items.push({ a: base + a, b: base + k, src });
+          i = k + 1;
+          continue;
+        }
+        i++;
+      }
+      return items;
+    }
+    // Mix roots: streaming-song once/repeat bodies in order, else the
+    // single tail mix.
+    let introRoots = [];
+    let loopRoots = [];
+    const fnSrc = text.slice(fn.startIndex, fn.endIndex);
+    const onceArgs = splitCallArgs(fnSrc, fn.startIndex, "once");
+    const repeatArgs = splitCallArgs(fnSrc, fn.startIndex, "repeat");
+    if (onceArgs.length > 0 && repeatArgs.length > 0) {
+      introRoots = [onceArgs[0]];
+      loopRoots = repeatArgs;
+    } else {
+      const outers = fn.descendantsOfType("macro_invocation").filter((node) => {
+        const macro = node.childForFieldName("macro");
+        return macro && MIX.has(macro.text) && isTop(node);
+      });
+      const outer = outers[outers.length - 1];
+      if (outer) {
+        introRoots = [{
+          a: outer.startIndex,
+          b: outer.endIndex,
+          src: text.slice(outer.startIndex, outer.endIndex),
+        }];
+      }
+    }
     const isBarHead = (s) => /^(?:par|parmin)\s*!/.test(stripLeadingComments(s).trim());
     const isChHead = (s) => /^(?:ser|par|parmin|forkseq|forkser|forkpar)\s*!/.test(stripLeadingComments(s).trim());
     // Voice programs hoist instrument + channel pins out of lanes
@@ -341,7 +444,7 @@ async function laneMap(doc, name) {
       const vc = (body.match(/(?:ym_channel|sn_channel)\s*=\s*([\d.]+)/) || [])[1];
       if (vi) voiceMap.set(m[1], { inst: vi, ch: vc !== undefined ? Math.round(Number(vc)) : -1 });
     }
-    for (const m of text.matchAll(/let\s+(voice_\w+)\s*:\s*Note\s*=\s*ser!\(\s*param!\(([^;]*?)\)\s*\)\s*;/g)) {
+    for (const m of text.matchAll(/let\s+(voice_\w+)\s*:\s*Note\s*=\s*([^;]+);/g)) {
       if (voiceMap.has(m[1])) continue;
       const body = m[2];
       const vi = (body.match(/instrument\s*=\s*"(\w+)"/) || [])[1];
@@ -422,30 +525,47 @@ async function laneMap(doc, name) {
       if (!inst) return null;
       return { inst, ch: chm ? Math.round(Number(chm[1])) : -1 };
     }
-    const laneByKey = new Map();
-    const laneOrder = [];
-    for (const item of splitTopLevel(text, fn, outer)) {
-      if (!isBarHead(item.src)) continue;
-      for (const ch of splitNested(item.src, item.a)) {
-        if (!isChHead(ch.src)) continue;
-        const id = channelId(ch.src);
-        if (!id) continue;
-        const key = id.inst + ":" + id.ch;
-        let lane = laneByKey.get(key);
-        if (!lane) {
-          lane = { inst: id.inst, ch: id.ch, els: [] };
-          laneByKey.set(key, lane);
-          laneOrder.push(lane);
+    // Walk one mix root (a ser!/par! mix invocation) into per-channel
+    // lanes in score order, appending elements across its bars.
+    function walkRoot(rootSrc, rootBase, laneByKey, laneOrder) {
+      for (const item of splitNested(rootSrc, rootBase)) {
+        if (!isBarHead(item.src)) continue;
+        for (const ch of splitNested(item.src, item.a)) {
+          if (!isChHead(ch.src)) continue;
+          const id = channelId(ch.src);
+          if (!id) continue;
+          const key = id.inst + ":" + id.ch;
+          let lane = laneByKey.get(key);
+          if (!lane) {
+            lane = { inst: id.inst, ch: id.ch, els: [] };
+            laneByKey.set(key, lane);
+            laneOrder.push(lane);
+          }
+          lane.els.push(...walkEls(ch.src, ch.a, []));
         }
-        lane.els.push(...walkEls(ch.src, ch.a, []));
       }
+    }
+    // Intro section = first yield (or the whole mix for plain fns);
+    // loop section = later yields concatenated in order.
+    const introByKey = new Map();
+    const introOrder = [];
+    for (const root of introRoots) {
+      walkRoot(root.src, root.a, introByKey, introOrder);
+    }
+    const loopByKey = new Map();
+    const loopOrder = [];
+    for (const root of loopRoots) {
+      walkRoot(root.src, root.a, loopByKey, loopOrder);
     }
     // Noteless lanes (all-rest staves, identified by comments alone) can
     // never be highlight targets: ordinals count NoteOns.
-    lanes.push(...laneOrder.filter((l) => l.els.length > 0));
+    const intro = introOrder.filter((l) => l.els.length > 0);
+    const loop = loopOrder.filter((l) => l.els.length > 0);
+    laneCache.set(key, { version: doc.version, name, lanes: { intro, loop } });
+    return { intro, loop };
   }
-  laneCache.set(key, { version: doc.version, name, lanes });
-  return lanes;
+  laneCache.set(key, { version: doc.version, name, lanes: { intro: [], loop: [] } });
+  return { intro: [], loop: [] };
 }
 
 // Split a macro body's top-level items (with absolute offsets), aware
