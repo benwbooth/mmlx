@@ -168,9 +168,7 @@ impl<'s, Y, F: Future> Gen<'s, Y, (), F> {
     /// Otherwise, `Poll::Ready(Completed)` is returned.
     ///
     /// [_See the module-level docs for examples._](.)
-    pub fn async_resume(
-        &mut self,
-    ) -> impl Future<Output = GeneratorState<Y, F::Output>> + '_ {
+    pub fn async_resume(&mut self) -> impl Future<Output = GeneratorState<Y, F::Output>> + '_ {
         let (future, airlock) = self.project();
         airlock.replace(Next::Resume(()));
         async_advance(future, airlock)
@@ -182,10 +180,7 @@ impl<'s, Y, R, F: Future> Coroutine for Gen<'s, Y, R, F> {
     type Resume = R;
     type Return = F::Output;
 
-    fn resume_with(
-        self: Pin<&mut Self>,
-        arg: R,
-    ) -> GeneratorState<Self::Yield, Self::Return> {
+    fn resume_with(self: Pin<&mut Self>, arg: R) -> GeneratorState<Self::Yield, Self::Return> {
         // Safety: `Gen::resume_with` does not move `self`.
         let this = unsafe { self.get_unchecked_mut() };
         this.resume_with(arg)

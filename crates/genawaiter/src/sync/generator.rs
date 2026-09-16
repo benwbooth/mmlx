@@ -66,9 +66,7 @@ impl<Y, F: Future> Gen<Y, (), F> {
     /// Otherwise, `Poll::Ready(Completed)` is returned.
     ///
     /// [_See the module-level docs for examples._](.)
-    pub fn async_resume(
-        &mut self,
-    ) -> impl Future<Output = GeneratorState<Y, F::Output>> + '_ {
+    pub fn async_resume(&mut self) -> impl Future<Output = GeneratorState<Y, F::Output>> + '_ {
         self.airlock.replace(Next::Resume(()));
         async_advance(self.future.as_mut(), self.airlock.clone())
     }
@@ -79,10 +77,7 @@ impl<Y, R, F: Future> Coroutine for Gen<Y, R, F> {
     type Resume = R;
     type Return = F::Output;
 
-    fn resume_with(
-        mut self: Pin<&mut Self>,
-        arg: R,
-    ) -> GeneratorState<Self::Yield, Self::Return> {
+    fn resume_with(mut self: Pin<&mut Self>, arg: R) -> GeneratorState<Self::Yield, Self::Return> {
         Self::resume_with(&mut *self, arg)
     }
 }

@@ -8,10 +8,7 @@ use std::{future::Future, pin::Pin};
 impl<Y, F: Future<Output = ()>> Stream for Gen<Y, (), F> {
     type Item = Y;
 
-    fn poll_next(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let fut = self.async_resume();
         pin_mut!(fut);
         match fut.poll(cx) {

@@ -108,10 +108,7 @@ pub trait Airlock {
 
     fn peek(&self) -> Next<(), ()>;
 
-    fn replace(
-        &self,
-        next: Next<Self::Yield, Self::Resume>,
-    ) -> Next<Self::Yield, Self::Resume>;
+    fn replace(&self, next: Next<Self::Yield, Self::Resume>) -> Next<Self::Yield, Self::Resume>;
 }
 
 pub struct Co<A: Airlock> {

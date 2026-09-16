@@ -2,25 +2,14 @@
 #![warn(clippy::cargo, clippy::pedantic)]
 #![cfg_attr(feature = "strict", deny(warnings))]
 
-extern crate proc_macro;
-
 use crate::visit::YieldReplace;
 use proc_macro::TokenStream;
 use proc_macro_error::{abort, abort_call_site, proc_macro_error};
-use proc_macro_hack::proc_macro_hack;
 use quote::quote;
 use std::string::ToString;
 use syn::{
-    self,
-    parse_macro_input,
-    parse_str,
-    spanned::Spanned,
-    visit_mut::VisitMut,
-    ExprBlock,
-    FnArg,
-    Ident,
-    ItemFn,
-    Type,
+    self, parse_macro_input, parse_str, spanned::Spanned, visit_mut::VisitMut, ExprBlock, FnArg,
+    Ident, ItemFn, Type,
 };
 
 mod visit;
@@ -42,7 +31,7 @@ pub fn stack_producer_fn(args: TokenStream, input: TokenStream) -> TokenStream {
     tokens.into()
 }
 
-#[proc_macro_hack]
+#[proc_macro] // mmlx: de-hacked (was proc_macro_hack); RA cannot expand the hack emulation
 #[proc_macro_error]
 pub fn stack_producer(input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as ExprBlock);
@@ -76,7 +65,7 @@ pub fn sync_producer_fn(args: TokenStream, input: TokenStream) -> TokenStream {
     tokens.into()
 }
 
-#[proc_macro_hack]
+#[proc_macro] // mmlx: de-hacked (was proc_macro_hack); RA cannot expand the hack emulation
 #[proc_macro_error]
 pub fn sync_producer(input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as ExprBlock);
@@ -109,7 +98,7 @@ pub fn rc_producer_fn(args: TokenStream, input: TokenStream) -> TokenStream {
     tokens.into()
 }
 
-#[proc_macro_hack]
+#[proc_macro] // mmlx: de-hacked (was proc_macro_hack); RA cannot expand the hack emulation
 #[proc_macro_error]
 pub fn rc_producer(input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as ExprBlock);
@@ -126,10 +115,8 @@ pub fn rc_producer(input: TokenStream) -> TokenStream {
 }
 
 mod stack {
-    pub(crate) const CO_ARG_FN: &str =
-        "__private_co_arg__: ::genawaiter::stack::Co<'_, ";
-    pub(crate) const CO_ARG: &str =
-        "__private_co_arg__: ::genawaiter::stack::Co<'_, _, _>";
+    pub(crate) const CO_ARG_FN: &str = "__private_co_arg__: ::genawaiter::stack::Co<'_, ";
+    pub(crate) const CO_ARG: &str = "__private_co_arg__: ::genawaiter::stack::Co<'_, _, _>";
 }
 
 mod sync {
@@ -145,21 +132,16 @@ mod rc {
 /// Mutates the input `Punctuated<FnArg, Comma>` to a lifetimeless `co:
 /// Co<{type}>`.
 fn add_coroutine_arg(func: &mut ItemFn, co_ty: &str) {
-    let co_arg_found = func.sig.inputs.iter().any(|input| {
-        match input {
-            FnArg::Receiver(_) => false,
-            FnArg::Typed(arg) => {
-                match &*arg.ty {
-                    Type::Path(ty) => {
-                        ty.path.segments.iter().any(|seg| {
-                            seg.ident
-                                == parse_str::<Ident>("Co").expect("Ident parse failed")
-                        })
-                    }
-                    _ => false,
-                }
-            }
-        }
+    let co_arg_found = func.sig.inputs.iter().any(|input| match input {
+        FnArg::Receiver(_) => false,
+        FnArg::Typed(arg) => match &*arg.ty {
+            Type::Path(ty) => ty
+                .path
+                .segments
+                .iter()
+                .any(|seg| seg.ident == parse_str::<Ident>("Co").expect("Ident parse failed")),
+            _ => false,
+        },
     });
     if !co_arg_found {
         let co_arg: FnArg = match parse_str::<FnArg>(co_ty) {
