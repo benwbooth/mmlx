@@ -275,7 +275,7 @@ async function applyHighlight(ordinal, lane) {
   const now = Date.now();
   playing.recent = (playing.recent || []).filter((e) => now - e.t < FOLLOW_MS);
   playing.recent.push({ a: el.a, b: el.b, t: now });
-  if (playing.recent.length > 60) playing.recent.splice(0, playing.recent.length - 60);
+  if (playing.recent.length > 12) playing.recent.splice(0, playing.recent.length - 12);
   ed.setDecorations(
     highlight,
     playing.recent.map((e) => new vscode.Range(playing.doc.positionAt(e.a), playing.doc.positionAt(e.b)))
@@ -283,8 +283,10 @@ async function applyHighlight(ordinal, lane) {
   followRecent(ed);
 }
 
-// Sounding-note window (ms) for follow-playback.
-const FOLLOW_MS = 2000;
+// Sounding-note window (ms) for follow-playback: a perceptual "now"
+// (a few notes), not a smear — wider windows mush dense passages into
+// dozens of simultaneous highlights.
+const FOLLOW_MS = 250;
 
 // Pure follow decision, headless-testable. `spans` are sounding notes in
 // time order (oldest first) as line spans; the viewport is inclusive.
