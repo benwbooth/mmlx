@@ -39,6 +39,9 @@ pub struct Player {
     queue: mmlx_audio::EventQueue,
     time: mmlx_audio::SynthTime,
     instruments: mmlx_audio::InstrumentsMap,
+    /// Emergency master mute at the device boundary (Esc). `None` on
+    /// headless builds without the audio backend.
+    mute: Option<mmlx_audio::MuteFlag>,
     out: Sender<String>,
     events: Vec<TimedMusicalEvent>,
     noteon_times: Vec<f32>,
@@ -66,6 +69,7 @@ impl Player {
         queue: mmlx_audio::EventQueue,
         time: mmlx_audio::SynthTime,
         instruments: mmlx_audio::InstrumentsMap,
+        mute: Option<mmlx_audio::MuteFlag>,
         out: Sender<String>,
     ) -> Result<Self> {
         // The evcxr context is built lazily (see `ensure_repl`): a cold
@@ -76,6 +80,7 @@ impl Player {
             queue,
             time,
             instruments,
+            mute,
             out,
             events: Vec::new(),
             noteon_times: Vec::new(),
@@ -112,6 +117,7 @@ impl Player {
         self.stream = None;
         self.load_body(note, from);
         self.last_expr = Some(label);
+        self.set_muted(false);
         self.say(format!("ok playing {}", self.events.len()));
     }
 
@@ -123,6 +129,7 @@ impl Player {
         self.cycle = 0;
         if self.pull_stream() {
             self.last_expr = Some(label);
+            self.set_muted(false);
             self.say(format!("ok playing {}", self.events.len()));
         } else {
             self.stream = None;
@@ -205,6 +212,16 @@ impl Player {
         #[cfg(feature = "audio")]
         mmlx_audio::backend::all_notes_off(&self.instruments);
         // Headless voices hold no sound; nothing to do.
+    }
+
+    /// Emergency master mute at the device boundary. Unlike `silence`
+    /// (which drops the queue and releases voices through their natural
+    /// envelopes), this chokes already-rendered output too — a stop that
+    /// is instant no matter how much is queued or how long tails ring.
+    fn set_muted(&self, muted: bool) {
+        if let Some(mute) = &self.mute {
+            mute.store(muted, std::sync::atomic::Ordering::Relaxed);
+        }
     }
 
     /// Queue collected events at/after `from`, rebased so `from` sounds
@@ -325,6 +342,8 @@ impl Player {
                 match outcome {
                     Ok(Ok(EvalOutcome::Note(note))) => {
                         let count = note.event_stream(0.0).count();
+                        // Auditioning requests sound even after a stop.
+                        self.set_muted(false);
                         self.say(format!("ok preview {count}"));
                     }
                     Ok(Ok(_)) => self.say("err expression is not a Note".to_string()),
@@ -401,12 +420,15 @@ impl Player {
             "stop" => {
                 // Pause, keeping position: freeze the highlight clock and
                 // drop queued audio so sound stops too (`resume` re-queues).
+                // The master mute chokes already-rendered output and slow
+                // release tails as well: emergency-stop instant.
                 if self.playing {
                     self.offset = self.now();
                 }
                 self.playing = false;
                 self.started = None;
                 self.silence();
+                self.set_muted(true);
                 self.say("ok stopped".to_string());
             }
             "reset" => {
@@ -437,6 +459,7 @@ impl Player {
                     }
                 }
                 self.silence();
+                self.set_muted(true);
                 self.say("ok reset".to_string());
                 self.say("pos 0 -1 - - -".to_string());
             }
@@ -453,6 +476,7 @@ impl Player {
                     self.started = Some(Instant::now());
                     self.playing = true;
                     self.last_ordinal = -1;
+                    self.set_muted(false);
                     self.say("ok resumed".to_string());
                 }
             }
@@ -535,6 +559,7 @@ mod tests {
             mmlx_audio::new_queue(),
             mmlx_audio::new_synth_time(),
             mmlx_audio::InstrumentsMap::default(),
+            None,
             out_tx,
         )
         .expect("player");

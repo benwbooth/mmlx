@@ -22,6 +22,7 @@ fn main() {
         mmlx_audio::new_queue(),
         mmlx_audio::new_synth_time(),
         mmlx_audio::InstrumentsMap::default(),
+        None,
         out_tx,
     )
     .expect("player");
