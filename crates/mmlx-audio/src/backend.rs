@@ -1,12 +1,13 @@
-use super::{EventQueue, InstrumentsMap, SynthTime};
+use super::{EventQueue, InstrumentsMap, MuteFlag, SynthTime};
 use anyhow::Result;
 use cpal::traits::{DeviceTrait, HostTrait};
 use cpal::Stream;
 use log::{debug, error, info, warn};
-use mmlx_core::{Instrument, MusicalEventType};
+use mmlx_core::Instrument;
 use mmlx_fx::routing::{mix_segment, route_event, BusState};
 use mmlx_synth::BasicSynth;
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex}; // Import Stream
 
 // Bus routing lives in mmlx_fx::routing (shared, headless-testable).
@@ -23,7 +24,7 @@ use std::sync::{Arc, Mutex}; // Import Stream
 /// Returns the shared state Arcs and the CPAL audio stream. The caller
 /// is responsible for starting the stream with [`play_stream`] and
 /// keeping it alive.
-pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> {
+pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, MuteFlag, Stream)> {
     info!("Setting up audio via setup_audio...");
 
     // --- Shared State Initialization ---
@@ -123,6 +124,11 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
     // State for left/right channels
     let mut last_lp_l = 0.0_f32;
     let mut last_lp_r = 0.0_f32;
+    // Emergency master mute: polled once per callback, ramped per sample
+    // (~2ms) so engaging it never clicks. Owned here, shared out.
+    let mute = crate::new_mute_flag();
+    let mute_cb = mute.clone();
+    let mut mute_gain = 1.0_f32;
 
     if channels != desired_channels {
         return Err(anyhow::anyhow!(format!(
@@ -293,6 +299,14 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
             // The mix of all voices can exceed full scale (six FM channels
             // plus PSG); hard-clamp so the device never wraps or harshly
             // clips on stacked peaks.
+            // Emergency mute ramps here at the device boundary (after all
+            // voice/queue state), so stop is instant no matter how much is
+            // queued or how long release tails ring.
+            let mute_target = if mute_cb.load(Ordering::Relaxed) {
+                0.0
+            } else {
+                1.0
+            };
             for frame_index in 0..chunk_size_frames {
                 let buffer_index = frame_index * channels as usize;
                 let x_l = pre_allocated_mix_buffer[frame_index][0];
@@ -301,8 +315,9 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
                 let y_r = lp_alpha * last_lp_r + lp_beta * x_r;
                 last_lp_l = y_l;
                 last_lp_r = y_r;
-                data[buffer_index] = y_l.clamp(-1.0, 1.0);
-                data[buffer_index + 1] = y_r.clamp(-1.0, 1.0);
+                mute_gain += (mute_target - mute_gain) * 0.01;
+                data[buffer_index] = (y_l * mute_gain).clamp(-1.0, 1.0);
+                data[buffer_index + 1] = (y_r * mute_gain).clamp(-1.0, 1.0);
             }
 
             // Update Shared Synth Time
@@ -336,7 +351,7 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, Stream)> 
     info!("Audio stream built.");
     // Note: stream.play() is NOT called here. Caller must do it.
 
-    Ok((event_queue, synth_time, instruments_map, stream))
+    Ok((event_queue, synth_time, instruments_map, mute, stream))
 }
 
 /// Starts a stream from [`setup_audio`]. Lives here (not in callers) so

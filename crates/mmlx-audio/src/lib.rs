@@ -7,11 +7,19 @@
 use mmlx_core::Instrument;
 use mmlx_core::{note_stream_to_event_stream, Note, TimedMusicalEvent};
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
 pub type EventQueue = Arc<Mutex<VecDeque<TimedMusicalEvent>>>;
 pub type SynthTime = Arc<Mutex<f32>>;
 pub type InstrumentsMap = Arc<Mutex<HashMap<String, Arc<Mutex<dyn Instrument>>>>>;
+/// Emergency master mute, shared with the audio callback: set to silence
+/// the device output (fast click-free ramp), clear to restore. Plain std
+/// types so headless builds can hold it too.
+pub type MuteFlag = Arc<AtomicBool>;
+
+pub fn new_mute_flag() -> MuteFlag {
+    Arc::new(AtomicBool::new(false))
+}
 
 pub fn new_queue() -> EventQueue {
     Arc::new(Mutex::new(VecDeque::new()))

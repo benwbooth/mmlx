@@ -8,7 +8,7 @@ extern crate mmlx_core;
 use mmlx_core::prelude::*;
 
 fn main() {
-    let (queue, time, _instruments, stream) = mmlx_audio::backend::setup_audio().unwrap();
+    let (queue, time, _instruments, _mute, stream) = mmlx_audio::backend::setup_audio().unwrap();
     cpal::traits::StreamTrait::play(&stream).unwrap();
     println!("stream playing");
     mmlx_audio::queue_note(
