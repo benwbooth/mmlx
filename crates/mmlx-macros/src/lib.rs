@@ -835,6 +835,83 @@ pub fn seq_items(input: TokenStream) -> TokenStream {
     }
 }
 
+/// Bar wrapper: `bar!(track!(...) track!(...))` means exactly what
+/// `par!(...)` means, plus compile-splitting. The bar outlines into its
+/// own immediately-invoked closure — a unique anonymous type, so bars
+/// never collide across sections and codegen fans out per bar instead of
+/// grinding one giant function body. `voice_*` bindings mentioned in the
+/// bar thread through as closure args and rebind to same-name locals,
+/// so the source keeps bare splices and the body passes through
+/// byte-identical; globals (`VEL_*`, segs, note consts) need nothing.
+/// Splitting is semantics-preserving: construction is pure and
+/// left-to-right depth-first evaluation order is unchanged, so the built
+/// `Note` tree is identical (the VGM compare pins this bit-exact).
+/// Paths are absolute (`::mmlx_core::…`), so no import beyond the macro
+/// itself is needed.
+/// Bar body expansion (pure over tokens, unit-testable): outline into
+/// an immediately-invoked closure with auto-threaded voice args. Each
+/// mentioned `voice_*` arrives as `&Note` and rebinds to a same-name
+/// local, so the body passes through byte-identical: `seq_items!`
+/// splitting cannot shift (a rewritten `(*voice)` group after an ident
+/// would parse as a call — this sidesteps that entirely).
+fn bar_expand(body: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    use proc_macro2::Span;
+    // `voice_*` idents mentioned anywhere in the bar, first-seen order.
+    // The tokenizer already drops comments and keeps string/char contents
+    // inside literals, so only real code idents are seen.
+    fn collect(stream: &proc_macro2::TokenStream, voices: &mut Vec<String>) {
+        for token in stream.clone().into_iter() {
+            match token {
+                TokenTree::Ident(ident) => {
+                    let name = ident.to_string();
+                    if name.starts_with("voice_") && !voices.iter().any(|v| v == &name) {
+                        voices.push(name);
+                    }
+                }
+                TokenTree::Group(group) => collect(&group.stream(), voices),
+                _ => {}
+            }
+        }
+    }
+    let mut voices: Vec<String> = Vec::new();
+    collect(&body, &mut voices);
+    let params: Vec<proc_macro2::TokenStream> = voices
+        .iter()
+        .enumerate()
+        .map(|(i, _)| {
+            let id = Ident::new(&format!("__v{i}"), Span::call_site());
+            quote! { #id: &::mmlx_core::Note }
+        })
+        .collect();
+    let lets: Vec<proc_macro2::TokenStream> = voices
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let param = Ident::new(&format!("__v{i}"), Span::call_site());
+            let local = Ident::new(v, Span::call_site());
+            quote! { let #local: ::mmlx_core::Note = #param.clone(); }
+        })
+        .collect();
+    let args: Vec<proc_macro2::TokenStream> = voices
+        .iter()
+        .map(|v| {
+            let id = Ident::new(v, Span::call_site());
+            quote! { &#id }
+        })
+        .collect();
+    quote! {{
+        (|#(#params),*| -> ::mmlx_core::Note {
+            #(#lets)*
+            ::mmlx_core::par(::mmlx_core::seq_items!(#body))
+        })(#(#args),*)
+    }}
+}
+
+#[proc_macro]
+pub fn bar(input: TokenStream) -> TokenStream {
+    bar_expand(proc_macro2::TokenStream::from(input)).into()
+}
+
 #[cfg(test)]
 mod seq_tests {
     use super::{split_items, TokenTree};
@@ -907,5 +984,65 @@ mod seq_tests {
         expect_err("(c4q, d4q)");
         expect_err("#c4q");
         expect_err("let x = 1");
+    }
+
+    #[test]
+    fn bar_threads_mentioned_voices() {
+        // Two voices, first-seen order, deduped; each rebinds to a
+        // same-name local while the body passes through untouched.
+        let out = super::bar_expand(
+            "ser!(voice_lead c4q) ser!(voice_bass c4q voice_lead)"
+                .parse()
+                .unwrap(),
+        )
+        .to_string();
+        assert!(
+            out.contains("__v0 : & :: mmlx_core :: Note"),
+            "params:\n{out}"
+        );
+        assert!(
+            out.contains("__v1 : & :: mmlx_core :: Note"),
+            "params:\n{out}"
+        );
+        assert!(
+            out.contains("let voice_lead : :: mmlx_core :: Note = __v0 . clone ()"),
+            "rebind:\n{out}"
+        );
+        assert!(
+            out.contains("let voice_bass : :: mmlx_core :: Note = __v1 . clone ()"),
+            "rebind:\n{out}"
+        );
+        assert!(out.contains("& voice_lead"), "args:\n{out}");
+        assert!(out.contains("& voice_bass"), "args:\n{out}");
+        assert!(out.contains("seq_items"), "keeps the mix body:\n{out}");
+        assert!(out.contains("c4q"), "body passes through:\n{out}");
+        assert!(!out.contains("(* voice"), "no use rewriting:\n{out}");
+    }
+
+    #[test]
+    fn bar_ignores_non_code_voices() {
+        // String contents never reach us as idents (tokenizer keeps them
+        // inside literals); similar prefixes don't match.
+        let out = super::bar_expand(
+            "ser!(c4q) param!(label = \"voice_lead\") ser!(voiceless)"
+                .parse()
+                .unwrap(),
+        )
+        .to_string();
+        assert!(
+            !out.contains("voice_lead : &"),
+            "string literal skipped:\n{out}"
+        );
+        assert!(
+            !out.contains("voiceless : &"),
+            "prefix-only skipped:\n{out}"
+        );
+    }
+
+    #[test]
+    fn bar_without_voices_calls_bare() {
+        let out = super::bar_expand("ser!(rw)".parse().unwrap()).to_string();
+        assert!(out.contains(":: mmlx_core :: Note"), "return type:\n{out}");
+        assert!(!out.contains(": &"), "no params:\n{out}");
     }
 }
