@@ -16,10 +16,14 @@ members = [
     "crates/mmlx-track",
     "crates/mmlx-vgm",
     "crates/mmlx-songs",
+    "crates/genawaiter",
+    "crates/genawaiter-macro",
+    "crates/genawaiter-proc-macro",
 ]
 resolver = "2"
 
 [workspace.dependencies]
+genawaiter = { path = "crates/genawaiter" }
 mmlx-core = { path = "crates/mmlx-core" }
 mmlx-macros = { path = "crates/mmlx-macros" }
 mmlx-synth = { path = "crates/mmlx-synth" }

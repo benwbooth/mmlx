@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 mmlx-core = { workspace = true }
-genawaiter = "0.99.1"
+genawaiter = { workspace = true }
 
 [dev-dependencies]
 mmlx-core = { workspace = true }
