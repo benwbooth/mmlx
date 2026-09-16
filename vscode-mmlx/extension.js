@@ -467,14 +467,85 @@ async function laneMap(doc, name) {
       return macro && macro.text === "gen" && isTop(node);
     });
     // Mix roots: generator yields in order, else the single tail mix.
+    // Yielded bodies are usually `let`-bound mixes (`yield_!(intro_body)`,
+    // `yield_!((*loop_body).clone())`); resolve the name to its
+    // initializer span so lanes map to the readable definition. Inline
+    // mixes fall back to the yield argument itself.
+    function letInitSpan(name) {
+      const fnText = text.slice(fn.startIndex, fn.endIndex);
+      const re = new RegExp(`\\blet\\s+${name}\\s*(?::[^=;]+)?=`, "g");
+      let m;
+      while ((m = re.exec(fnText)) !== null) {
+        let i = m.index + m[0].length;
+        const end = fnText.length;
+        let depth = 0;
+        let mode = null;
+        // Skip whitespace after `=` so `a` lands on the value itself:
+        // every downstream offset (including text reads) keys off it.
+        while (i < end && /\s/.test(fnText[i])) i++;
+        const start = i;
+        while (i < end) {
+          const ch = fnText[i];
+          const nx = i + 1 < end ? fnText[i + 1] : "";
+          if (mode === "str") {
+            if (ch === "\\") i++;
+            else if (ch === '"') mode = null;
+          } else if (mode === "chr") {
+            if (ch === "\\") i++;
+            else if (ch === "'") mode = null;
+          } else if (mode === "line") {
+            if (ch === "\n") mode = null;
+          } else if (mode === "block") {
+            if (ch === "*" && nx === "/") { mode = null; i++; }
+          } else if (ch === '"') {
+            mode = "str";
+          } else if (ch === "'") {
+            mode = "chr";
+          } else if (ch === "/" && nx === "/") {
+            mode = "line";
+          } else if (ch === "/" && nx === "*") {
+            mode = "block";
+          } else if (ch === "(" || ch === "[" || ch === "{") {
+            depth++;
+          } else if (ch === ")" || ch === "]" || ch === "}") {
+            if (depth > 0) depth--;
+          } else if (ch === ";" && depth === 0) {
+            const src = fnText.slice(start, i).trim();
+            // First `let` whose value is a mix (skips the `Arc` shadow).
+            if (/^(?:ser|bar|par|parmin)\s*!/.test(src)) {
+              const a = fn.startIndex + start;
+              return { a, b: fn.startIndex + i, src };
+            }
+            break;
+          }
+          i++;
+        }
+      }
+      return null;
+    }
+    function resolveYield(item) {
+      const t = item.src.trim();
+      const m = t.match(/^(?:\(\*(\w+)\)\.clone\(\)|(\w+))$/);
+      if (!m) return item;
+      const span = letInitSpan(m[1] || m[2]);
+      return span || item;
+    }
     let introRoots = [];
     let loopRoots = [];
     if (genNode) {
       const genSrc = text.slice(genNode.startIndex, genNode.endIndex);
-      const yields = splitYields(genSrc, genNode.startIndex);
+      const yields = splitYields(genSrc, genNode.startIndex).map(resolveYield);
       if (yields.length > 0) {
         introRoots = [yields[0]];
-        loopRoots = yields.slice(1);
+        // Later yields usually repeat the loop body; dedupe identical
+        // spans so lane ordinals aren't doubled.
+        const seen = new Set([yields[0].a + ":" + yields[0].b]);
+        loopRoots = yields.slice(1).filter((r) => {
+          const k = r.a + ":" + r.b;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
       }
     } else {
       const outers = fn.descendantsOfType("macro_invocation").filter((node) => {
