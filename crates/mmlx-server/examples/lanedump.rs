@@ -38,6 +38,7 @@ fn main() {
         panic!("unknown song {name}");
     };
     let mut lanes: HashMap<(String, i64), Vec<u8>> = HashMap::new();
+    let mut times: HashMap<(String, i64), Vec<f32>> = HashMap::new();
     let mut order: Vec<(String, i64)> = Vec::new();
     for event in &events {
         if let MusicalEventType::NoteOn { pitch_midi, .. } = &event.event {
@@ -49,12 +50,22 @@ fn main() {
                         Vec::new()
                     })
                     .push(*pitch_midi);
+                times.entry(key).or_default().push(event.time_seconds);
             }
         }
     }
     for key in &order {
         let midis = &lanes[key];
         let seq: Vec<String> = midis.iter().map(|midi| midi.to_string()).collect();
-        println!("{} {} {} {}", key.0, key.1, midis.len(), seq.join(" "));
+        // Parallel arrays for the column audit: per-NoteOn times in order.
+        let times: Vec<String> = times[key].iter().map(|t| format!("{t:.6}")).collect();
+        println!(
+            "{} {} {} {} {}",
+            key.0,
+            key.1,
+            midis.len(),
+            seq.join(" "),
+            times.join(" ")
+        );
     }
 }

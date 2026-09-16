@@ -212,6 +212,10 @@ function handleEvent(line) {
     // Generator-song body index (0 = intro): picks the lane section.
     const cycle = parts.length >= 7 ? Number(parts[6]) || 0 : 0;
     if (playing) playing.cycle = cycle;
+    if (playing && playing.playWall && !playing.firstPosLogged) {
+      playing.firstPosLogged = true;
+      out.appendLine(`first pos ${Date.now() - playing.playWall}ms after play`);
+    }
     applyHighlight(ordinal, lane);
     if (rollPanel) rollPanel.webview.postMessage({ ordinal });
     return;
@@ -768,6 +772,7 @@ async function play(doc, name) {
   ensureServer(doc);
   out.appendLine(`▶ ${name}`);
   playing = { doc, name, section: null, paused: false, recent: [] };
+  playing.playWall = Date.now();
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   if (bufferMatchesDisk(doc)) {
     // Saved file: the server plays its compiled-in copy instantly
@@ -808,6 +813,7 @@ async function playSection(doc, name, index) {
   const src = doc.getText(new vscode.Range(doc.positionAt(section.start), doc.positionAt(section.end))).replace(/\s+/g, " ");
   out.appendLine(`▶ ${name} §${index + 1}`);
   playing = { doc, name, section: index, sectionSrc: src, sectionStart: section.start, paused: false, recent: [] };
+  playing.playWall = Date.now();
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
   fs.writeFileSync(tmp, doc.getText());

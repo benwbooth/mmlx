@@ -86,7 +86,10 @@ fn main() {
             .iter()
             .map(|f| f[0].abs().max(f[1].abs()))
             .fold(0.0f32, f32::max);
-        let rms = (window.iter().map(|f| (f[0] as f64) * (f[0] as f64)).sum::<f64>()
+        let rms = (window
+            .iter()
+            .map(|f| (f[0] as f64) * (f[0] as f64))
+            .sum::<f64>()
             / window.len() as f64)
             .sqrt();
         println!("{:.1}      {peak:.4}   {rms:.4}", w as f32 * 0.1);
