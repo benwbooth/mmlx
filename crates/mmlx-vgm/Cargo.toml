@@ -10,3 +10,4 @@ mmlx-core = { workspace = true }
 mmlx-chip = { path = "../mmlx-chip" }
 mmlx-ym = { path = "../mmlx-ym" }
 mmlx-songs = { path = "../mmlx-songs" }
+mmlx-track = { path = "../mmlx-track" }
