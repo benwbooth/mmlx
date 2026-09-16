@@ -225,3 +225,53 @@ fn bar_columns_align_by_time() {
     let col_0 = b.find("a4e").expect("lead2 tick-0 hit");
     assert!(col_0 < col_16 && col_16 < col_b, "time order:\n{b}");
 }
+
+#[test]
+fn repeat_elision_does_not_shift_columns() {
+    // A repeat run's elided ticks still advance the layout cursor: notes
+    // after the run must share columns with simultaneous notes elsewhere.
+    // (Regression: the cursor used to stall at the run head, shifting the
+    // whole lane early from there on.)
+    fn note(start: u64, dur: u64, midi: u8) -> TrackNote {
+        TrackNote {
+            start,
+            duration: dur,
+            voice: 0,
+            midi,
+            velocity: 1.0,
+            params: Vec::new(),
+            approx: false,
+        }
+    }
+    let lead = vec![note(0, 32, 60), note(32, 32, 60), note(64, 32, 62)];
+    let lead2 = vec![note(0, 32, 69), note(32, 32, 71), note(64, 32, 72)];
+    let src = emit_song(
+        "repshift",
+        &[
+            ("ym".to_string(), "lead".to_string(), lead, Vec::new()),
+            ("ym".to_string(), "lead2".to_string(), lead2, Vec::new()),
+        ],
+        1,
+        120.0,
+        128,
+    );
+    assert!(
+        src.contains("repeat!(1)"),
+        "run compression happened:\n{src}"
+    );
+    let bar = src.split("bar!( // bar 1").nth(1).expect("intro bar 1");
+    let sers: Vec<&str> = bar
+        .lines()
+        .filter(|line| line.contains("track!("))
+        .take(2)
+        .collect();
+    assert_eq!(sers.len(), 2, "two channel lines:\n{bar}");
+    // Tick-64 hits (after the run): same tick, same column.
+    let col_a = sers[0].find("d4q").expect("lead tick-64 hit");
+    let col_b = sers[1].find("c5q").expect("lead2 tick-64 hit");
+    assert_eq!(
+        col_a, col_b,
+        "post-run alignment:\n{}\n{}",
+        sers[0], sers[1]
+    );
+}

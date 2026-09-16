@@ -1655,10 +1655,14 @@ fn bar_sounds(items: &[String]) -> bool {
 /// `repeat!` (extends the repeated hit). Whitespace-only change: the
 /// note stream resolves identically.
 fn align_bar(channels: &[Vec<String>], lens: &[Vec<u64>], bar_ticks: u64) -> Vec<String> {
+    /// One sounding unit: leading zero-length setup (`pre`) plus the head
+    /// note onward (`post`). Heads sharing a slice share a column by
+    /// padding every `pre` to the slice's widest.
     struct Seg {
         start: u64,
         len: u64,
-        text: String,
+        pre: String,
+        post: String,
     }
     let mut all: Vec<Vec<Seg>> = Vec::new();
     for (items, ls) in channels.iter().zip(lens.iter()) {
@@ -1671,64 +1675,67 @@ fn align_bar(channels: &[Vec<String>], lens: &[Vec<u64>], bar_ticks: u64) -> Vec
                 // them there too).
                 match segs.last_mut() {
                     Some(prev) => {
-                        prev.text.push(' ');
-                        prev.text.push_str(item);
+                        if !prev.post.is_empty() {
+                            prev.post.push(' ');
+                        }
+                        prev.post.push_str(item);
                     }
                     None => pending.push(item.clone()),
                 }
             } else if item.starts_with("repeat!(") {
                 // Repeats extend the hit they follow (elided ticks ride
-                // the marker); other channels' starts inside still slice.
+                // the marker, and the cursor advances past them); other
+                // channels' starts inside still slice.
                 match segs.last_mut() {
                     Some(prev) => {
-                        prev.text.push(' ');
-                        prev.text.push_str(item);
+                        if !prev.post.is_empty() {
+                            prev.post.push(' ');
+                        }
+                        prev.post.push_str(item);
                         prev.len += len;
+                        pos += len;
                     }
                     None => {
-                        let mut text = pending.join(" ");
-                        pending.clear();
-                        if !text.is_empty() {
-                            text.push(' ');
-                        }
-                        text.push_str(item);
                         segs.push(Seg {
                             start: pos,
                             len: *len,
-                            text,
+                            pre: pending.join(" "),
+                            post: item.clone(),
                         });
+                        pending.clear();
                         pos += len;
                     }
                 }
             } else if *len == 0 {
                 pending.push(item.clone());
             } else {
-                let mut text = pending.join(" ");
-                pending.clear();
-                if !text.is_empty() {
-                    text.push(' ');
-                }
-                text.push_str(item);
                 segs.push(Seg {
                     start: pos,
                     len: *len,
-                    text,
+                    pre: pending.join(" "),
+                    post: item.clone(),
                 });
+                pending.clear();
                 pos += len;
             }
         }
         if !pending.is_empty() {
             // Defensive: trailing setup with nothing following (emission
             // always leaves a sounding item last); glue backward.
+            let tail = pending.join(" ");
+            pending.clear();
             match segs.last_mut() {
                 Some(prev) => {
-                    prev.text.push(' ');
-                    prev.text.push_str(&pending.join(" "));
+                    if !prev.post.is_empty() {
+                        prev.post.push(' ');
+                    }
+                    prev.post.push_str(&tail);
                 }
                 None => segs.push(Seg {
                     start: 0,
                     len: 0,
-                    text: pending.join(" "),
+                    pre: tail,
+                    post: String::new(),
                 }),
             }
         }
@@ -1751,31 +1758,49 @@ fn align_bar(channels: &[Vec<String>], lens: &[Vec<u64>], bar_ticks: u64) -> Vec
     bounds.dedup();
     let nslices = bounds.len().saturating_sub(1);
     let slice_of = |start: u64| bounds.iter().position(|b| *b == start).unwrap_or(0);
-    let mut widths = vec![0usize; nslices];
+    // Two sub-columns per slice: setup prefixes share one width so every
+    // head note starts together, then head text shares the next. Slices
+    // with no prefixes anywhere behave exactly like before (sep 0).
+    let mut pre_widths = vec![0usize; nslices];
+    let mut post_widths = vec![0usize; nslices];
     for segs in &all {
         for seg in segs {
-            if let Some(width) = widths.get_mut(slice_of(seg.start)) {
-                *width = (*width).max(seg.text.len());
+            if let Some(j) = bounds.iter().position(|b| *b == seg.start) {
+                if j < nslices {
+                    pre_widths[j] = pre_widths[j].max(seg.pre.len());
+                    post_widths[j] = post_widths[j].max(seg.post.len());
+                }
             }
         }
     }
-    for (j, width) in widths.iter_mut().enumerate() {
+    let mut widths = vec![0usize; nslices];
+    for j in 0..nslices {
+        let sep = usize::from(pre_widths[j] > 0);
+        widths[j] = pre_widths[j] + sep + post_widths[j];
         if j + 1 < nslices {
-            *width += 1;
+            widths[j] += 1;
         }
     }
     let mut bodies = Vec::new();
     for segs in &all {
         let mut line = String::new();
         for j in 0..nslices {
-            let text = segs
+            let (pre, post) = segs
                 .iter()
                 .find(|seg| slice_of(seg.start) == j)
-                .map(|seg| seg.text.as_str())
-                .unwrap_or("");
-            line.push_str(text);
+                .map(|seg| (seg.pre.as_str(), seg.post.as_str()))
+                .unwrap_or(("", ""));
+            line.push_str(pre);
+            for _ in pre.len()..pre_widths[j] {
+                line.push(' ');
+            }
+            if pre_widths[j] > 0 {
+                line.push(' ');
+            }
+            line.push_str(post);
             if j + 1 < nslices {
-                for _ in text.len()..widths[j] {
+                let used = pre_widths[j] + usize::from(pre_widths[j] > 0) + post.len();
+                for _ in used..widths[j] {
                     line.push(' ');
                 }
             }
