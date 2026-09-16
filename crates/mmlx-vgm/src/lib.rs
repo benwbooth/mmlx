@@ -2307,14 +2307,10 @@ pub fn emit_song(
         });
     }
     // Render bar-major mixes last, after every substitution, so column
-    // layout sees final widths. Loop bars sit one level deeper.
+    // layout sees final widths. Both bodies sit at fn scope (hoverable);
+    // only the generator handoff nests deeper.
     let intro_mix = render_section(&intro_bars, bar_ticks);
     let loop_mix = render_section(&loop_bars, bar_ticks);
-    let loop_indented = if loop_mix.is_empty() {
-        String::new()
-    } else {
-        format!("    {}", loop_mix.replace('\n', "\n    "))
-    };
     format!(
         "/// Decompiled `{name}` (tempo {tempo}, bar = {bar_ticks} ticks).\n\
          /// One performance: intro once, then the loop body forever.\n\
@@ -2326,8 +2322,10 @@ pub fn emit_song(
          /// bare, never inline); `seg_*()` phrases are bar-local repeats
          /// (single-call segs inline too); cross-bar sustains are `legato!`
          /// plus rest cover.\n\
-         /// One generator fn streams the whole performance: intro `yield_!`
-         /// once, then `loop` yielding the loop body forever.\n\
+         /// Voices, intro and loop bodies are plain `let`s (hoverable);
+         /// the generator only hands them out: intro moved once, loop via
+         /// `Arc` clone per cycle. Only these four lines sit inside the
+         /// `gen!` transform (which rust-analyzer cannot see through).\n\
          use genawaiter::sync::gen;\n\
          use genawaiter::yield_;\n\
          use mmlx_core::prelude::*;\n\
@@ -2336,18 +2334,21 @@ pub fn emit_song(
          {segs}\
          #[rustfmt::skip]\n\
          pub fn {name}() -> NoteIterator {{\n\
-         \x20   Box::new(gen!({{\n\
          {voicelets}\
-         \x20   yield_!(ser!(\n\
+         \x20   let intro_body: Note = ser!(\n\
          \x20       param!(tempo={tempo}),\n\
          {intro}\n\
-         \x20   ));\n\
-         \x20   loop {{\n\
-         \x20       yield_!(ser!(\n\
-         \x20           param!(tempo={tempo}),\n\
+         \x20   );\n\
+         \x20   let loop_body: Note = ser!(\n\
+         \x20       param!(tempo={tempo}),\n\
          {lp}\n\
-         \x20       ));\n\
-         \x20   }}\n\
+         \x20   );\n\
+         \x20   let loop_body = ::std::sync::Arc::new(loop_body);\n\
+         \x20   Box::new(gen!({{\n\
+         \x20       yield_!(intro_body);\n\
+         \x20       loop {{\n\
+         \x20           yield_!((*loop_body).clone());\n\
+         \x20       }}\n\
          \x20   }}).into_iter())\n\
          }}",
         segs = if seg_defs.is_empty() {
@@ -2357,7 +2358,7 @@ pub fn emit_song(
         },
         velconsts = vel_consts_block,
         intro = intro_mix,
-        lp = loop_indented,
+        lp = loop_mix,
         voicelets = voice_lets_block,
     )
 }

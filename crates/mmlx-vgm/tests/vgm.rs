@@ -141,6 +141,22 @@ fn emitter_is_exact_and_compressed() {
     assert!(src.contains("yield_!"), "yields:\n{src}");
     assert!(src.contains("Box::new"), "boxed stream:\n{src}");
     assert!(src.contains("NoteIterator"), "streaming return:\n{src}");
+    // Hoisted bodies: plain hoverable lets; the generator only hands
+    // them out (intro moved once, loop via Arc clone per cycle).
+    assert!(
+        src.contains("let intro_body: Note = ser!("),
+        "intro let:\n{src}"
+    );
+    assert!(
+        src.contains("let loop_body: Note = ser!("),
+        "loop let:\n{src}"
+    );
+    assert!(src.contains("Arc::new(loop_body)"), "arc loop:\n{src}");
+    assert!(src.contains("yield_!(intro_body)"), "intro handoff:\n{src}");
+    assert!(
+        src.contains("yield_!((*loop_body).clone())"),
+        "loop handoff:\n{src}"
+    );
     assert!(
         !src.contains("::std::iter::once("),
         "no once/chain streaming:\n{src}"
@@ -150,7 +166,13 @@ fn emitter_is_exact_and_compressed() {
     // Terse form: every voice program binds `let` and splices bare —
     // bar channels never carry inline `param!(instrument=...)` groups.
     assert!(!src.contains("fn voice_lead"), "no voice fns:\n{src}");
-    assert!(!src.contains(".clone()"), "bare splices:\n{src}");
+    // Bare splices everywhere: the loop handoff's `(*loop_body).clone()`
+    // is the single sanctioned `.clone()` in a song file.
+    assert_eq!(
+        src.matches(".clone()").count(),
+        1,
+        "one clone (loop handoff):\n{src}"
+    );
     assert!(src.contains("ym_algo"), "raw program");
     for chunk in src.split("bar!( // bar").skip(1) {
         assert!(
