@@ -18,19 +18,16 @@ pub mod vgm;
 pub fn song_by_name(name: &str) -> Option<fn() -> Note> {
     match name {
         "all_features" => Some(all_features),
-        "alisia_stage1" => Some(vgm::alisia_stage1::alisia_stage1),
-        "loop_alisia_stage1" => Some(vgm::alisia_stage1::loop_alisia_stage1),
         _ => None,
     }
 }
 
-/// Compiled-in generator songs: `fn() -> NoteIterator` constructors for
-/// full performances (intro once, loop body forever). The server pages
-/// one body per cycle with bounded memory instead of replaying one
-/// collected stream.
+/// Compiled-in generator songs: full performances (intro once, loop body
+/// forever). The server pages one body per cycle with bounded memory
+/// instead of replaying one collected stream.
 pub fn song_stream_by_name(name: &str) -> Option<fn() -> NoteIterator> {
     match name {
-        "alisia_stage1_full" => Some(vgm::alisia_stage1::alisia_stage1_full),
+        "alisia_stage1" => Some(|| Box::new(vgm::alisia_stage1::alisia_stage1())),
         _ => None,
     }
 }
@@ -188,29 +185,33 @@ mod tests {
 
     #[test]
     fn full_song_streams_intro_then_loop_forever() {
-        // The generator song yields the intro once, then the loop body on
-        // every pull, event-identical to the finite fns. Big stack like
-        // the other Alisia collectors.
-        std::thread::Builder::new()
+        // One function, whole performance: the first pull differs from
+        // every later pull (intro once, loop forever), loop pulls are
+        // event-identical, and every pull sounds notes. The VGM compare
+        // harness pins exact ground truth; this pins the shape.
+        let bodies = std::thread::Builder::new()
             .stack_size(64 << 20)
             .spawn(|| {
-                let ctor = song_stream_by_name("alisia_stage1_full")
-                    .expect("stream registry misses alisia_stage1_full");
+                let ctor = song_stream_by_name("alisia_stage1")
+                    .expect("stream registry misses alisia_stage1");
                 let mut full = ctor();
-                let intro = full.next().expect("intro body");
-                assert_eq!(
-                    stream_events(&intro),
-                    stream_events(&vgm::alisia_stage1::alisia_stage1())
-                );
-                let expect_loop = stream_events(&vgm::alisia_stage1::loop_alisia_stage1());
-                for _ in 0..3 {
-                    let body = full.next().expect("loop body");
-                    assert_eq!(stream_events(&body), expect_loop);
-                }
+                std::iter::from_fn(|| full.next())
+                    .take(4)
+                    .map(|body| stream_events(&body))
+                    .collect::<Vec<_>>()
             })
             .expect("spawn")
             .join()
             .expect("collect");
+        assert_eq!(bodies.len(), 4);
+        let (intro, loops) = bodies.split_first().expect("intro body");
+        assert_eq!(loops.len(), 3);
+        assert!(!intro.is_empty(), "intro sounds");
+        assert!(!loops[0].is_empty(), "loop sounds");
+        assert_ne!(*intro, loops[0], "intro differs from loop");
+        for body in loops {
+            assert_eq!(*body, loops[0], "loop repeats exactly");
+        }
     }
 
     #[test]
@@ -218,7 +219,7 @@ mod tests {
         // Instant-play path: every registry entry must build a Note.
         // The Alisia tree is huge; collect on a big stack like the
         // server's main thread does (default test threads are 2 MiB).
-        for name in ["all_features", "alisia_stage1", "loop_alisia_stage1"] {
+        for name in ["all_features"] {
             let events = std::thread::Builder::new()
                 .stack_size(64 << 20)
                 .spawn(move || {
@@ -237,6 +238,8 @@ mod tests {
             );
         }
         assert!(song_by_name("no_such_song").is_none());
+        assert!(song_stream_by_name("no_such_song").is_none());
+        assert!(song_stream_by_name("alisia_stage1").is_some());
     }
 
     // Event streams with note IDs zeroed (IDs come from a global counter)
