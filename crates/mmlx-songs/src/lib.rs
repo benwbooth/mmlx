@@ -27,7 +27,7 @@ pub fn song_by_name(name: &str) -> Option<fn() -> Note> {
 /// instead of replaying one collected stream.
 pub fn song_stream_by_name(name: &str) -> Option<fn() -> NoteIterator> {
     match name {
-        "alisia_stage1" => Some(|| Box::new(vgm::alisia_stage1::alisia_stage1())),
+        "alisia_stage1" => Some(vgm::alisia_stage1::alisia_stage1),
         _ => None,
     }
 }
@@ -44,7 +44,7 @@ pub fn all_features() -> Note {
     let release = cosenv!(0p0.9, 100p0);
 
     ser!([
-        comment!("mmlx all-features conformance song"),
+        // mmlx all-features conformance song.
         // Global setup: multi-pair param + prefix shortening (time_b→time_beat).
         param!(tempo = 120, time_b = 4, time_n = 4, patch = "square"),
         param!(key = "Cmaj", gate = 0.9, volume = 0.8),
@@ -134,19 +134,17 @@ mod tests {
     #[test]
     fn song_builds_and_streams() {
         let events = collect_events(all_features());
-        // Sanity: we get NoteOns, NoteOffs, rests, params and the comment.
+        // Sanity: we get NoteOns, NoteOffs, rests and params.
         let mut on = 0;
         let mut off = 0;
         let mut rest_count = 0;
         let mut param_count = 0;
-        let mut comment_count = 0;
         for ev in &events {
             match &ev.event {
                 MusicalEventType::NoteOn { .. } => on += 1,
                 MusicalEventType::NoteOff { .. } => off += 1,
                 MusicalEventType::Rest { .. } => rest_count += 1,
                 MusicalEventType::SetParameter { .. } => param_count += 1,
-                MusicalEventType::Comment(_) => comment_count += 1,
                 // Internal advance-accounting marker; never escapes into
                 // final streams (par heaps consume it).
                 MusicalEventType::BranchEnd => {}
@@ -160,7 +158,6 @@ mod tests {
         assert!(on - off <= 2, "only parmin truncation drops NoteOffs");
         assert!(rest_count >= 2, "rests present");
         assert!(param_count >= 5, "params present");
-        assert_eq!(comment_count, 1);
         // Forks (`forkseq`/`forkpar`) and macro overflow intentionally emit
         // events out of global order (a fork looks ahead, then the following
         // sibling goes back to the fork point) — so assert bounds instead.
