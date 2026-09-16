@@ -654,7 +654,7 @@ pub fn snap_voice(notes: &[TrackNote], tick: u64) -> Vec<TrackNote> {
 
 /// A named voice program: the full ambient snapshot a lane section plays
 /// under, bound once per song fn as `let voice_<role>: Note` and spliced
-/// via `voice.clone()` (single-use programs inline as `param!(...)`).
+/// via `voice.clone()` (never inline: full groups crowd bar lines).
 /// Splicing is sound because nested `ser!` shares ambient params with its
 /// siblings (covered by `nested_ser_shares_ambient_params` in mmlx-songs).
 #[derive(Default)]
@@ -749,7 +749,7 @@ fn parse_sounding(item: &str) -> Option<(Option<String>, String, Option<String>)
         }
         return None;
     }
-    if item.starts_with("param!(") || item.starts_with("comment!(") {
+    if item.starts_with("param!(") {
         return None;
     }
     let (core, attr) = match item.find("!(") {
@@ -1073,16 +1073,14 @@ pub struct LaneBar {
 }
 
 /// One voice lane (one channel) rendered as bar-partitioned items plus
-/// extracted `seg_N()` phrase functions. Voice programs recurring across
-/// runs become shared `voice_<role>()` call items (rewritten downstream to
-/// `let` bindings or inline groups); once-only programs stay inline;
+/// extracted `seg_N()` phrase functions. Every voice program becomes a
+/// shared `voice_<role>()` call item (bound downstream as a `let`);
 /// tweaks of 2 or fewer keys stay inline diffs. Items partition into one
 /// exact bar each (`bar_ticks` grid ticks per bar; 0 disables), with the
 /// ambient start setup recorded per bar for program restatement.
-/// `program_runs` maps program keys to contiguous-run counts (built by
-/// the caller across both sections). `section_end` pads trailing silence
-/// so all lanes share the same bar count (vertical alignment). Returns
-/// per-bar items + segs; the caller assembles bars into staves.
+/// `section_end` pads trailing silence so all lanes share the same bar
+/// count (vertical alignment). Returns per-bar items + segs; the caller
+/// assembles bars into staves.
 pub fn emit_voice(
     notes: &[TrackNote],
     tick_samples: u64,
@@ -1091,7 +1089,6 @@ pub fn emit_voice(
     seg_prefix: &str,
     bar_ticks: u64,
     programs: &mut ProgramReg,
-    program_runs: &HashMap<String, usize>,
     section_end: u64,
 ) -> (Vec<LaneBar>, Vec<String>) {
     let tick = tick_samples.max(1);
@@ -1104,8 +1101,6 @@ pub fn emit_voice(
     let mut setup: HashMap<String, f32> = HashMap::new();
     let mut setup_vel: Option<f32> = None;
     let mut first = true;
-    let mut head_setup: Option<HashMap<String, f32>> = None;
-    let mut any_approx = false;
     for note in &notes {
         let start_tick = (note.start + tick / 2) / tick;
         if start_tick > cursor {
@@ -1123,38 +1118,23 @@ pub fn emit_voice(
             }
         }
         let dur_ticks = to_ticks(note.duration).max(1);
-        // Voice setup: programs recurring across runs become `voice_<role>()`
-        // calls (shared registry); once-only programs stay inline as one
-        // grouped item; tweaks of 2 or fewer keys stay inline diffs.
+        // Voice setup: every program binds once per song fn as a `let
+        // voice_*` variable (never inline: full groups crowd bar lines);
+        // tweaks of 2 or fewer keys stay inline diffs.
         let mut keys: Vec<&String> = note.params.iter().map(|(key, _)| key).collect();
         keys.sort();
         keys.dedup();
         let snapshot = program_snapshot(note);
-        let frequent = program_runs
-            .get(&ProgramReg::snapshot_key(&snapshot, instrument))
-            .copied()
-            .unwrap_or(0)
-            >= 2;
-        // One grouped full-program item (instrument first, then sorted).
-        let full_group = || program_param_group(instrument, &snapshot);
+        // One registry call per program head; the song tail binds each
+        // used one as a `let voice_*` variable (never inline).
         if first {
-            if frequent {
-                let voice = programs.intern(role, instrument, snapshot.clone());
-                items.push(format!("{voice}()"));
-                item_lens.push(0);
-                for (key, value) in &snapshot {
-                    setup.insert(key.clone(), *value);
-                }
-                item_setups.push(setup.clone());
-            } else {
-                items.push(full_group());
-                item_lens.push(0);
-                for (key, value) in &snapshot {
-                    setup.insert(key.clone(), *value);
-                }
-                item_setups.push(setup.clone());
+            let voice = programs.intern(role, instrument, snapshot.clone());
+            items.push(format!("{voice}()"));
+            item_lens.push(0);
+            for (key, value) in &snapshot {
+                setup.insert(key.clone(), *value);
             }
-            head_setup = Some(setup.clone());
+            item_setups.push(setup.clone());
             first = false;
         } else {
             let mut diffs: Vec<(&String, f32)> = Vec::new();
@@ -1165,22 +1145,13 @@ pub fn emit_voice(
                 }
             }
             if diffs.len() > 2 {
-                if frequent {
-                    let voice = programs.intern(role, instrument, snapshot.clone());
-                    items.push(format!("{voice}()"));
-                    item_lens.push(0);
-                    for (key, value) in &snapshot {
-                        setup.insert(key.clone(), *value);
-                    }
-                    item_setups.push(setup.clone());
-                } else {
-                    items.push(full_group());
-                    item_lens.push(0);
-                    for (key, value) in &snapshot {
-                        setup.insert(key.clone(), *value);
-                    }
-                    item_setups.push(setup.clone());
+                let voice = programs.intern(role, instrument, snapshot.clone());
+                items.push(format!("{voice}()"));
+                item_lens.push(0);
+                for (key, value) in &snapshot {
+                    setup.insert(key.clone(), *value);
                 }
+                item_setups.push(setup.clone());
             } else {
                 for (key, value) in diffs {
                     items.push(format!("param!({key}={value})"));
@@ -1226,9 +1197,6 @@ pub fn emit_voice(
             item_lens.push(0);
             item_setups.push(setup.clone());
         }
-        if note.approx {
-            any_approx = true;
-        }
         cursor = start_tick + dur_ticks;
     }
     // Trailing silence to the section end so every lane covers the same
@@ -1243,18 +1211,6 @@ pub fn emit_voice(
             items.push(piece);
             item_lens.push(lens);
             item_setups.push(setup.clone());
-        }
-    }
-    // One timbre note per lane beats per-note spam: SSG-EG and slide
-    // approximations hold for the whole lane, flagged right up front.
-    if any_approx {
-        if let Some(head) = head_setup {
-            items.insert(
-                1.min(items.len()),
-                "comment!(\"approx timbre\")".to_string(),
-            );
-            item_lens.insert(1.min(item_lens.len()), 0);
-            item_setups.insert(1.min(item_setups.len()), head);
         }
     }
     // Group singles, split bar-crossers, extract bar-local phrases.
@@ -1373,7 +1329,6 @@ fn is_bare_tie(item: &str) -> bool {
 
 fn compressible(item: &str) -> bool {
     !(item.starts_with("param!(")
-        || item.starts_with("comment!(")
         || item.starts_with("repeat!(")
         || item.starts_with("legato!(")
         || item.ends_with("()")
@@ -1661,19 +1616,6 @@ fn count_occurrences(
 /// Count how many notes use each full-program snapshot (across both
 /// sections) so once-only programs stay inline instead of earning a
 /// `voice_*()` definition.
-fn program_run_counts(
-    intro: &[TrackNote],
-    looping: &[TrackNote],
-    instrument: &str,
-) -> HashMap<String, usize> {
-    let mut counts: HashMap<String, usize> = HashMap::new();
-    for note in intro.iter().chain(looping.iter()) {
-        let key = ProgramReg::snapshot_key(&program_snapshot(note), instrument);
-        *counts.entry(key).or_insert(0) += 1;
-    }
-    counts
-}
-
 /// Latest note end in grid ticks (for padding all lanes of a section to
 /// the same bar count).
 fn section_end_ticks(notes: &[TrackNote], tick: u64) -> u64 {
@@ -1692,10 +1634,7 @@ fn section_end_ticks(notes: &[TrackNote], tick: u64) -> u64 {
 fn bar_sounds(items: &[String]) -> bool {
     items.iter().any(|item| {
         item.starts_with("legato!(")
-            || (item.ends_with("()")
-                && !item.starts_with("param!(")
-                && !item.starts_with("comment!(")
-                && !item.starts_with("voice_"))
+            || (item.ends_with("()") && !item.starts_with("param!(") && !item.starts_with("voice_"))
             || parse_sounding(item)
                 .map(|(pitch, _, _)| pitch.is_some())
                 .unwrap_or(false)
@@ -1950,15 +1889,15 @@ fn render_section(bars: &[AsmBar], bar_ticks: u64) -> String {
         for (body, ch) in bodies.iter().zip(bar.channels.iter()) {
             if bar_idx == 0 {
                 channels.push(format!(
-                    "            // {} ({})\n            ser!({body})",
+                    "            // {} ({})\n            track!({body})",
                     ch.role, ch.instrument
                 ));
             } else {
-                channels.push(format!("            ser!({body})"));
+                channels.push(format!("            track!({body})"));
             }
         }
         bar_texts.push(format!(
-            "        par!( // bar {}\n{},\n        )",
+            "        bar!( // bar {}\n{},\n        )",
             bar.no + 1,
             channels.join(",\n")
         ));
@@ -1971,7 +1910,7 @@ fn render_section(bars: &[AsmBar], bar_ticks: u64) -> String {
 /// `voices`: (instrument, role, intro notes, loop notes). `tempo` heads
 /// the mix; `bar_ticks` is grid ticks per bar for the layout.
 /// Voice programs bind once per song fn as `let voice_*` variables
-/// (`voice.clone()` splices); single-use programs inline as `param!(...)`.
+/// (`voice.clone()` splices; never inline).
 /// Every sounding channel restates its program per bar (par branches
 /// reset ambient); rest-only bars carry bare rests. Within a bar, notes
 /// align vertically by point in time (whitespace only).
@@ -2013,7 +1952,6 @@ pub fn emit_song(
             }
         };
         let reg = &mut regs[reg_index].1;
-        let program_runs = program_run_counts(intro, looping, instrument);
         let (intro_bars, mut intro_segs) = emit_voice(
             intro,
             tick_samples,
@@ -2022,7 +1960,6 @@ pub fn emit_song(
             &format!("{role}i"),
             bar_ticks,
             reg,
-            &program_runs,
             intro_end,
         );
         let (loop_bars, mut loop_segs) = emit_voice(
@@ -2033,7 +1970,6 @@ pub fn emit_song(
             &format!("{role}l"),
             bar_ticks,
             reg,
-            &program_runs,
             loop_end,
         );
         intro_lanes.push((role.clone(), instrument.clone(), intro_bars));
@@ -2123,32 +2059,22 @@ pub fn emit_song(
             }
         }
     }
-    // Bar programs: a single call site inlines the `param!(...)` group;
-    // the rest bind once per song fn (`let voice: Note`) and splice bare
-    // (blocks borrow items, cloning inside). Runs on structured bars so
-    // the final widths feed column layout below.
+    // Bar programs all bind once per song fn (`let voice: Note`) and
+    // splice bare (blocks borrow items, cloning inside) — never inline,
+    // so bar lines stay readable. Runs on structured bars so the final
+    // widths feed column layout below.
     let mut intro_lets: Vec<String> = Vec::new();
     let mut loop_lets: Vec<String> = Vec::new();
     for (_, name, snapshot, instrument) in &programs {
         let pat = format!("{name}()");
-        let uses = bar_uses(&intro_bars, pat.as_str()) + bar_uses(&loop_bars, pat.as_str());
-        if uses == 0 {
-            continue;
-        }
         let group = program_param_group(instrument, snapshot);
-        if uses == 1 {
-            if !replace_first_in_bars(&mut intro_bars, pat.as_str(), &group) {
-                replace_first_in_bars(&mut loop_bars, pat.as_str(), &group);
-            }
-        } else {
-            let binding = format!("let {name}: Note = {group};");
-            let use_site = name.clone();
-            if replace_all_in_bars(&mut intro_bars, pat.as_str(), use_site.as_str()) {
-                intro_lets.push(binding.clone());
-            }
-            if replace_all_in_bars(&mut loop_bars, pat.as_str(), use_site.as_str()) {
-                loop_lets.push(binding);
-            }
+        let binding = format!("let {name}: Note = {group};");
+        let use_site = name.clone();
+        if replace_all_in_bars(&mut intro_bars, pat.as_str(), use_site.as_str()) {
+            intro_lets.push(binding.clone());
+        }
+        if replace_all_in_bars(&mut loop_bars, pat.as_str(), use_site.as_str()) {
+            loop_lets.push(binding);
         }
     }
     // One voice roster shared by intro and loop (both yields borrow it),
@@ -2392,29 +2318,37 @@ pub fn emit_song(
     format!(
         "/// Decompiled `{name}` (tempo {tempo}, bar = {bar_ticks} ticks).\n\
          /// One performance: intro once, then the loop body forever.\n\
-         /// Bar-major score: outer `ser!` of `par!` bars, each a stack of\n\
-         /// channel `ser!`s in score order ({staff_order}); every sounding\n\
+         /// Bar-major score: outer `ser!` of `bar!` bars, each a stack of\n\
+         /// channel `track!`s in score order ({staff_order}); every sounding\n\
          /// channel restates its voice (`#[rustfmt::skip]` keeps it).\n\
-         /// Voice programs bind once as `let voice_*` variables (spliced\n\
-         /// bare); single-use programs inline as `param!(...)`; `seg_*()`\n\
-         /// phrases are bar-local repeats (single-call segs inline too);\n\
-         /// cross-bar sustains are `legato!` plus rest cover.\n\
-         /// Streams as `once(intro).chain(repeat(loop))` (plain std\n\
-         /// iterators, no generator machinery) so song edits recompile fast.\n\
+         /// Each `bar!` outlines into its own closure for parallel codegen;\n\
+         /// Voice programs bind once as `let voice_*` variables (spliced
+         /// bare, never inline); `seg_*()` phrases are bar-local repeats
+         /// (single-call segs inline too); cross-bar sustains are `legato!`
+         /// plus rest cover.\n\
+         /// One generator fn streams the whole performance: intro `yield_!`
+         /// once, then `loop` yielding the loop body forever.\n\
+         use genawaiter::sync::gen;\n\
+         use genawaiter::yield_;\n\
          use mmlx_core::prelude::*;\n\
          \n\
          {velconsts}\
          {segs}\
          #[rustfmt::skip]\n\
-         pub fn {name}() -> impl SongStream {{\n\
+         pub fn {name}() -> NoteIterator {{\n\
+         \x20   Box::new(gen!({{\n\
          {voicelets}\
-         \x20   ::std::iter::once(ser!(\n\
+         \x20   yield_!(ser!(\n\
          \x20       param!(tempo={tempo}),\n\
          {intro}\n\
-         \x20   )).chain(::std::iter::repeat(ser!(\n\
-         \x20       param!(tempo={tempo}),\n\
+         \x20   ));\n\
+         \x20   loop {{\n\
+         \x20       yield_!(ser!(\n\
+         \x20           param!(tempo={tempo}),\n\
          {lp}\n\
-         \x20   )))\n\
+         \x20       ));\n\
+         \x20   }}\n\
+         \x20   }}).into_iter())\n\
          }}",
         segs = if seg_defs.is_empty() {
             String::new()

@@ -135,39 +135,37 @@ fn emitter_is_exact_and_compressed() {
     assert!(src.contains("pub fn synth()"), "song fn");
     assert!(
         !src.contains("pub fn loop_synth()"),
-        "single streaming fn, no loop twin:\n{src}"
+        "single song fn, no loop twin:\n{src}"
     );
+    assert!(src.contains("gen!("), "generator body:\n{src}");
+    assert!(src.contains("yield_!"), "yields:\n{src}");
+    assert!(src.contains("Box::new"), "boxed stream:\n{src}");
+    assert!(src.contains("NoteIterator"), "streaming return:\n{src}");
     assert!(
-        src.contains("::std::iter::once("),
-        "intro-once head:\n{src}"
+        !src.contains("::std::iter::once("),
+        "no once/chain streaming:\n{src}"
     );
-    assert!(
-        src.contains("::std::iter::repeat("),
-        "loop-repeat tail:\n{src}"
-    );
-    assert!(!src.contains("gen!("), "no generator machinery:\n{src}");
-    assert!(!src.contains("yield_!"), "no yields:\n{src}");
-    assert!(
-        !src.contains("genawaiter"),
-        "no genawaiter dependency:\n{src}"
-    );
-    assert!(src.contains("impl SongStream"), "streaming return:\n{src}");
-    assert!(!src.contains("Box::new"), "no boxing:\n{src}");
-    assert!(!src.contains("into_iter()"), "no adapter:\n{src}");
     assert!(src.contains("tempo=112.5"), "tempo header");
     assert!(src.contains("ym_algo"), "raw program");
-    // Terse form: voice program variable, no bracket bodies.
-    // (One call site inlines the program; shared programs bind `let`.)
+    // Terse form: every voice program binds `let` and splices bare —
+    // bar channels never carry inline `param!(instrument=...)` groups.
     assert!(!src.contains("fn voice_lead"), "no voice fns:\n{src}");
     assert!(!src.contains(".clone()"), "bare splices:\n{src}");
     assert!(src.contains("ym_algo"), "raw program");
+    for chunk in src.split("bar!( // bar").skip(1) {
+        assert!(
+            !chunk.contains("param!(instrument"),
+            "no inline programs in bars:\n{chunk}"
+        );
+    }
     assert!(!src.contains("ser!(['"), "terse lanes:\n{src}");
     assert!(!src.contains("par!(["), "terse mix:\n{src}");
-    // Bar-major score: outer ser of per-bar pars with channel sers.
-    assert!(src.contains("par!( // bar 1"), "bar pars:\n{src}");
+    // Bar-major score: outer ser of per-bar `bar!`s with channel `track!`s.
+    assert!(src.contains("bar!( // bar 1"), "bar macros:\n{src}");
+    assert!(src.contains("track!("), "track lanes:\n{src}");
     assert!(
-        src.contains("param!(instrument=\"ym\""),
-        "inline program:\n{src}"
+        src.contains("let voice_lead: Note"),
+        "voice program variables:\n{src}"
     );
 }
 
@@ -203,10 +201,10 @@ fn bar_columns_align_by_time() {
         120.0,
         128,
     );
-    let bar = src.split("par!( // bar 1").nth(1).expect("intro bar 1");
+    let bar = src.split("bar!( // bar 1").nth(1).expect("intro bar 1");
     let sers: Vec<&str> = bar
         .lines()
-        .filter(|line| line.contains("ser!("))
+        .filter(|line| line.contains("track!("))
         .take(2)
         .collect();
     assert_eq!(sers.len(), 2, "two channel lines:\n{bar}");
