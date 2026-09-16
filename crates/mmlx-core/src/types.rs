@@ -1725,6 +1725,16 @@ impl Note {
 /// Iterator over Notes
 pub type NoteIterator = Box<dyn Iterator<Item = Note> + Send + Sync + 'static>;
 
+/// A streaming song body: intro once, loop body forever (or any finite
+/// or infinite sequence of bodies). Blanket-implemented for any
+/// Send+Sync `Note` iterator, so song functions return terse
+/// `impl SongStream` with no adapters in the song file. Iterator-based
+/// (not `IntoIterator`): boxing or pulling an `into_iter()` off an
+/// opaque `IntoIterator` loses the thread-safety bounds, so songs hand
+/// over the iterator itself.
+pub trait SongStream: Iterator<Item = Note> + Send + Sync + 'static {}
+impl<T> SongStream for T where T: Iterator<Item = Note> + Send + Sync + 'static {}
+
 /// Iterator over TimedMusicalEvents
 pub type TimedMusicalEventIterator =
     Box<dyn Iterator<Item = TimedMusicalEvent> + Send + Sync + 'static>;

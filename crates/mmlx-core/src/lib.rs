@@ -36,7 +36,7 @@ pub use mmlx_macros::seq_items;
 
 // Re-export note module functions
 pub use types::{forkpar, forkseq, note_stream_to_event_stream, par, parmin, ser};
-pub use types::{NoteIterator, ReplContext, TimedMusicalEventIterator};
+pub use types::{NoteIterator, ReplContext, SongStream, TimedMusicalEventIterator};
 
 // --- Prelude for easy import ---
 pub mod prelude {
@@ -64,7 +64,7 @@ pub mod prelude {
 
     // Re-export note functions
     pub use super::{forkpar, forkseq, note_stream_to_event_stream, par, parmin, ser};
-    pub use super::{NoteIterator, TimedMusicalEventIterator};
+    pub use super::{NoteIterator, SongStream, TimedMusicalEventIterator};
 
     // Re-export all predefined notes
     pub use crate::note::*;
