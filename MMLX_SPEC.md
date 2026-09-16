@@ -118,11 +118,13 @@ song boundary since the generator itself is not an `Iterator`).
 decompiled songs use the bar-major form `ser!(bar!(track!(...) ...), ...)` —
 one `bar!` per bar, one channel `track!` per staff. `track!` is `ser!`
 spelled as a lane; `bar!` means `par!` plus compile-splitting (each bar
-outlines into its own closure with voice bindings threaded as args, so
+outlined into its own capturing closure, so
 codegen fans out while the source stays one readable score). Within a
 bar, notes align vertically by point in time (subdivided at event
 boundaries, content-sized columns, whitespace only — the stream
-resolves identically).
+resolves identically). Each column pads setup prefixes (`voice_*`,
+velocity) to a shared width first, so head notes start together even
+when their prefixes differ in length.
 
 Voice programs as variables: a `param!` setter block splices
 like any nested block — its params leak forward to following siblings
@@ -131,9 +133,9 @@ and splice it bare (`voice`, cloned inside the block), so a bar reads as
 program changes plus notes; even single-use programs bind (inline groups
 crowd bar lines) and small tweaks stay inline `param!` diffs. Recurring PSG velocity levels become `VEL_*` dynamics
 consts (nibble loudness as MIDI velocity); rarer ones stay literals. Bars emit channels in score order
-(melody on top, drums at the bottom) with one `par! // bar N` per bar, so
+(melody on top, drums at the bottom) with one `bar! // bar N` per bar, so
 parts align vertically like staff systems. Every sounding channel restates
-its program per bar (par branches reset ambient); rest-only bars carry bare
+its program per bar (track branches reset ambient); rest-only bars carry bare
 rests. Repeated phrases recurring 3+
 times with net savings extract to bar-local `seg_*()` functions (fitting
 their bar; crossing occurrences stay inline; single-call segs inline as
