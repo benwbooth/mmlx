@@ -93,10 +93,22 @@ impl Instrument for PsgVoice {
                 let channel = number(parameters, "sn_channel").map(|channel| channel as usize);
                 if patch.starts_with("sn-noise") || channel == Some(3) {
                     // Channel 3 is the noise slot (patches may also name it).
-                    let white = !patch.ends_with("periodic")
-                        && number(parameters, "sn_noise_mode").unwrap_or(0.0) < 1.5;
-                    let follow = patch.ends_with("tone3")
-                        || number(parameters, "sn_noise_mode").unwrap_or(0.0) > 1.5;
+                    // Mode: 0 white N/512, 1 periodic N/512, 2 tone-3 follow;
+                    // explicit patch suffixes win over the mode number.
+                    let mode = number(parameters, "sn_noise_mode").unwrap_or(0.0).round() as i32;
+                    let (white, follow) = if patch.ends_with("white") {
+                        (true, false)
+                    } else if patch.ends_with("periodic") {
+                        (false, false)
+                    } else if patch.ends_with("tone3") {
+                        (true, true)
+                    } else {
+                        match mode {
+                            1 => (false, false),
+                            2 => (true, true),
+                            _ => (true, false),
+                        }
+                    };
                     // Noise rate: fixed N/512, or clocked by tone 3.
                     let rate = if follow {
                         self.tone3_freq * 8.0

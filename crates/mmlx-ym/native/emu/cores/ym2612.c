@@ -515,7 +515,7 @@ int SLOT_SET(ym2612_ *YM2612, int Adr, unsigned char data)
          Al = Altern
          H  = Hold */
 
-      if (YM2612->Enable_SSGEG)
+      if (!YM2612->Enable_SSGEG)
         data = 0;
       if (data & 0x08)
         SL->SEG = data & 0x0F;

@@ -1,7 +1,7 @@
 //! Every chiptune voice renders audible audio and goes idle on NoteOff.
 
 use mmlx_chip::{GbDmg, Nes2A03};
-use mmlx_core::{Instrument, MusicalEventType, TimedMusicalEvent};
+use mmlx_core::{Instrument, MusicalEventType, ParamValue, TimedMusicalEvent};
 use std::collections::HashMap;
 
 fn note_on(id: u64, patch: &str) -> TimedMusicalEvent {
@@ -359,6 +359,20 @@ fn sn_channel_3_is_noise_and_leaves_tones_alone() {
     assert!(peak(&buffer) > 0.01, "drum audible");
     // White noise at N/512 flips its output bit ~half the 6991 steps/s.
     assert!(zcr(&buffer) > 0.03, "drum is noise-like");
+    // Periodic mode (sn_noise_mode=1): output flips each N/512 shift.
+    let mut synth = PsgVoice::new();
+    let mut noisy = psg_on(1, 60, 3.0);
+    if let MusicalEventType::NoteOn { parameters, .. } = &mut noisy.event {
+        parameters.insert("sn_noise_mode".to_string(), ParamValue::Number(1.0));
+    }
+    synth.process_event(&noisy, 44100);
+    let buffer = synth.generate_samples(22050, 44100);
+    let rate = zcr(&buffer);
+    assert!(peak(&buffer) > 0.01, "periodic drum audible");
+    assert!(
+        (rate - 3579545.0 / 512.0 / 44100.0).abs() < 0.03,
+        "periodic rate, zcr={rate}"
+    );
     // A sounding tone survives a drum hit on channel 3.
     let mut synth = PsgVoice::new();
     synth.process_event(&psg_on(1, 69, 2.0), 44100);

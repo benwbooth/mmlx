@@ -18,6 +18,7 @@ unsafe extern "C" {
     fn YM2612_Reset(chip: *mut c_void);
     fn YM2612_Write(chip: *mut c_void, adr: u8, data: u8);
     fn YM2612_Update(chip: *mut c_void, buf: *mut *mut i32, length: u32);
+    fn YM2612_SetOptions(chip: *mut c_void, flags: u32);
 }
 
 /// Genesis NTSC master clock driving the YM2612.
@@ -65,6 +66,9 @@ impl Ym2612 {
                 // that register writes dereference (skipping it segfaults on
                 // the first TL write via Special_Update).
                 YM2612_Reset(chip);
+                // Enable SSG-EG envelope shapes (flag bit 1); bit 0 stays
+                // off (we strip DC ourselves).
+                YM2612_SetOptions(chip, 0b10);
                 Some(Ym2612 {
                     chip,
                     rate,

@@ -267,3 +267,50 @@ fn steal_rekeys_on_program_change() {
     let second = voice.generate_samples((44100.0 * 0.5) as usize, 44100);
     assert!(rms_of(&second[11025..]) > 0.05, "stolen voice sounds");
 }
+
+fn ssg_params(ssg: f32) -> HashMap<String, ParamValue> {
+    let mut parameters = HashMap::from([
+        ("ym_algo".to_string(), ParamValue::Number(7.0)),
+        ("ym_feedback".to_string(), ParamValue::Number(0.0)),
+        ("ym_channel".to_string(), ParamValue::Number(0.0)),
+    ]);
+    for op in 1..=4 {
+        let (tl, ssg) = if op == 4 { (20.0, ssg) } else { (127.0, 0.0) };
+        for (key, value) in [
+            ("ar", 31.0),
+            ("dr", 31.0),
+            ("sr", 0.0),
+            ("sl", 15.0),
+            ("rr", 8.0),
+            ("tl", tl),
+            ("mult", 1.0),
+            ("ssg", ssg),
+        ] {
+            parameters.insert(format!("op{op}_{key}"), ParamValue::Number(value));
+        }
+    }
+    parameters
+}
+
+#[test]
+fn ssg_envelope_holds_where_plain_decay_dies() {
+    // SSG-EG attack-hold shape with a silent sustain target: plain decay
+    // must collapse while the SSG loop keeps sounding (and stays bounded).
+    // (Shape 0 ends low like a normal decay; only hold/alternate shapes
+    // sustain — the song's shape-0 notes are covered by lane A/B instead.)
+    use mmlx_ym::Ym2612Voice;
+    let render = |ssg: f32| {
+        let mut voice = Ym2612Voice::new(YM2612_CLOCK_NTSC, 44100).expect("chip");
+        voice.process_event(&note_on(1, 69, 0.0, ssg_params(ssg)), 44100);
+        voice.generate_samples(44100, 44100)
+    };
+    let plain = render(0.0);
+    let shaped = render(12.0);
+    let tail = |buffer: &[[f32; 2]]| rms_of(&buffer[buffer.len() / 2..]);
+    let peak = shaped
+        .iter()
+        .map(|f| f[0].abs().max(f[1].abs()))
+        .fold(0.0f32, f32::max);
+    assert!(tail(&shaped) > 5.0 * tail(&plain).max(1e-6), "ssg sustains");
+    assert!(peak < 0.5, "ssg stays bounded, peak={peak}");
+}
