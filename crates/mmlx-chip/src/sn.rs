@@ -78,12 +78,16 @@ impl Instrument for PsgVoice {
                     .map(String::as_str)
                     .unwrap_or("sn-square");
                 // DSL loudness 0-15 to attenuation gain (2 dB steps).
+                // Reference 0.0625 (-18dB vs full): calibrated so the
+                // Alisia Stage 1 loop PSG stem matches GME's (ours ran 8x
+                // hot at 0.5, clipping authentic data; FM already matches
+                // GME within 1 dB, so the gap is all PSG reference level).
                 let attenuation = 15.0
                     - number(parameters, "sn_volume")
                         .unwrap_or_else(|| *velocity * 15.0)
                         .round()
                         .clamp(0.0, 15.0);
-                let gain = 10.0f32.powf(-attenuation * 2.0 / 20.0) * 0.5;
+                let gain = 10.0f32.powf(-attenuation * 2.0 / 20.0) * 0.0625;
                 // sn_channel pins the lane: 0-2 tone slots, 3 noise slot,
                 // anything else round-robins the tone slots.
                 let channel = number(parameters, "sn_channel").map(|channel| channel as usize);
