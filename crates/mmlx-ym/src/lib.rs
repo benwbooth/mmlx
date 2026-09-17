@@ -335,16 +335,19 @@ impl Instrument for Ym2612Voice {
                     });
                 if let Some(channel) = channel {
                     let slot = channel as usize;
-                    // Glide marker from the decompiler (FNUM-split slides
-                    // and ties glide; keyed notes re-attack). Unmarked
-                    // streams fall back to the abutment heuristic below.
+                    // Explicit re-key from the decompiler (keyed notes
+                    // attack fresh). Anything else — tied glides, slides,
+                    // plain streams — glides only when actually continuous
+                    // (still sounding, or freed this same tick) with the
+                    // same program; otherwise it keys on. A glide from
+                    // silence is silence, so stale post-wrap history must
+                    // never suppress the attack: continuity is decided
+                    // from live occupant/freed state, not bare history.
                     let tied = match parameters.get("tied") {
                         Some(ParamValue::Number(value)) => value.round() as i64,
                         _ => -1,
                     };
-                    if tied == 1 && self.has_history[slot] {
-                        self.retune_midi(channel, *pitch_midi, parameters);
-                    } else if tied == 0 {
+                    if tied == 0 {
                         self.key_on(channel, *pitch_midi, parameters);
                         self.program[slot] = parameters.clone();
                         self.has_history[slot] = true;
@@ -405,9 +408,15 @@ impl Instrument for Ym2612Voice {
         let channels: Vec<u8> = self.active.drain().map(|(_, channel)| channel).collect();
         for channel in channels {
             self.key_off(channel);
-            let slot = channel as usize;
-            self.occupant[slot] = None;
-            self.freed_at[slot] = f32::NEG_INFINITY;
         }
+        // Fresh-body semantics on EVERY slot (not just released ones):
+        // drop occupant/program memory too, so the next body's tied
+        // openers key on instead of gliding from a dead channel with a
+        // stale patch (audibly wrong timbres and missing attacks on
+        // every loop wrap). Envelopes still release naturally.
+        self.occupant = [None; 6];
+        self.program = Default::default();
+        self.has_history = [false; 6];
+        self.freed_at = [f32::NEG_INFINITY; 6];
     }
 }

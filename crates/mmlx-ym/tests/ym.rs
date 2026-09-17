@@ -372,3 +372,29 @@ fn tied_zero_forces_reattack_on_abutment() {
         "retuned to E5"
     );
 }
+
+#[test]
+fn wrap_tied_opener_rekeys_instead_of_silence() {
+    // Loop wrap releases voices but keeps no program memory: a tied
+    // opener on the fresh body must key on (audible attack), never
+    // glide from the dead channel (which stays silent for the phrase).
+    use mmlx_core::Instrument;
+    use mmlx_ym::Ym2612Voice;
+    let prog = voice_params(0.0);
+    let mut voice = Ym2612Voice::new(YM2612_CLOCK_NTSC, 44100).expect("chip");
+    voice.process_event(&note_on(1, 69, 0.0, prog.clone()), 44100);
+    let _ = voice.generate_samples((44100.0 * 0.5) as usize, 44100);
+    voice.process_event(&note_off(1, 0.5), 44100);
+    voice.all_notes_off();
+    voice.process_event(&note_on(2, 76, 0.5, with_tied(prog, 1.0)), 44100);
+    let second = voice.generate_samples((44100.0 * 0.5) as usize, 44100);
+    let attack = rms_of(&second[0..4410]);
+    assert!(
+        attack > 0.05,
+        "wrap opener re-attacks, attack rms={attack:.4}"
+    );
+    assert!(
+        (crossings_hz(&second[882..2646]) - 659.0).abs() < 60.0,
+        "wrap opener sounds E5"
+    );
+}
