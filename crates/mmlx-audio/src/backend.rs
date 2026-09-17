@@ -73,7 +73,7 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, MuteFlag,
     let mut instruments_map_inner: HashMap<String, Arc<Mutex<dyn Instrument>>> = HashMap::from([
         (
             "basic_synth".to_string(),
-            Arc::new(Mutex::new(BasicSynth::new(default_sample_rate)))
+            Arc::new(Mutex::new(BasicSynth::new(default_sample_rate as usize)))
                 as Arc<Mutex<dyn Instrument>>,
         ),
         (
@@ -106,7 +106,7 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, MuteFlag,
         ),
     ]);
     // Exact YM2612 core (GENS): silent skip on allocation failure.
-    match mmlx_ym::Ym2612Voice::new(mmlx_ym::YM2612_CLOCK_NTSC, default_sample_rate as u32) {
+    match mmlx_ym::Ym2612Voice::new(mmlx_ym::YM2612_CLOCK_NTSC, default_sample_rate) {
         Some(voice) => {
             instruments_map_inner.insert(
                 "ym".to_string(),
