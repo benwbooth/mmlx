@@ -138,6 +138,7 @@ fn main() {
                             && key != "velocity"
                             && key != "time_note"
                             && key != "time_beat"
+                            && key != "tied"
                     })
                     .collect();
                 // FM loudness lives in TL params; velocity only matters for PSG.

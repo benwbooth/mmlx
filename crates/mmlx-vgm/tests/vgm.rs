@@ -189,6 +189,7 @@ fn bar_columns_align_by_time() {
             velocity: 1.0,
             params: Vec::new(),
             approx: false,
+            tied: false,
         }
     }
     let lead = vec![note(0, 32, 60), note(32, 32, 62)];
@@ -241,6 +242,7 @@ fn repeat_elision_does_not_shift_columns() {
             velocity: 1.0,
             params: Vec::new(),
             approx: false,
+            tied: false,
         }
     }
     let lead = vec![note(0, 32, 60), note(32, 32, 60), note(64, 32, 62)];

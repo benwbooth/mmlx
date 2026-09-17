@@ -29,6 +29,7 @@ static VALID_PARAM_KEYS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "pitch",
         "note", // Add pitch and note keys for envelope targets
         "gate", // Gate parameter
+        "tied", // Glide marker: FNUM-split continuations hold pitch without re-attack
         "pan",
         "bus",
         "send",     // Mixer: stereo pan + routing (Phase 5 text DAW)

@@ -152,6 +152,9 @@ pub struct TrackNote {
     pub params: Vec<(String, f32)>,
     /// True when an approximation was used (SR slide, SSG-EG shape, ...).
     pub approx: bool,
+    /// True when this note continues sounding audio (FNUM slide split,
+    /// tie): glide the pitch instead of re-attacking.
+    pub tied: bool,
 }
 
 /// One operator row in FILE order (S1/S3/S2/S4 per Plutiedev).
@@ -175,7 +178,7 @@ struct FmChannel {
     pan: u8,
     fnum: u16,
     block: u8,
-    active: Option<(u64, u8, Vec<(String, f32)>, bool)>,
+    active: Option<(u64, u8, Vec<(String, f32)>, bool, bool)>,
 }
 
 /// FNUM/block to frequency (core-calibrated relation).
@@ -244,7 +247,7 @@ fn merged_start(
 
 /// Close the sounding note on `channel` (if any) at sample `at`.
 fn close_note(channels: &mut [FmChannel; 6], notes: &mut Vec<TrackNote>, channel: usize, at: u64) {
-    if let Some((start, midi, params, approx)) = channels[channel].active.take() {
+    if let Some((start, midi, params, approx, tied)) = channels[channel].active.take() {
         if at > start {
             notes.push(TrackNote {
                 start,
@@ -254,6 +257,7 @@ fn close_note(channels: &mut [FmChannel; 6], notes: &mut Vec<TrackNote>, channel
                 velocity: 1.0,
                 params,
                 approx,
+                tied,
             });
         }
     }
@@ -272,7 +276,7 @@ fn split_on_pitch(
     let sounding = channels[channel]
         .active
         .as_ref()
-        .map(|(_, midi, _, _)| *midi);
+        .map(|(_, midi, _, _, _)| *midi);
     let freq = fnum_freq(channels[channel].fnum, channels[channel].block, clock);
     let midi = freq_midi(freq);
     if sounding == Some(midi) {
@@ -295,7 +299,7 @@ fn split_note(
     if channels[channel].active.is_none() {
         return;
     }
-    if let Some((start, midi, params, approx)) = channels[channel].active.take() {
+    if let Some((start, midi, params, approx, tied)) = channels[channel].active.take() {
         if at > start {
             notes.push(TrackNote {
                 start,
@@ -305,13 +309,14 @@ fn split_note(
                 velocity: 1.0,
                 params,
                 approx,
+                tied,
             });
         }
     }
     let freq = fnum_freq(channels[channel].fnum, channels[channel].block, clock);
     let (params, approx) = fm_snapshot(&channels[channel]);
     let (start, approx) = merged_start(notes, channel as u8, at, 1.0, &params, approx);
-    channels[channel].active = Some((start, freq_midi(freq), params, approx));
+    channels[channel].active = Some((start, freq_midi(freq), params, approx, true));
 }
 
 /// Track the six FM channels. Returns notes in time order.
@@ -340,7 +345,7 @@ pub fn track_fm(commands: &[(usize, u64, Command)], clock: u32, end_sample: u64)
                         let (params, approx) = fm_snapshot(&channels[target]);
                         let (start, approx) =
                             merged_start(&mut notes, target as u8, *sample, 1.0, &params, approx);
-                        channels[target].active = Some((start, midi, params, approx));
+                        channels[target].active = Some((start, midi, params, approx, false));
                     }
                 }
                 0xA0..=0xA2 => {
@@ -469,6 +474,7 @@ pub fn track_psg(commands: &[(usize, u64, Command)], end_sample: u64) -> Vec<Tra
                     velocity,
                     params,
                     approx: false,
+                    tied: false,
                 });
             }
         }
@@ -1123,6 +1129,7 @@ pub fn emit_voice(
     let mut cursor = 0u64;
     let mut setup: HashMap<String, f32> = HashMap::new();
     let mut setup_vel: Option<f32> = None;
+    let mut setup_tied: Option<bool> = None;
     let mut first = true;
     for note in &notes {
         let start_tick = (note.start + tick / 2) / tick;
@@ -1198,6 +1205,23 @@ pub fn emit_voice(
                 }
                 setup_vel = Some(midi_vel);
             }
+        }
+        // Glide marker for FNUM-split continuations (slides, ties): one
+        // param per run so the voice glides instead of re-attacking. Kept
+        // beside setup (never inside voice programs); absence means attack.
+        if setup_tied != Some(note.tied) {
+            if note.tied {
+                items.push("param!(tied=1)".to_string());
+                item_lens.push(0);
+                setup.insert("tied".to_string(), 1.0);
+                item_setups.push(setup.clone());
+            } else if setup_tied == Some(true) {
+                items.push("param!(tied=0)".to_string());
+                item_lens.push(0);
+                setup.insert("tied".to_string(), 0.0);
+                item_setups.push(setup.clone());
+            }
+            setup_tied = Some(note.tied);
         }
         let (name, octave) = midi_name(note.midi);
         let durations = ticks_to_durations(dur_ticks);
@@ -1843,10 +1867,11 @@ fn restate_bar(
     if start_setup.is_empty() {
         return Vec::new();
     }
-    // Snapshot pairs are the setup minus velocity (instrument rides the key).
+    // Snapshot pairs are the setup minus velocity and the tied glide
+    // marker (both ride inline, never inside voice programs).
     let mut snapshot: Vec<(String, f32)> = start_setup
         .iter()
-        .filter(|(key, _)| key.as_str() != "velocity")
+        .filter(|(key, _)| key.as_str() != "velocity" && key.as_str() != "tied")
         .map(|(key, value)| (key.clone(), *value))
         .collect();
     snapshot.sort_by(|a, b| a.0.cmp(&b.0));
