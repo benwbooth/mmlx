@@ -314,3 +314,61 @@ fn sid_filter_shapes_tone() {
         );
     }
 }
+
+#[test]
+fn sn_channel_3_is_noise_and_leaves_tones_alone() {
+    // Regression: sn_channel=3 with no noise patch fell into `channel % 3`
+    // and stomped tone slot 0 with a midi-60 square — sparse off-key stabs
+    // over the arp that also killed the tone on NoteOff. Per the voice
+    // docs, 3 is the noise slot.
+    use mmlx_chip::PsgVoice;
+    use mmlx_core::ParamValue;
+    fn psg_on(id: u64, midi: u8, channel: f32) -> TimedMusicalEvent {
+        TimedMusicalEvent {
+            time_seconds: 0.0,
+            real_duration: 0.5,
+            event: MusicalEventType::NoteOn {
+                note_id: id,
+                pitch_midi: midi,
+                velocity: 0.9,
+                parameters: HashMap::from([(
+                    "sn_channel".to_string(),
+                    ParamValue::Number(channel),
+                )]),
+                attack_envelope: None,
+                sustain_envelope: None,
+                release_envelope: None,
+                other_envelopes: Vec::new(),
+            },
+            instrument_name: "psg".to_string(),
+        }
+    }
+    fn zcr(buffer: &[[f32; 2]]) -> f32 {
+        let mut crossings = 0u32;
+        for w in buffer.windows(2) {
+            if (w[0][0] < 0.0) != (w[1][0] < 0.0) {
+                crossings += 1;
+            }
+        }
+        crossings as f32 / buffer.len() as f32
+    }
+    // Drums alone: white-ish noise, not a 261 Hz square (zcr ~0.012).
+    let mut synth = PsgVoice::new();
+    synth.process_event(&psg_on(1, 60, 3.0), 44100);
+    let buffer = synth.generate_samples(22050, 44100);
+    assert!(peak(&buffer) > 0.01, "drum audible");
+    // White noise at N/512 flips its output bit ~half the 6991 steps/s.
+    assert!(zcr(&buffer) > 0.03, "drum is noise-like");
+    // A sounding tone survives a drum hit on channel 3.
+    let mut synth = PsgVoice::new();
+    synth.process_event(&psg_on(1, 69, 2.0), 44100);
+    synth.process_event(&psg_on(2, 60, 3.0), 44100);
+    synth.process_event(&note_off(2), 44100);
+    let buffer = synth.generate_samples(22050, 44100);
+    assert!(peak(&buffer) > 0.01, "tone survives drum");
+    let rate = zcr(&buffer);
+    assert!(
+        (rate - 2.0 * 440.0 / 44100.0).abs() < 0.005,
+        "tone still A440, zcr={rate}"
+    );
+}

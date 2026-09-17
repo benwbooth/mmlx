@@ -9,6 +9,8 @@ CodeLens buttons:
   complete note (`c4e`, `rq`) previews it immediately.
 - `▶ §N` lenses play top-level `ser!`/`par!` sections alone (self-contained
   sections only — references to fn locals fail with a server error).
+- `▶ barN` lenses above every `bar!` audition that bar solo (voice `let`
+  bindings ride along, same mechanism as sections).
 
 ## How it works
 

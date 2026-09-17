@@ -84,7 +84,11 @@ impl Instrument for PsgVoice {
                         .round()
                         .clamp(0.0, 15.0);
                 let gain = 10.0f32.powf(-attenuation * 2.0 / 20.0) * 0.5;
-                if patch.starts_with("sn-noise") {
+                // sn_channel pins the lane: 0-2 tone slots, 3 noise slot,
+                // anything else round-robins the tone slots.
+                let channel = number(parameters, "sn_channel").map(|channel| channel as usize);
+                if patch.starts_with("sn-noise") || channel == Some(3) {
+                    // Channel 3 is the noise slot (patches may also name it).
                     let white = !patch.ends_with("periodic")
                         && number(parameters, "sn_noise_mode").unwrap_or(0.0) < 1.5;
                     let follow = patch.ends_with("tone3")
@@ -105,18 +109,19 @@ impl Instrument for PsgVoice {
                         out: 0.4,
                     });
                 } else {
-                    let channel = number(parameters, "sn_channel")
-                        .map(|channel| channel as usize % 3)
-                        .unwrap_or_else(|| {
-                            let channel = self.next_tone;
+                    let slot = match channel {
+                        Some(s @ 0..=2) => s,
+                        _ => {
+                            let slot = self.next_tone;
                             self.next_tone = (self.next_tone + 1) % 3;
-                            channel
-                        });
+                            slot
+                        }
+                    };
                     let freq = midi_freq(*pitch_midi);
-                    if channel == 2 {
+                    if slot == 2 {
                         self.tone3_freq = freq;
                     }
-                    self.tones[channel] = Some(SnTone {
+                    self.tones[slot] = Some(SnTone {
                         id: *note_id,
                         freq,
                         gain,

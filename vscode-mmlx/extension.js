@@ -64,13 +64,14 @@ async function structure(doc) {
   if (hit && hit.version === doc.version) return hit.val;
 
   const { parser, query } = await ts;
-  const tree = parser.parse(doc.getText());
+  const text = doc.getText();
+  const tree = parser.parse(text);
   const fns = [];
   for (const m of query.matches(tree.rootNode)) {
     const cap = {};
     for (const c of m.captures) cap[c.name] = c.node;
     if (cap.name && cap.body && cap.ret && SONG_RET.test(cap.ret.text)) {
-      fns.push({ name: cap.name.text, nameAt: cap.name.startIndex, bodyA: cap.body.startIndex, bodyB: cap.body.endIndex, sections: [] });
+      fns.push({ name: cap.name.text, nameAt: cap.name.startIndex, bodyA: cap.body.startIndex, bodyB: cap.body.endIndex, sections: [], bars: [] });
     }
   }
   fns.sort((a, b) => a.nameAt - b.nameAt);
@@ -102,9 +103,69 @@ async function structure(doc) {
     });
     invocs.sort((a, b) => a.startIndex - b.startIndex);
     for (const node of invocs) fn.sections.push({ start: node.startIndex, end: node.endIndex });
+    // Bars: tree-sitter keeps macro bodies (gen! soup) opaque, so scan the
+    // fn body text for bar! invocations and balance to the close paren.
+    fn.bars = scanMacroSpans(text.slice(fn.bodyA, fn.bodyB), fn.bodyA, "bar");
   }
   cache.set(key, { version: doc.version, val: fns });
   return fns;
+}
+
+// Absolute spans of every `name!(...)` / `name!([...])` invocation in text.
+// Bracket/string/comment aware (mirrors scanItems); [] form included.
+function scanMacroSpans(text, base, name) {
+  const spans = [];
+  const re = new RegExp(`\\b${name}\\s*!\\s*\\(`, "g");
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    let i = m.index + m[0].length;
+    while (i < text.length && /\s/.test(text[i])) i++;
+    const bracket = text[i] === "[";
+    if (bracket) i++;
+    let depth = 0;
+    let mode = null;
+    for (; i < text.length; i++) {
+      const ch = text[i];
+      const nx = i + 1 < text.length ? text[i + 1] : "";
+      if (mode === "str") {
+        if (ch === "\\") i++;
+        else if (ch === '"') mode = null;
+      } else if (mode === "chr") {
+        if (ch === "\\") i++;
+        else if (ch === "'") mode = null;
+      } else if (mode === "line") {
+        if (ch === "\n") mode = null;
+      } else if (mode === "block") {
+        if (ch === "*" && nx === "/") { mode = null; i++; }
+      } else if (ch === '"') {
+        mode = "str";
+      } else if (ch === "'") {
+        mode = "chr";
+      } else if (ch === "/" && nx === "/") {
+        mode = "line";
+      } else if (ch === "/" && nx === "*") {
+        mode = "block";
+      } else if (ch === "[" || ch === "(" || ch === "{") {
+        depth++;
+      } else if (ch === "]" || ch === ")" || ch === "}") {
+        if (depth === 0) {
+          if ((bracket && ch === "]") || (!bracket && ch === ")")) {
+            // Bracket form: consume the closing paren too.
+            let end = i + 1;
+            if (bracket) {
+              while (end < text.length && /\s/.test(text[end])) end++;
+              if (text[end] !== ")") continue;
+              end++;
+            }
+            spans.push({ start: base + m.index, end: base + end });
+          }
+          break;
+        }
+        depth--;
+      }
+    }
+  }
+  return spans;
 }
 
 // Complete sounding tokens: pitched `c4e`/`fs5hdd`/`bb_1t`, rests `rq`.
@@ -252,7 +313,7 @@ async function applyHighlight(ordinal, lane) {
   const ed = editorFor(playing.doc);
   if (!ed) return;
   let el = null;
-  if (lane && playing.section == null) {
+  if (lane && playing.section == null && playing.bar == null) {
     // Exact lane path: the server pins ym_channel/sn_channel per lane,
     // so the lane ordinal indexes pitched notes with repeat!-expansion.
     // Generator songs restart ordinals per body; the cycle picks intro
@@ -268,6 +329,9 @@ async function applyHighlight(ordinal, lane) {
     if (playing.section != null) {
       // Section play: map the ordinal into the section's own source spans.
       els = await sectionElements(playing.doc, playing.sectionStart, playing.sectionSrc);
+    } else if (playing.bar != null) {
+      // Bar play: same mapping over the bar's own source spans.
+      els = await sectionElements(playing.doc, playing.barStart, playing.barSrc);
     } else {
       els = await songElements(playing.doc, playing.name);
     }
@@ -826,6 +890,65 @@ async function playSection(doc, name, index) {
   lensChanged.fire();
 }
 
+function isCurrentBar(doc, name, bar) {
+  return (
+    playing &&
+    playing.name === name &&
+    playing.doc.uri.toString() === doc.uri.toString() &&
+    playing.bar === bar
+  );
+}
+
+// Bars play exactly like sections: submit voice lets + the bar's source
+// text. A bar is one lane's slice, so it auditions solo; the loop toggle
+// loops it.
+async function playBar(doc, name, index) {
+  ensureServer(doc);
+  const fns = await structure(doc);
+  const fn = fns.find((f) => f.name === name);
+  const bar = fn && (fn.bars || [])[index];
+  if (!bar) return;
+  const bodyText = doc.getText(new vscode.Range(doc.positionAt(fn.bodyA), doc.positionAt(fn.bodyB)));
+  const lets = [...bodyText.matchAll(/^[ \t]*let\s+\w+\s*:[^;\n]+;[ \t]*$/gm)]
+    .map((m) => m[0].trim().replace(/\s+/g, " "))
+    .join(" ");
+  const src = doc.getText(new vscode.Range(doc.positionAt(bar.start), doc.positionAt(bar.end))).replace(/\s+/g, " ");
+  out.appendLine(`▶ ${name} bar${index + 1}`);
+  playing = { doc, name, section: null, bar: index, barStart: bar.start, barSrc: src, paused: false, recent: [] };
+  playing.playWall = Date.now();
+  vscode.commands.executeCommand("setContext", "mmlxPlaying", true);
+  send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
+  const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
+  fs.writeFileSync(tmp, doc.getText());
+  send(`load ${tmp}`);
+  send(`play { ${lets} ${src} }`);
+  markBusy("loading…");
+  lensChanged.fire();
+}
+
+async function playBarToggle(doc, name, bar) {
+  if (isCurrentBar(doc, name, bar)) {
+    playing.paused = !playing.paused;
+    if (playing.paused) {
+      playing.frozenText = doc.getText();
+      send("stop");
+    } else if (playing.frozenText !== undefined && playing.frozenText !== doc.getText()) {
+      playing.frozenText = undefined;
+      const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
+      fs.writeFileSync(tmp, doc.getText());
+      send(`load ${tmp}`);
+      send(`reload`);
+      markBusy("reloading…");
+    } else {
+      playing.frozenText = undefined;
+      send("resume");
+    }
+    lensChanged.fire();
+  } else {
+    await playBar(doc, name, bar);
+  }
+}
+
 function writeAndSend() {
   if (!playing) return;
   const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
@@ -906,6 +1029,11 @@ class Lenses {
         const scur = isCurrent(doc, fn.name, k);
         lenses.push(new vscode.CodeLens(sr, { title: scur && !playing.paused ? `⏸ §${k + 1}` : `▶ §${k + 1}`, command: "mmlx.playSection", arguments: [doc, fn.name, k] }));
       });
+      (fn.bars || []).forEach((bar, k) => {
+        const br = at(bar.start);
+        const bcur = isCurrentBar(doc, fn.name, k);
+        lenses.push(new vscode.CodeLens(br, { title: bcur && !playing.paused ? `⏸ bar${k + 1}` : `▶ bar${k + 1}`, command: "mmlx.playBar", arguments: [doc, fn.name, k] }));
+      });
     }
     return lenses;
   }
@@ -930,6 +1058,7 @@ function activate(ctx) {
       playToggle(doc, name);
     }),
     vscode.commands.registerCommand("mmlx.playSection", (doc, name, section) => playToggle(doc, name, section)),
+    vscode.commands.registerCommand("mmlx.playBar", (doc, name, bar) => playBarToggle(doc, name, bar)),
     vscode.commands.registerCommand("mmlx.stop", () => {
       send("reset");
       const ed = playing ? editorFor(playing.doc) : vscode.window.activeTextEditor;
