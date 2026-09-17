@@ -4,7 +4,7 @@
 //!
 //! Usage: `MMLX_GME_LIB=/path/to/libgme.so.0 cargo run -p mmlx-vgm --example gmeref -- <song.vgm> <seconds> <out_prefix>`
 //! Writes `<out_prefix>_ref.wav` plus the same stats fmstats prints.
-use mmlx_track::render_gme;
+use mmlx_track::render_gme_muted;
 
 fn stats(name: &str, samples: &[[f32; 2]], rate: u32) {
     let n = samples.len().max(1) as f32;
@@ -83,13 +83,31 @@ fn write_wav(path: &str, samples: &[[f32; 2]], rate: u32) {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() != 4 {
-        eprintln!("usage: gmeref <song.vgm> <seconds> <out_prefix>");
+    if args.len() < 4 || args.len() > 5 {
+        eprintln!("usage: gmeref <song.vgm> <seconds> <out_prefix> [mute_mask]");
         std::process::exit(2);
     }
     let data = std::fs::read(&args[1]).expect("read VGM");
     let seconds: f32 = args[2].parse().expect("seconds");
-    let out = render_gme("vgm", &data, 0, 44100, seconds).expect("gme render");
+    let mute_mask: i32 = args
+        .get(4)
+        .map(|mask| {
+            let mask = mask.trim();
+            if let Some(hex) = mask.strip_prefix("0x") {
+                i32::from_str_radix(hex, 16).expect("mute mask")
+            } else {
+                mask.parse().expect("mute mask")
+            }
+        })
+        .unwrap_or(0);
+    for (i, name) in mmlx_track::gme_voice_names("vgm", &data)
+        .expect("voice names")
+        .iter()
+        .enumerate()
+    {
+        println!("voice {i}: {name}");
+    }
+    let out = render_gme_muted("vgm", &data, 0, 44100, seconds, mute_mask).expect("gme render");
     stats("ref ", &out, 44100);
     write_wav(&format!("{}_ref.wav", args[3]), &out, 44100);
     println!("wrote {}_ref.wav", args[3]);

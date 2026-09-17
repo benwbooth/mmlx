@@ -131,6 +131,15 @@ fn main() {
         .expect("song body")
         .event_stream(0.0)
         .collect();
+    // The stream emits lane-major runs (43% out of order); the live server
+    // sorts per body before queueing, so audit renders must sort too —
+    // otherwise the break-on-future drain drops whole spans to silence.
+    let mut loop_events = loop_events;
+    loop_events.sort_by(|a, b| {
+        a.time_seconds
+            .partial_cmp(&b.time_seconds)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let end = loop_events
         .iter()
         .map(|event| event.time_seconds + event.real_duration)

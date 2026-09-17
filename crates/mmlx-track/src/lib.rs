@@ -91,6 +91,7 @@ impl Gme {
         track: i32,
         sample_rate: u32,
         seconds: f32,
+        mute_mask: i32,
     ) -> Result<Vec<[f32; 2]>, TrackError> {
         unsafe {
             let emu_type = self.emu_type(emu_extension.as_bytes())?;
@@ -118,6 +119,13 @@ impl Gme {
                 .get(b"gme_start_track")
                 .map_err(|_| TrackError::MissingSymbol("gme_start_track".into()))?;
             gme_check(start(emu, track as c_int))?;
+            if mute_mask != 0 {
+                let mute: Symbol<unsafe extern "C" fn(*mut c_void, c_int)> = self
+                    .lib
+                    .get(b"gme_mute_voices")
+                    .map_err(|_| TrackError::MissingSymbol("gme_mute_voices".into()))?;
+                mute(emu, mute_mask as c_int);
+            }
             let play: Symbol<unsafe extern "C" fn(*mut c_void, c_int, *mut i16) -> *const c_char> =
                 self.lib
                     .get(b"gme_play")
@@ -136,6 +144,51 @@ impl Gme {
                 .collect())
         }
     }
+
+    /// Voice names for a chip log (discovers FM vs PSG indices).
+    fn voice_names(&self, emu_extension: &str, data: &[u8]) -> Result<Vec<String>, TrackError> {
+        unsafe {
+            let emu_type = self.emu_type(emu_extension.as_bytes())?;
+            let new_emu: Symbol<unsafe extern "C" fn(*const c_void, c_int) -> *mut c_void> = self
+                .lib
+                .get(b"gme_new_emu")
+                .map_err(|_| TrackError::MissingSymbol("gme_new_emu".into()))?;
+            let emu = new_emu(emu_type, 44100);
+            if emu.is_null() {
+                return Err(TrackError::Backend("gme_new_emu failed".into()));
+            }
+            let load: Symbol<
+                unsafe extern "C" fn(*mut c_void, *const c_void, c_long) -> *const c_char,
+            > = self
+                .lib
+                .get(b"gme_load_data")
+                .map_err(|_| TrackError::MissingSymbol("gme_load_data".into()))?;
+            gme_check(load(
+                emu,
+                data.as_ptr() as *const c_void,
+                data.len() as c_long,
+            ))?;
+            let count: Symbol<unsafe extern "C" fn(*const c_void) -> c_int> = self
+                .lib
+                .get(b"gme_voice_count")
+                .map_err(|_| TrackError::MissingSymbol("gme_voice_count".into()))?;
+            let name_of: Symbol<unsafe extern "C" fn(*const c_void, c_int) -> *const c_char> = self
+                .lib
+                .get(b"gme_voice_name")
+                .map_err(|_| TrackError::MissingSymbol("gme_voice_name".into()))?;
+            let delete: Symbol<unsafe extern "C" fn(*mut c_void)> = self
+                .lib
+                .get(b"gme_delete")
+                .map_err(|_| TrackError::MissingSymbol("gme_delete".into()))?;
+            let mut names = Vec::new();
+            for i in 0..count(emu) {
+                let raw = name_of(emu, i);
+                names.push(CStr::from_ptr(raw).to_string_lossy().into_owned());
+            }
+            delete(emu);
+            Ok(names)
+        }
+    }
 }
 
 /// Render a GME chip log (`emu_extension` like `"nsf"`, `"ay"`, `"spc"`)
@@ -147,7 +200,24 @@ pub fn render_gme(
     sample_rate: u32,
     seconds: f32,
 ) -> Result<Vec<[f32; 2]>, TrackError> {
-    Gme::load()?.render(emu_extension, data, track, sample_rate, seconds)
+    Gme::load()?.render(emu_extension, data, track, sample_rate, seconds, 0)
+}
+
+/// Voice names for a GME chip log (discovers FM vs PSG indices).
+pub fn gme_voice_names(emu_extension: &str, data: &[u8]) -> Result<Vec<String>, TrackError> {
+    Gme::load()?.voice_names(emu_extension, data)
+}
+
+/// Render with a voice bitmask muted (`gme_mute_voices`) for stem A/B.
+pub fn render_gme_muted(
+    emu_extension: &str,
+    data: &[u8],
+    track: i32,
+    sample_rate: u32,
+    seconds: f32,
+    mute_mask: i32,
+) -> Result<Vec<[f32; 2]>, TrackError> {
+    Gme::load()?.render(emu_extension, data, track, sample_rate, seconds, mute_mask)
 }
 
 // --- libopenmpt ---
