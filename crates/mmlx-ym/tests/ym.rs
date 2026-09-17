@@ -158,3 +158,112 @@ fn raw_register_writes_work() {
         .fold(0.0f32, f32::max);
     assert!(peak < 0.01, "silent after reset, peak {peak}");
 }
+
+fn voice_params(tl4: f32) -> HashMap<String, ParamValue> {
+    let mut parameters = HashMap::from([
+        ("ym_algo".to_string(), ParamValue::Number(7.0)),
+        ("ym_feedback".to_string(), ParamValue::Number(0.0)),
+        ("ym_channel".to_string(), ParamValue::Number(0.0)),
+    ]);
+    for op in 1..=4 {
+        let tl = if op == 4 { tl4 } else { 127.0 };
+        for (key, value) in [
+            ("ar", 31.0),
+            ("dr", 10.0),
+            ("sr", 0.0),
+            ("sl", 15.0),
+            ("rr", 8.0),
+            ("tl", tl),
+            ("mult", 1.0),
+        ] {
+            parameters.insert(format!("op{op}_{key}"), ParamValue::Number(value));
+        }
+    }
+    parameters
+}
+
+fn note_on(
+    id: u64,
+    midi: u8,
+    time: f32,
+    parameters: HashMap<String, ParamValue>,
+) -> TimedMusicalEvent {
+    TimedMusicalEvent {
+        time_seconds: time,
+        real_duration: 0.5,
+        event: MusicalEventType::NoteOn {
+            note_id: id,
+            pitch_midi: midi,
+            velocity: 1.0,
+            parameters,
+            attack_envelope: None,
+            sustain_envelope: None,
+            release_envelope: None,
+            other_envelopes: Vec::new(),
+        },
+        instrument_name: "ym".to_string(),
+    }
+}
+
+fn note_off(id: u64, time: f32) -> TimedMusicalEvent {
+    TimedMusicalEvent {
+        time_seconds: time,
+        real_duration: 0.0,
+        event: MusicalEventType::NoteOff { note_id: id },
+        instrument_name: "ym".to_string(),
+    }
+}
+
+fn rms_of(samples: &[[f32; 2]]) -> f32 {
+    (samples.iter().map(|f| (f[0] as f64).powi(2)).sum::<f64>() / samples.len() as f64).sqrt()
+        as f32
+}
+
+fn crossings_hz(samples: &[[f32; 2]]) -> f32 {
+    let mut crossings = 0u32;
+    for w in samples.windows(2) {
+        if (w[0][0] < 0.0) != (w[1][0] < 0.0) {
+            crossings += 1;
+        }
+    }
+    crossings as f32 / (samples.len() as f32 / 44100.0) / 2.0
+}
+
+#[test]
+fn legato_glides_abutting_same_voice_without_reattack() {
+    // Abutting same-program notes (pitch slides, ties) must glide: the
+    // pitch retunes but the envelope keeps decaying. Re-keying restarts
+    // the attack, which machine-guns slides into blips.
+    use mmlx_ym::Ym2612Voice;
+    let prog = voice_params(0.0);
+    let mut voice = Ym2612Voice::new(YM2612_CLOCK_NTSC, 44100).expect("chip");
+    voice.process_event(&note_on(1, 69, 0.0, prog.clone()), 44100);
+    let mut first = voice.generate_samples((44100.0 * 0.5) as usize, 44100);
+    voice.process_event(&note_off(1, 0.5), 44100);
+    voice.process_event(&note_on(2, 76, 0.5, prog), 44100);
+    first.extend(voice.generate_samples((44100.0 * 0.5) as usize, 44100));
+    let mid = rms_of(&first[13230..19845]);
+    let late = rms_of(&first[30870..39690]);
+    assert!(
+        late < mid * 0.7,
+        "envelope keeps decaying, mid={mid:.4} late={late:.4}"
+    );
+    assert!(
+        (crossings_hz(&first[22932..26460]) - 659.0).abs() < 40.0,
+        "retuned to E5"
+    );
+}
+
+#[test]
+fn steal_rekeys_on_program_change() {
+    // Same tick, different program (voice steal): must fully re-key, or
+    // the new note inherits the old attenuation and stays silent.
+    use mmlx_ym::Ym2612Voice;
+    let mut voice = Ym2612Voice::new(YM2612_CLOCK_NTSC, 44100).expect("chip");
+    voice.process_event(&note_on(1, 69, 0.0, voice_params(127.0)), 44100);
+    let _ = voice.generate_samples((44100.0 * 0.3) as usize, 44100);
+    voice.process_event(&note_off(1, 0.3), 44100);
+    voice.process_event(&note_on(2, 69, 0.3, voice_params(0.0)), 44100);
+    let second = voice.generate_samples((44100.0 * 0.5) as usize, 44100);
+    assert!(rms_of(&second[11025..]) > 0.05, "stolen voice sounds");
+}

@@ -173,7 +173,18 @@ pub struct Ym2612Voice {
     chip: Ym2612,
     /// note_id -> chip channel (0-5).
     active: HashMap<u64, u8>,
+    /// Per-channel legato state: current occupant, last full program, and
+    /// when it was last freed. An abutting same-program NoteOn glides
+    /// (retune only) instead of re-keying, so pitch slides render smooth
+    /// instead of machine-gunning the envelope.
+    occupant: [Option<u64>; 6],
+    program: [HashMap<String, ParamValue>; 6],
+    freed_at: [f32; 6],
+    has_history: [bool; 6],
 }
+
+/// Notes abutting within ~4 samples count as legato (same tick grid).
+const LEGATO_EPS: f32 = 0.0001;
 
 // The chip is only touched from the render path.
 unsafe impl Send for Ym2612Voice {}
@@ -184,6 +195,10 @@ impl Ym2612Voice {
         Ym2612::new(clock, rate).map(|chip| Ym2612Voice {
             chip,
             active: HashMap::new(),
+            occupant: [None; 6],
+            program: Default::default(),
+            freed_at: [f32::NEG_INFINITY; 6],
+            has_history: [false; 6],
         })
     }
 
@@ -278,12 +293,31 @@ impl Ym2612Voice {
             ),
             _ => midi_to_fnum(midi, YM2612_CLOCK_NTSC),
         };
-        self.chip
-            .write(port, 0xA4 + base, (block << 3) | ((fnum >> 8) as u8 & 0x07));
-        self.chip.write(port, 0xA0 + base, (fnum & 0xFF) as u8);
+        self.retune(channel, block, fnum);
         // Key on, all slots.
         let code = (channel % 3) | ((channel / 3) << 2);
         self.chip.write(0, 0x28, 0xF0 | code);
+    }
+
+    /// Retune a sounding channel without touching its program or envelope
+    /// (legato glide: pitch slides and tied phrases, no re-attack).
+    fn retune(&mut self, channel: u8, block: u8, fnum: u16) {
+        let (port, base) = Self::channel_regs(channel);
+        self.chip
+            .write(port, 0xA4 + base, (block << 3) | ((fnum >> 8) as u8 & 0x07));
+        self.chip.write(port, 0xA0 + base, (fnum & 0xFF) as u8);
+    }
+
+    fn retune_midi(&mut self, channel: u8, midi: u8, parameters: &HashMap<String, ParamValue>) {
+        let num = |key: &str| number(parameters, key);
+        let (block, fnum) = match (num("ym_block"), num("ym_fnum")) {
+            (Some(block), Some(fnum)) => (
+                block.round().clamp(0.0, 7.0) as u8,
+                fnum.round().clamp(0.0, 0x7FF as f32) as u16,
+            ),
+            _ => midi_to_fnum(midi, YM2612_CLOCK_NTSC),
+        };
+        self.retune(channel, block, fnum);
     }
 
     fn key_off(&mut self, channel: u8) {
@@ -307,13 +341,34 @@ impl Instrument for Ym2612Voice {
                         (0..6u8).find(|channel| !self.active.values().any(|used| used == channel))
                     });
                 if let Some(channel) = channel {
-                    self.key_on(channel, *pitch_midi, parameters);
+                    let slot = channel as usize;
+                    // Legato: still sounding, or freed this same tick, with
+                    // an identical program (slides, ties) — glide the pitch
+                    // instead of restarting the envelope.
+                    let continuous = self.occupant[slot].is_some()
+                        || (self.has_history[slot]
+                            && (event.time_seconds - self.freed_at[slot]).abs() <= LEGATO_EPS);
+                    if continuous && self.program[slot] == *parameters {
+                        self.retune_midi(channel, *pitch_midi, parameters);
+                    } else {
+                        self.key_on(channel, *pitch_midi, parameters);
+                        self.program[slot] = parameters.clone();
+                        self.has_history[slot] = true;
+                    }
+                    self.occupant[slot] = Some(*note_id);
                     self.active.insert(*note_id, channel);
                 }
             }
             MusicalEventType::NoteOff { note_id } => {
                 if let Some(channel) = self.active.remove(note_id) {
-                    self.key_off(channel);
+                    // Only release when the off names the live occupant;
+                    // stale offs (superseded by legato) must not cut it.
+                    let slot = channel as usize;
+                    if self.occupant[slot] == Some(*note_id) {
+                        self.key_off(channel);
+                        self.occupant[slot] = None;
+                        self.freed_at[slot] = event.time_seconds;
+                    }
                 }
             }
             _ => {}
@@ -342,6 +397,9 @@ impl Instrument for Ym2612Voice {
         let channels: Vec<u8> = self.active.drain().map(|(_, channel)| channel).collect();
         for channel in channels {
             self.key_off(channel);
+            let slot = channel as usize;
+            self.occupant[slot] = None;
+            self.freed_at[slot] = f32::NEG_INFINITY;
         }
     }
 }
