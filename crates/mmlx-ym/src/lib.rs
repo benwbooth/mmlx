@@ -1,4 +1,4 @@
-//! Exact YM2612 streaming voice over the vendored GENS core.
+//! Exact YM2612 streaming voice over Nuked-OPN2 (GME's backend).
 //!
 //! [`Ym2612`] owns the emulated chip (reset/register writes/stereo render).
 //! [`Ym2612Voice`] is an [`Instrument`]: each note allocates one of the six
@@ -13,12 +13,13 @@ use std::collections::HashMap;
 use std::os::raw::c_void;
 
 unsafe extern "C" {
-    fn YM2612_Init(clock: u32, rate: u32, interpolation: u8) -> *mut c_void;
-    fn YM2612_End(chip: *mut c_void);
-    fn YM2612_Reset(chip: *mut c_void);
-    fn YM2612_Write(chip: *mut c_void, adr: u8, data: u8);
-    fn YM2612_Update(chip: *mut c_void, buf: *mut *mut i32, length: u32);
-    fn YM2612_SetOptions(chip: *mut c_void, flags: u32);
+    fn mmlx_nuked_new() -> *mut c_void;
+    fn mmlx_nuked_free(chip: *mut c_void);
+    fn mmlx_nuked_set_rate(chip: *mut c_void, sample_rate: f64, clock_rate: f64) -> i32;
+    fn mmlx_nuked_reset(chip: *mut c_void);
+    fn mmlx_nuked_write(chip: *mut c_void, port: i32, addr: i32, data: i32);
+    fn mmlx_nuked_mute(chip: *mut c_void, mask: i32);
+    fn mmlx_nuked_run(chip: *mut c_void, frames: i32, out_stereo: *mut i16);
 }
 
 /// Genesis NTSC master clock driving the YM2612.
@@ -37,19 +38,12 @@ fn number(parameters: &HashMap<String, ParamValue>, key: &str) -> Option<f32> {
     })
 }
 
+/// Cycle-accurate YM2612 (Nuked-OPN2 via GME's backend): the same DSP
+/// the GME audit reference renders, so per-lane A/B compares like with
+/// like. Resamples internally to any rate; needs no DC strip.
 pub struct Ym2612 {
     chip: *mut c_void,
     rate: u32,
-    // DC-blocking highpass state (the core idles with a large DC offset,
-    // which every player strips; R ≈ 0.995 at 44.1 kHz).
-    hp_in_l: f32,
-    hp_in_r: f32,
-    hp_out_l: f32,
-    hp_out_r: f32,
-    // Whether the highpass has seen its first sample yet. Seeding the
-    // delay with the first input (instead of zero) avoids a start-of-
-    // stream thump as the filter converges from the idle DC level.
-    hp_seeded: bool,
 }
 
 // The chip is only touched from the render path.
@@ -58,71 +52,44 @@ unsafe impl Send for Ym2612 {}
 impl Ym2612 {
     pub fn new(clock: u32, rate: u32) -> Option<Self> {
         unsafe {
-            let chip = YM2612_Init(clock, rate, 1);
+            let chip = mmlx_nuked_new();
             if chip.is_null() {
                 None
+            } else if mmlx_nuked_set_rate(chip, rate as f64, clock as f64) != 0 {
+                mmlx_nuked_free(chip);
+                None
             } else {
-                // Reset is mandatory: it seeds the envelope/DT table pointers
-                // that register writes dereference (skipping it segfaults on
-                // the first TL write via Special_Update).
-                YM2612_Reset(chip);
-                // Enable SSG-EG envelope shapes (flag bit 1); bit 0 stays
-                // off (we strip DC ourselves).
-                YM2612_SetOptions(chip, 0b10);
-                Some(Ym2612 {
-                    chip,
-                    rate,
-                    hp_in_l: 0.0,
-                    hp_in_r: 0.0,
-                    hp_out_l: 0.0,
-                    hp_out_r: 0.0,
-                    hp_seeded: false,
-                })
+                mmlx_nuked_reset(chip);
+                Some(Ym2612 { chip, rate })
             }
         }
     }
 
     pub fn reset(&mut self) {
-        unsafe { YM2612_Reset(self.chip) };
+        unsafe { mmlx_nuked_reset(self.chip) };
     }
 
     /// Raw register write: VGM 0x52 = port 0, 0x53 = port 1.
     pub fn write(&mut self, port: u8, addr: u8, data: u8) {
         unsafe {
-            let base = if port == 0 { 0 } else { 2 };
-            YM2612_Write(self.chip, base, addr);
-            YM2612_Write(self.chip, base + 1, data);
+            mmlx_nuked_write(self.chip, port as i32, addr as i32, data as i32);
         }
+    }
+
+    /// Mute chip channels by bitmask (1 << channel).
+    pub fn set_mute(&mut self, mask: u8) {
+        unsafe { mmlx_nuked_mute(self.chip, mask as i32) };
     }
 
     /// Render interleaved stereo float in [-1, 1].
     pub fn render(&mut self, frames: usize) -> Vec<[f32; 2]> {
-        let mut left = vec![0i32; frames];
-        let mut right = vec![0i32; frames];
-        let mut buffers = [left.as_mut_ptr(), right.as_mut_ptr()];
+        let mut pcm = vec![0i16; frames * 2];
         unsafe {
-            YM2612_Update(self.chip, buffers.as_mut_ptr(), frames as u32);
+            mmlx_nuked_run(self.chip, frames as i32, pcm.as_mut_ptr());
         }
-        // GENS core outputs 14-bit-ish samples; normalize conservatively,
-        // then halve: the core runs hot (a single moderate FM note peaks
-        // past 0.5) and six channels share the mix with the PSG voices.
-        // Then strip the core's idle DC offset with a one-pole highpass.
-        let mut out = Vec::with_capacity(frames);
-        for (l, r) in left.into_iter().zip(right) {
-            let l = (l as f32 / 16384.0).clamp(-1.0, 1.0) * 0.5;
-            let r = (r as f32 / 16384.0).clamp(-1.0, 1.0) * 0.5;
-            if !self.hp_seeded {
-                self.hp_in_l = l;
-                self.hp_in_r = r;
-                self.hp_seeded = true;
-            }
-            self.hp_out_l = l - self.hp_in_l + 0.995 * self.hp_out_l;
-            self.hp_out_r = r - self.hp_in_r + 0.995 * self.hp_out_r;
-            self.hp_in_l = l;
-            self.hp_in_r = r;
-            out.push([self.hp_out_l, self.hp_out_r]);
-        }
-        out
+        pcm.chunks_exact(2)
+            .map(|s| [s[0] as f32 / 32768.0, s[1] as f32 / 32768.0])
+            .collect()
     }
 
     pub fn rate(&self) -> u32 {
@@ -132,12 +99,12 @@ impl Ym2612 {
 
 impl Drop for Ym2612 {
     fn drop(&mut self) {
-        unsafe { YM2612_End(self.chip) };
+        unsafe { mmlx_nuked_free(self.chip) };
     }
 }
 
 /// MIDI note to (block, fnum11) for the YM2612 frequency registers.
-/// Calibrated against the GENS core: A440 renders at 440 Hz.
+/// Calibrated: A440 renders at 440 Hz on the Nuked core.
 pub fn midi_to_fnum(midi: u8, clock: u32) -> (u8, u16) {
     let freq = 440.0 * 2.0f32.powf((midi as f32 - 69.0) / 12.0);
     for block in 0..=7u8 {
@@ -189,6 +156,28 @@ pub struct Ym2612Voice {
 
 /// Notes abutting within ~4 samples count as legato (same tick grid).
 const LEGATO_EPS: f32 = 0.0001;
+
+/// Parameter keys that ride the ambient setup but never define the voice
+/// program (loudness, clock, glide markers): legato compares the rest.
+fn is_program_key(key: &str) -> bool {
+    !matches!(
+        key,
+        "tied" | "velocity" | "tempo" | "time_note" | "time_beat"
+    )
+}
+
+fn same_program(a: &HashMap<String, ParamValue>, b: &HashMap<String, ParamValue>) -> bool {
+    fn filtered(params: &HashMap<String, ParamValue>) -> Vec<(&String, &ParamValue)> {
+        params
+            .iter()
+            .filter(|(key, _)| is_program_key(key))
+            .collect::<Vec<_>>()
+    }
+    let (mut left, mut right) = (filtered(a), filtered(b));
+    left.sort_by(|x, y| x.0.cmp(y.0));
+    right.sort_by(|x, y| x.0.cmp(y.0));
+    left == right
+}
 
 // The chip is only touched from the render path.
 unsafe impl Send for Ym2612Voice {}
@@ -346,18 +335,33 @@ impl Instrument for Ym2612Voice {
                     });
                 if let Some(channel) = channel {
                     let slot = channel as usize;
-                    // Legato: still sounding, or freed this same tick, with
-                    // an identical program (slides, ties) — glide the pitch
-                    // instead of restarting the envelope.
-                    let continuous = self.occupant[slot].is_some()
-                        || (self.has_history[slot]
-                            && (event.time_seconds - self.freed_at[slot]).abs() <= LEGATO_EPS);
-                    if continuous && self.program[slot] == *parameters {
+                    // Glide marker from the decompiler (FNUM-split slides
+                    // and ties glide; keyed notes re-attack). Unmarked
+                    // streams fall back to the abutment heuristic below.
+                    let tied = match parameters.get("tied") {
+                        Some(ParamValue::Number(value)) => value.round() as i64,
+                        _ => -1,
+                    };
+                    if tied == 1 && self.has_history[slot] {
                         self.retune_midi(channel, *pitch_midi, parameters);
-                    } else {
+                    } else if tied == 0 {
                         self.key_on(channel, *pitch_midi, parameters);
                         self.program[slot] = parameters.clone();
                         self.has_history[slot] = true;
+                    } else {
+                        // Heuristic: still sounding, or freed this same tick,
+                        // with an identical program (slides, ties) — glide
+                        // the pitch instead of restarting the envelope.
+                        let continuous = self.occupant[slot].is_some()
+                            || (self.has_history[slot]
+                                && (event.time_seconds - self.freed_at[slot]).abs() <= LEGATO_EPS);
+                        if continuous && same_program(&self.program[slot], parameters) {
+                            self.retune_midi(channel, *pitch_midi, parameters);
+                        } else {
+                            self.key_on(channel, *pitch_midi, parameters);
+                            self.program[slot] = parameters.clone();
+                            self.has_history[slot] = true;
+                        }
                     }
                     self.occupant[slot] = Some(*note_id);
                     self.active.insert(*note_id, channel);

@@ -265,7 +265,8 @@ fn steal_rekeys_on_program_change() {
     voice.process_event(&note_off(1, 0.3), 44100);
     voice.process_event(&note_on(2, 69, 0.3, voice_params(0.0)), 44100);
     let second = voice.generate_samples((44100.0 * 0.5) as usize, 44100);
-    assert!(rms_of(&second[11025..]) > 0.05, "stolen voice sounds");
+    // Fresh attack right after the steal (decay may crush the tail fast).
+    assert!(rms_of(&second[..4410]) > 0.08, "stolen voice attacks");
 }
 
 fn ssg_params(ssg: f32) -> HashMap<String, ParamValue> {
@@ -313,4 +314,61 @@ fn ssg_envelope_holds_where_plain_decay_dies() {
         .fold(0.0f32, f32::max);
     assert!(tail(&shaped) > 5.0 * tail(&plain).max(1e-6), "ssg sustains");
     assert!(peak < 0.5, "ssg stays bounded, peak={peak}");
+}
+
+fn with_tied(
+    mut parameters: HashMap<String, ParamValue>,
+    tied: f32,
+) -> HashMap<String, ParamValue> {
+    parameters.insert("tied".to_string(), ParamValue::Number(tied));
+    parameters
+}
+
+#[test]
+fn tied_marker_glides_where_plain_abutment_would() {
+    // Explicit tied=1 glides (decay continues, pitch retunes) even though
+    // an unmarked abutment with these exact params would also glide here;
+    // the marker pins the intent for the voice.
+    use mmlx_ym::Ym2612Voice;
+    let prog = voice_params(0.0);
+    let mut voice = Ym2612Voice::new(YM2612_CLOCK_NTSC, 44100).expect("chip");
+    voice.process_event(&note_on(1, 69, 0.0, prog.clone()), 44100);
+    let mut first = voice.generate_samples((44100.0 * 0.5) as usize, 44100);
+    voice.process_event(&note_off(1, 0.5), 44100);
+    voice.process_event(&note_on(2, 76, 0.5, with_tied(prog, 1.0)), 44100);
+    first.extend(voice.generate_samples((44100.0 * 0.5) as usize, 44100));
+    let mid = rms_of(&first[13230..19845]);
+    let late = rms_of(&first[30870..39690]);
+    assert!(
+        late < mid * 0.7,
+        "tied note keeps decaying, mid={mid:.4} late={late:.4}"
+    );
+    assert!(
+        (crossings_hz(&first[22932..26460]) - 659.0).abs() < 40.0,
+        "retuned to E5"
+    );
+}
+
+#[test]
+fn tied_zero_forces_reattack_on_abutment() {
+    // Explicit tied=0 re-attacks an abutting same-program note (fresh
+    // attack transient), where the unmarked heuristic would glide.
+    use mmlx_ym::Ym2612Voice;
+    let prog = voice_params(0.0);
+    let mut voice = Ym2612Voice::new(YM2612_CLOCK_NTSC, 44100).expect("chip");
+    voice.process_event(&note_on(1, 69, 0.0, prog.clone()), 44100);
+    let mut first = voice.generate_samples((44100.0 * 0.5) as usize, 44100);
+    voice.process_event(&note_off(1, 0.5), 44100);
+    voice.process_event(&note_on(2, 76, 0.5, with_tied(prog, 0.0)), 44100);
+    first.extend(voice.generate_samples((44100.0 * 0.5) as usize, 44100));
+    let mid = rms_of(&first[13230..19845]);
+    let attack = rms_of(&first[22050..26460]);
+    assert!(
+        attack > mid * 0.8,
+        "re-attacked, mid={mid:.4} attack={attack:.4}"
+    );
+    assert!(
+        (crossings_hz(&first[22932..26460]) - 659.0).abs() < 40.0,
+        "retuned to E5"
+    );
 }
