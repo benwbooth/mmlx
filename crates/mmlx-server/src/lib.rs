@@ -115,7 +115,7 @@ impl Player {
     /// highlight stream, and queues events rebased to the audio clock.
     fn start_playing(&mut self, note: mmlx_core::Note, label: String, from: f32) {
         self.stream = None;
-        self.load_body(note, from);
+        self.load_body(note, from, false);
         self.last_expr = Some(label);
         self.set_muted(false);
         self.say(format!("ok playing {}", self.events.len()));
@@ -127,7 +127,7 @@ impl Player {
     fn start_streaming(&mut self, stream: mmlx_core::NoteIterator, label: String) {
         self.stream = Some(stream);
         self.cycle = 0;
-        if self.pull_stream() {
+        if self.pull_stream(false) {
             self.last_expr = Some(label);
             self.set_muted(false);
             self.say(format!("ok playing {}", self.events.len()));
@@ -139,18 +139,28 @@ impl Player {
 
     /// Pull the next generator body into the highlight stream and audio
     /// queue from its top. False when a finite stream is exhausted.
-    fn pull_stream(&mut self) -> bool {
+    /// `wrapping` is true on loop wrap: keep already-queued tail events
+    /// and release voices through their envelopes instead of hard-cutting,
+    /// so the loop joint has no gap. Fresh plays still hard-silence.
+    fn pull_stream(&mut self, wrapping: bool) -> bool {
         let next = match self.stream.as_mut().and_then(|s| s.next()) {
             Some(note) => note,
             None => return false,
         };
-        self.load_body(next, 0.0);
+        self.load_body(next, 0.0, wrapping);
         true
     }
 
     /// Shared body setup: silence, collect events + highlight, requeue.
-    fn load_body(&mut self, note: mmlx_core::Note, from: f32) {
-        self.silence();
+    fn load_body(&mut self, note: mmlx_core::Note, from: f32, wrapping: bool) {
+        if wrapping {
+            // Gapless joint: release (never hard-cut) and keep the queue;
+            // leftovers are unplayed tail events that still belong.
+            #[cfg(feature = "audio")]
+            mmlx_audio::backend::all_notes_off(&self.instruments);
+        } else {
+            self.silence();
+        }
         self.events = note.event_stream(0.0).collect();
         self.collect_noteons();
         self.requeue_from(from);
@@ -504,7 +514,7 @@ impl Player {
                 // Generator song: page the next body (intro once, then
                 // loop forever) unless looping is off, and count the cycle
                 // for highlight mapping. Exhausted finite streams end.
-                if self.looping && self.pull_stream() {
+                if self.looping && self.pull_stream(true) {
                     self.cycle += 1;
                     return;
                 }
@@ -605,11 +615,11 @@ mod tests {
         assert!(!player.events.is_empty(), "intro body collected");
         assert!(out_rx.try_recv().unwrap().starts_with("ok playing"));
         // Second body (first loop) re-collects highlight + queue.
-        assert!(player.pull_stream(), "infinite stream keeps yielding");
+        assert!(player.pull_stream(false), "infinite stream keeps yielding");
         assert!(!player.events.is_empty());
         // A finite stream exhausts cleanly.
         player.stream = Some(Box::new(vec![mmlx_songs::all_features()].into_iter()));
-        assert!(player.pull_stream(), "one body");
-        assert!(!player.pull_stream(), "then exhausted");
+        assert!(player.pull_stream(false), "one body");
+        assert!(!player.pull_stream(false), "then exhausted");
     }
 }

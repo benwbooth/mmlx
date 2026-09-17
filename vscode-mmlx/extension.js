@@ -358,13 +358,21 @@ async function applyHighlight(ordinal, lane) {
 const FOLLOW_MS = 250;
 
 // Pure follow decision, headless-testable. `spans` are sounding notes in
-// time order (oldest first) as line spans; the viewport is inclusive.
+// time order (oldest first) as line spans (with aCol/bCol buffer columns);
+// the viewport is inclusive. Columns matter: bars are single very wide
+// lines, so a same-line note can be horizontally out of view while its
+// line reads "visible".
 // Returns 'full' (min..max fits: show it all, centered), 'first' (too
-// tall: center the oldest), or 'none' (oldest already visible).
-function pickReveal(spans, visStart, visEnd) {
+// tall: center the oldest), or 'none' (oldest fully visible).
+function pickReveal(spans, visStart, visEnd, visStartCh, visEndCh) {
   if (!spans.length) return { action: "none" };
   const first = spans[0];
-  if (first.aLine >= visStart && first.aLine <= visEnd) return { action: "none" };
+  let fullyVisible = first.aLine >= visStart && first.aLine <= visEnd;
+  if (fullyVisible && typeof visStartCh === "number" && typeof visEndCh === "number") {
+    // Viewport rows share one horizontal window: the span must sit inside it.
+    fullyVisible = first.aCol >= visStartCh && first.bCol <= visEndCh;
+  }
+  if (fullyVisible) return { action: "none" };
   let lo = Infinity;
   let hi = -Infinity;
   for (const s of spans) {
@@ -383,11 +391,11 @@ function followRecent(ed) {
   const spans = recent.map((e) => {
     const a = doc.positionAt(e.a);
     const b = doc.positionAt(e.b);
-    return { a: e.a, b: e.b, aLine: a.line, bLine: b.line };
+    return { a: e.a, b: e.b, aLine: a.line, bLine: b.line, aCol: a.character, bCol: b.character };
   });
   const vis = ed.visibleRanges && ed.visibleRanges[0];
   const pick = vis
-    ? pickReveal(spans, vis.start.line, vis.end.line)
+    ? pickReveal(spans, vis.start.line, vis.end.line, vis.start.character, vis.end.character)
     : pickReveal(spans, -1, -2);
   if (pick.action === "none") return;
   let minA = Infinity;
