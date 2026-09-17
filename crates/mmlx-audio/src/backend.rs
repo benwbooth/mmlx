@@ -27,8 +27,47 @@ use std::sync::{Arc, Mutex}; // Import Stream
 pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, MuteFlag, Stream)> {
     info!("Setting up audio via setup_audio...");
 
+    // --- CPAL Audio Setup ---
+    let host = cpal::default_host();
+    let device = host
+        .default_output_device()
+        .ok_or_else(|| anyhow::anyhow!("Failed to find default output device"))?;
+    info!("Using default output device: {}", device.name()?);
+
+    let desired_channels: u16 = 2; // Stereo
+    let target_config = device
+        .supported_output_configs()?
+        .filter(|c| {
+            c.channels() == desired_channels && c.sample_format() == cpal::SampleFormat::F32
+        })
+        .max_by_key(|c| c.max_sample_rate())
+        .ok_or_else(|| anyhow::anyhow!("No supported f32 stereo output config found"))?
+        .with_max_sample_rate(); // Use the highest rate found
+
+    let mut config = target_config.config();
+
+    // Configure a much larger buffer size to prevent underruns
+    // Using a very large buffer (16384 samples) to prioritize stability over latency
+    // This is approximately 370ms at 44.1kHz which should be acceptable for non-interactive music
+    config.buffer_size = cpal::BufferSize::Fixed(16384);
+
+    // On Linux, log additional information about the host
+    #[cfg(target_os = "linux")]
+    {
+        info!("Running on Linux - host type: {:?}", host.id());
+    }
+
+    let actual_sample_rate = config.sample_rate.0;
+    let channels = config.channels; // Should be 2
+    info!(
+        "Selected audio config: sample_rate={}, channels={}, format=f32",
+        actual_sample_rate, channels
+    );
+
     // --- Shared State Initialization ---
-    let default_sample_rate = 44100; // Used for synth init if actual rate differs
+    // Rate-dependent voices must init at the device rate: the YM core
+    // bakes Clock/Rate into its tables and BasicSynth into its phases.
+    let default_sample_rate = actual_sample_rate;
     let event_queue: EventQueue = Arc::new(Mutex::new(VecDeque::new()));
     let synth_time: SynthTime = Arc::new(Mutex::new(0.0f32));
     let mut instruments_map_inner: HashMap<String, Arc<Mutex<dyn Instrument>>> = HashMap::from([
@@ -78,43 +117,6 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, MuteFlag,
     }
     let instruments_map: InstrumentsMap = Arc::new(Mutex::new(instruments_map_inner));
     info!("Shared state initialized.");
-
-    // --- CPAL Audio Setup ---
-    let host = cpal::default_host();
-    let device = host
-        .default_output_device()
-        .ok_or_else(|| anyhow::anyhow!("Failed to find default output device"))?;
-    info!("Using default output device: {}", device.name()?);
-
-    let desired_channels: u16 = 2; // Stereo
-    let target_config = device
-        .supported_output_configs()?
-        .filter(|c| {
-            c.channels() == desired_channels && c.sample_format() == cpal::SampleFormat::F32
-        })
-        .max_by_key(|c| c.max_sample_rate())
-        .ok_or_else(|| anyhow::anyhow!("No supported f32 stereo output config found"))?
-        .with_max_sample_rate(); // Use the highest rate found
-
-    let mut config = target_config.config();
-
-    // Configure a much larger buffer size to prevent underruns
-    // Using a very large buffer (16384 samples) to prioritize stability over latency
-    // This is approximately 370ms at 44.1kHz which should be acceptable for non-interactive music
-    config.buffer_size = cpal::BufferSize::Fixed(16384);
-
-    // On Linux, log additional information about the host
-    #[cfg(target_os = "linux")]
-    {
-        info!("Running on Linux - host type: {:?}", host.id());
-    }
-
-    let actual_sample_rate = config.sample_rate.0;
-    let channels = config.channels; // Should be 2
-    info!(
-        "Selected audio config: sample_rate={}, channels={}, format=f32",
-        actual_sample_rate, channels
-    );
 
     // ===== Global Low-Pass Filter to smooth clicks =====
     // One-pole LPF: y[n] = alpha * y[n-1] + (1-alpha) * x[n]
