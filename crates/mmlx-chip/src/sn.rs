@@ -43,6 +43,11 @@ pub struct PsgVoice {
     noise: Option<SnNoise>,
     next_tone: usize,
     tone3_freq: f32,
+    /// Free-running state: hardware counters never reset on retrigger, so
+    /// replacement notes continue phase (no click, natural chorus) and
+    /// noise bursts don't repeat identically.
+    tone_phase: [f32; 3],
+    noise_lfsr: u16,
 }
 
 impl PsgVoice {
@@ -52,6 +57,8 @@ impl PsgVoice {
             noise: None,
             next_tone: 0,
             tone3_freq: 440.0,
+            tone_phase: [0.0; 3],
+            noise_lfsr: 0x8000,
         }
     }
 }
@@ -119,7 +126,7 @@ impl Instrument for PsgVoice {
                         id: *note_id,
                         gain,
                         white,
-                        lfsr: 0x8000,
+                        lfsr: self.noise_lfsr,
                         acc: 0.0,
                         step: rate,
                         out: 0.4,
@@ -141,7 +148,9 @@ impl Instrument for PsgVoice {
                         id: *note_id,
                         freq,
                         gain,
-                        phase: 0.0,
+                        // Continue the free-running phase (hardware never
+                        // resets counters on retrigger).
+                        phase: self.tone_phase[slot],
                     });
                 }
             }
@@ -173,8 +182,10 @@ impl Instrument for PsgVoice {
         let mut buffer = vec![[0.0f32; 2]; count];
         for frame in buffer.iter_mut() {
             let mut sample = 0.0;
-            for slot in self.tones.iter_mut().flatten() {
+            for (i, slot) in self.tones.iter_mut().enumerate() {
+                let Some(slot) = slot else { continue };
                 slot.phase = (slot.phase + slot.freq / rate as f32).fract();
+                self.tone_phase[i] = slot.phase;
                 sample += if slot.phase < 0.5 {
                     slot.gain
                 } else {
@@ -194,6 +205,7 @@ impl Instrument for PsgVoice {
                         noise.out = -noise.out;
                     }
                 }
+                self.noise_lfsr = noise.lfsr;
                 sample += noise.out * noise.gain;
             }
             frame[0] += sample;

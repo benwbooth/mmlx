@@ -144,7 +144,7 @@ fn main() {
         .iter()
         .map(|event| event.time_seconds + event.real_duration)
         .fold(0.0f32, f32::max)
-        .min(30.0);
+        .min(45.0); // cover the full 41.5s loop
     println!("loop span: {end:.1}s, {} events", loop_events.len());
     // Per-stem renders share the event clock: render each from scratch so
     // voice state (envelopes, phases) matches the mix exactly.

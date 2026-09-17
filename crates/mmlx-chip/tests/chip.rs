@@ -386,3 +386,44 @@ fn sn_channel_3_is_noise_and_leaves_tones_alone() {
         "tone still A440, zcr={rate}"
     );
 }
+
+#[test]
+fn sn_retrigger_continues_phase() {
+    // Hardware counters free-run: re-keying the same pitch mid-stream
+    // must continue the waveform exactly (no click, no chorus jump).
+    use mmlx_chip::PsgVoice;
+    use mmlx_core::{Instrument, MusicalEventType, ParamValue, TimedMusicalEvent};
+    use std::collections::HashMap;
+    fn key(id: u64, midi: u8) -> TimedMusicalEvent {
+        TimedMusicalEvent {
+            time_seconds: 0.0,
+            real_duration: 0.5,
+            event: MusicalEventType::NoteOn {
+                note_id: id,
+                pitch_midi: midi,
+                velocity: 0.9,
+                parameters: HashMap::from([("sn_channel".to_string(), ParamValue::Number(1.0))]),
+                attack_envelope: None,
+                sustain_envelope: None,
+                release_envelope: None,
+                other_envelopes: Vec::new(),
+            },
+            instrument_name: "psg".to_string(),
+        }
+    }
+    let mut a = PsgVoice::new();
+    a.process_event(&key(1, 69), 44100);
+    let uninterrupted = a.generate_samples(1000, 44100);
+    let mut b = PsgVoice::new();
+    b.process_event(&key(1, 69), 44100);
+    let mut first = b.generate_samples(500, 44100);
+    b.process_event(&key(2, 69), 44100);
+    first.extend(b.generate_samples(500, 44100));
+    assert_eq!(first.len(), uninterrupted.len());
+    for (i, (x, y)) in first.iter().zip(uninterrupted.iter()).enumerate() {
+        assert!(
+            (x[0] - y[0]).abs() < 1e-6 && (x[1] - y[1]).abs() < 1e-6,
+            "sample {i} diverges after re-key"
+        );
+    }
+}
