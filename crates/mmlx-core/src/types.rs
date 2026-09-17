@@ -1722,6 +1722,46 @@ fn owned_item<N: std::borrow::Borrow<Note>>(item: N) -> Note {
     Note::clone(item.borrow())
 }
 
+/// Collect `(key, value)` pairs when `note` is made solely of parameter
+/// setters (a bare `param!(k=v)` or a multi-pair `param!(a=.., b=..)`
+/// group, which expands to a `Serial` of setters, possibly nested).
+/// Returns false — collecting nothing — for anything else.
+fn collect_setters(note: &Note, out: &mut Vec<(String, ParamValue)>) -> bool {
+    match note {
+        Note::ParamSetter { key, value } => {
+            out.push((key.clone(), value.clone()));
+            true
+        }
+        Note::Serial(notes)
+        | Note::Parallel(notes)
+        | Note::ParallelMin(notes)
+        | Note::ForkSequence(notes)
+        | Note::ForkParallel(notes) => notes.iter().all(|child| collect_setters(child, out)),
+        _ => false,
+    }
+}
+
+/// Fold a pure setter group into the ambient attrs, mirroring the
+/// single-`ParamSetter` arms. Multi-pair `param!(..)` groups expand to
+/// nested `Serial`s that otherwise fall through to the catch-all push
+/// arms without updating `current_attrs`: later atoms then bake STALE
+/// values which override the correct live params at event time
+/// (compare #403: single `param!(op4_tl=9)` followed by multi
+/// `param!(op4_tl=17, tied=0)` sounded 9). The runtime already walks
+/// nested groups correctly, so folding only re-syncs the bake.
+/// Push behavior is unchanged; returns whether `note` was pure setters.
+fn fold_setter_group(note: &Note, current_attrs: &mut LinkedHashMap<String, ParamValue>) -> bool {
+    let mut staged = Vec::new();
+    if collect_setters(note, &mut staged) {
+        for (key, value) in staged {
+            current_attrs.insert(key, value);
+        }
+        true
+    } else {
+        false
+    }
+}
+
 /// Processes a sequence, resolving implicit durations/pitches, handling ties and repeats.
 pub fn ser<I>(items: I) -> Note
 where
@@ -1848,7 +1888,10 @@ where
                             }
                             resolved_items.push(note.clone());
                         }
-                        _ => resolved_items.push(item_with_attrs.clone()),
+                        _ => {
+                            fold_setter_group(&item_with_attrs, &mut current_attrs);
+                            resolved_items.push(item_with_attrs.clone())
+                        }
                     }
                 }
                 continue; // Skip rest of loop for Repeat
@@ -1927,6 +1970,9 @@ where
                 resolved_items.push(note.clone());
             }
             _ => {
+                // Multi-pair param groups land here: fold them so later
+                // atoms bake current (not stale) values.
+                fold_setter_group(&item_with_attrs, &mut current_attrs);
                 resolved_items.push(item_with_attrs.clone());
             }
         }
@@ -2034,6 +2080,7 @@ where
             // Serial/Parallel pushed without updating context
             // Implicit/Previous handled earlier, Tie handled earlier
             _ => {
+                fold_setter_group(&item_with_attrs, &mut current_attrs);
                 vec_items.push(item_with_attrs.clone());
                 last_note_index = None;
             }
@@ -2138,6 +2185,7 @@ where
                 last_note_index = Some(vec_items.len() - 1);
             }
             _ => {
+                fold_setter_group(&item_with_attrs, &mut current_attrs);
                 vec_items.push(item_with_attrs.clone());
                 last_note_index = None;
             }
@@ -2265,7 +2313,10 @@ where
                             }
                             resolved_items.push(note.clone());
                         }
-                        _ => resolved_items.push(item_with_attrs.clone()),
+                        _ => {
+                            fold_setter_group(&item_with_attrs, &mut current_attrs);
+                            resolved_items.push(item_with_attrs.clone())
+                        }
                     }
                 }
                 continue;
@@ -2335,7 +2386,10 @@ where
                 }
                 resolved_items.push(note.clone());
             }
-            _ => resolved_items.push(item_with_attrs.clone()),
+            _ => {
+                fold_setter_group(&item_with_attrs, &mut current_attrs);
+                resolved_items.push(item_with_attrs.clone())
+            }
         }
     }
     Note::ForkSequence(resolved_items)
@@ -2434,6 +2488,7 @@ where
                 last_note_index = Some(vec_items.len() - 1);
             }
             _ => {
+                fold_setter_group(&item_with_attrs, &mut current_attrs);
                 vec_items.push(item_with_attrs.clone());
                 last_note_index = None;
             }

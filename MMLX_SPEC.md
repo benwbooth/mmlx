@@ -154,7 +154,7 @@ Runs at construction (before event generation). Each block tracks `last_duration
 2. **Repeat:** pop last resolved repeatable (atom/rest/serial/parallel/fork), push back original, then push `n` resolved clones with `current_attrs` applied.
 3. **Implicit:** `AtomImplicitDuration` → `Atom` with `last_duration` (panic with clear message if none). `PreviousPitch` → `Atom` with `last_pitch.unwrap_or(60)` + `optional_duration.or(last_duration)`.
 4. **Attrs:** `apply_parameters()` merges `current_attrs` into atom/rest/implicit/previous (skips `key`; existing per-note keys win over block keys unless overwritten). Recurses into nested `Serial/Parallel/...`.
-5. **Context update:** atoms/rests update `last_*`; `ParamSetter` updates `current_attrs` and (in `ser/forkseq`) is also pushed as a `Note::ParamSetter` node so event generation emits `SetParameter`; in `par/parmin/forkpar` setters update context but are *not* pushed as siblings (they ride with their branch).
+5. **Context update:** atoms/rests update `last_*`; `ParamSetter` updates `current_attrs` and (in `ser/forkseq`) is also pushed as a `Note::ParamSetter` node so event generation emits `SetParameter`; in `par/parmin/forkpar` setters update context but are *not* pushed as siblings (they ride with their branch). Pure setter groups (multi-pair `param!(a=.., b=..)` → `Serial` of setters) likewise fold into `current_attrs` so later atoms bake current — not stale — values.
 6. **Bare envelope is an error.** `env!(...)` alone inside any block panics: must be `param!(target = env!(...))`.
 
 ---
