@@ -1614,9 +1614,11 @@ dependencies = [
  "log",
  "mmlx-algo",
  "mmlx-audio",
+ "mmlx-chip",
  "mmlx-core",
  "mmlx-repl",
  "mmlx-songs",
+ "mmlx-ym",
 ]
 
 [[package]]

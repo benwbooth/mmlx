@@ -12,6 +12,9 @@
 //!   reset            stop, rewind, and silence everything
 //!   loop on|off      toggle looping at the end of the stream
 //!   preview <expr>   evaluate `<expr>` (queued to audio when present)
+//!   audition <midi> <ym|psg>
+//!                    play one pitch right now on a private preview voice
+//!     (cursor audition from the editor; no JIT, never touches song voices)
 //!   roll <expr>      evaluate `<expr>` and emit its piano roll as
 //!     `rollrow <start> <midi> <dur> <instrument>` lines plus `rollend`
 //! stdout events:
@@ -55,6 +58,15 @@ pub struct Player {
     /// `None` replays the single collected body as before.
     stream: Option<mmlx_core::NoteIterator>,
     cycle: u64,
+    /// Resolved-event cache for generator bodies (most-recent-first,
+    /// capped): loop cycles repeat identical `Note` trees, and resolving
+    /// the 20k-event loop costs ~1s — paid on every wrap and every replay
+    /// without this. Lookup is deep `Note` equality (ms); entries
+    /// self-evict by the cap, so code changes (new trees) just miss.
+    /// Cached note_ids are safe to replay: every load drains voice maps
+    /// (`silence`/`all_notes_off`) and clears the queue first, and the
+    /// global id counter never reuses them.
+    resolved_cache: Vec<(mmlx_core::Note, Vec<TimedMusicalEvent>)>,
     playing: bool,
     looping: bool,
     offset: f32,
@@ -87,6 +99,7 @@ impl Player {
             noteon_lanes: Vec::new(),
             stream: None,
             cycle: 0,
+            resolved_cache: Vec::new(),
             playing: false,
             looping: true,
             offset: 0.0,
@@ -147,12 +160,36 @@ impl Player {
             Some(note) => note,
             None => return false,
         };
-        self.load_body(next, 0.0, wrapping);
+        // Loop bodies repeat identically: replay the cached resolution
+        // instead of paying full re-resolution per wrap.
+        if let Some(hit) = self
+            .resolved_cache
+            .iter()
+            .find(|(cached, _)| *cached == next)
+            .map(|(_, events)| events.clone())
+        {
+            // Refresh recency.
+            self.resolved_cache.retain(|(cached, _)| *cached != next);
+            self.resolved_cache.push((next, hit.clone()));
+            self.load_resolved(hit, 0.0, wrapping);
+        } else {
+            self.load_body(next.clone(), 0.0, wrapping);
+            if self.resolved_cache.len() >= 2 {
+                self.resolved_cache.remove(0);
+            }
+            self.resolved_cache.push((next, self.events.clone()));
+        }
         true
     }
 
     /// Shared body setup: silence, collect events + highlight, requeue.
     fn load_body(&mut self, note: mmlx_core::Note, from: f32, wrapping: bool) {
+        let events = note.event_stream(0.0).collect();
+        self.load_resolved(events, from, wrapping);
+    }
+
+    /// Install pre-resolved events (cache hits share this path).
+    fn load_resolved(&mut self, events: Vec<TimedMusicalEvent>, from: f32, wrapping: bool) {
         if wrapping {
             // Gapless joint: release (never hard-cut) and keep the queue;
             // leftovers are unplayed tail events that still belong.
@@ -161,7 +198,7 @@ impl Player {
         } else {
             self.silence();
         }
-        self.events = note.event_stream(0.0).collect();
+        self.events = events;
         self.collect_noteons();
         self.requeue_from(from);
         self.offset = from;
@@ -231,6 +268,106 @@ impl Player {
     fn set_muted(&self, muted: bool) {
         if let Some(mute) = &self.mute {
             mute.store(muted, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    /// Play one pitch right now on a private preview voice (`aud_ym` /
+    /// `aud_psg`, built lazily at the device rate). Dedicated chips mean
+    /// auditions never reprogram or steal the song's voice channels; the
+    /// NoteOff carries the NoteOn's id so nothing sticks. Unmutes like
+    /// preview: auditioning requests sound even after a stop.
+    fn audition(&mut self, midi: u8, inst: &str) {
+        #[cfg(not(feature = "audio"))]
+        {
+            let _ = (midi, inst);
+            self.say("err audition needs the audio backend".to_string());
+            return;
+        }
+        #[cfg(feature = "audio")]
+        {
+            use mmlx_core::ParamValue;
+            let Some(rate) = mmlx_audio::backend::device_rate() else {
+                self.say("err audition needs live audio".to_string());
+                return;
+            };
+            let voice_name = if inst == "ym" { "aud_ym" } else { "aud_psg" };
+            match self.instruments.lock() {
+                Ok(mut map) => {
+                    if !map.contains_key(voice_name) {
+                        let voice: Option<
+                            std::sync::Arc<std::sync::Mutex<dyn mmlx_core::Instrument>>,
+                        > = if inst == "ym" {
+                            mmlx_ym::Ym2612Voice::new(mmlx_ym::YM2612_CLOCK_NTSC, rate).map(
+                                |voice| {
+                                    std::sync::Arc::new(std::sync::Mutex::new(voice))
+                                        as std::sync::Arc<
+                                            std::sync::Mutex<dyn mmlx_core::Instrument>,
+                                        >
+                                },
+                            )
+                        } else {
+                            Some(std::sync::Arc::new(std::sync::Mutex::new(
+                                mmlx_chip::PsgVoice::new(),
+                            ))
+                                as std::sync::Arc<
+                                    std::sync::Mutex<dyn mmlx_core::Instrument>,
+                                >)
+                        };
+                        match voice {
+                            Some(voice) => {
+                                map.insert(voice_name.to_string(), voice);
+                            }
+                            None => {
+                                self.say("err ym2612 unavailable".to_string());
+                                return;
+                            }
+                        }
+                    }
+                }
+                Err(_) => {
+                    self.say("err audition unavailable".to_string());
+                    return;
+                }
+            }
+            // Plain single-carrier FM / square preview patch (pitch first,
+            // no lane timbre): fixed program, own note id, 0.4s + release.
+            let mut parameters = HashMap::new();
+            if inst == "ym" {
+                parameters.insert("ym_algo".to_string(), ParamValue::Number(7.0));
+                for op in 1..=4 {
+                    let level = if op == 4 { 1.0 } else { 0.0 };
+                    parameters.insert(format!("op{op}_level"), ParamValue::Number(level));
+                }
+            }
+            let id = mmlx_core::generate_unique_note_id();
+            let audio_now = *self.time.lock().unwrap();
+            let on = TimedMusicalEvent {
+                time_seconds: audio_now,
+                real_duration: 0.4,
+                event: MusicalEventType::NoteOn {
+                    note_id: id,
+                    pitch_midi: midi,
+                    velocity: 0.9,
+                    parameters,
+                    attack_envelope: None,
+                    sustain_envelope: None,
+                    release_envelope: None,
+                    other_envelopes: Vec::new(),
+                },
+                instrument_name: voice_name.to_string(),
+            };
+            let off = TimedMusicalEvent {
+                time_seconds: audio_now + 0.4,
+                real_duration: 0.0,
+                event: MusicalEventType::NoteOff { note_id: id },
+                instrument_name: voice_name.to_string(),
+            };
+            if let Ok(mut queue) = self.queue.lock() {
+                queue.push_back(on);
+                queue.push_back(off);
+            }
+            self.set_muted(false);
+            self.say(format!("ok audition {midi} {inst}"));
         }
     }
 
@@ -345,6 +482,21 @@ impl Player {
                     ),
                     Ok(Ok(_)) => self.say("err expression is not a Note".to_string()),
                     Ok(Err(err)) | Err(err) => self.say(format!("err {err:?}")),
+                }
+            }
+            "audition" => {
+                // Cursor audition from the editor: `audition <midi 0-127>
+                // <ym|psg>`. Plays one pitch immediately on a private
+                // preview voice — no JIT, never the song's voices.
+                let mut args = rest.split_whitespace();
+                match (args.next(), args.next()) {
+                    (Some(midi), Some(inst)) if inst == "ym" || inst == "psg" => {
+                        match midi.parse::<i32>() {
+                            Ok(m) if (0..128).contains(&m) => self.audition(m as u8, inst),
+                            _ => self.say("err usage: audition <midi 0-127> <ym|psg>".to_string()),
+                        }
+                    }
+                    _ => self.say("err usage: audition <midi 0-127> <ym|psg>".to_string()),
                 }
             }
             "preview" => {
@@ -562,6 +714,7 @@ impl Player {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mmlx_core::Note;
 
     fn test_player() -> (Player, std::sync::mpsc::Receiver<String>) {
         let (out_tx, out_rx) = std::sync::mpsc::channel();
@@ -621,5 +774,55 @@ mod tests {
         player.stream = Some(Box::new(vec![mmlx_songs::all_features()].into_iter()));
         assert!(player.pull_stream(false), "one body");
         assert!(!player.pull_stream(false), "then exhausted");
+    }
+    fn atom(midi: u8) -> Note {
+        Note::Atom {
+            midi,
+            duration: 1.0,
+            parameters: Vec::new(),
+        }
+    }
+
+    fn first_note_id(player: &Player) -> u64 {
+        player
+            .events
+            .iter()
+            .find_map(|event| match &event.event {
+                MusicalEventType::NoteOn { note_id, .. } => Some(*note_id),
+                _ => None,
+            })
+            .expect("a NoteOn")
+    }
+
+    /// Loop bodies repeat identically: the second pull of the same tree
+    /// must replay cached events (same note ids — a re-resolution would
+    /// mint fresh ones), and the cache stays bounded.
+    #[test]
+    fn resolution_cache_replays_identical_bodies() {
+        let (mut player, _out) = test_player();
+        player.stream = Some(Box::new(vec![atom(60), atom(62), atom(60)].into_iter()));
+        assert!(player.pull_stream(false));
+        let first_ids = first_note_id(&player);
+        assert_eq!(player.resolved_cache.len(), 1);
+        assert!(player.pull_stream(true));
+        assert_eq!(player.resolved_cache.len(), 2);
+        assert_ne!(first_note_id(&player), first_ids);
+        assert!(player.pull_stream(true));
+        // Third body repeats the first tree: cache hit, still bounded,
+        // and the replayed note ids match the first pull exactly.
+        assert_eq!(player.resolved_cache.len(), 2);
+        assert_eq!(first_note_id(&player), first_ids);
+    }
+
+    /// Audition argument validation works headless (no audio involved).
+    #[test]
+    fn audition_rejects_bad_args() {
+        let (mut player, out) = test_player();
+        player.handle_line("audition 999 ym");
+        assert!(out.try_recv().unwrap().starts_with("err usage"));
+        player.handle_line("audition 60 kazoo");
+        assert!(out.try_recv().unwrap().starts_with("err usage"));
+        player.handle_line("audition");
+        assert!(out.try_recv().unwrap().starts_with("err usage"));
     }
 }

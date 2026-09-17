@@ -24,6 +24,18 @@ use std::sync::{Arc, Mutex}; // Import Stream
 /// Returns the shared state Arcs and the CPAL audio stream. The caller
 /// is responsible for starting the stream with [`play_stream`] and
 /// keeping it alive.
+/// Device sample rate negotiated at backend startup, if audio runs.
+/// Cursor-audition voices are built at this rate so they play in tune.
+static DEVICE_RATE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// Sample rate the audio device runs at, or `None` on headless builds.
+pub fn device_rate() -> Option<u32> {
+    match DEVICE_RATE.load(std::sync::atomic::Ordering::Relaxed) {
+        0 => None,
+        rate => Some(rate),
+    }
+}
+
 pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, MuteFlag, Stream)> {
     info!("Setting up audio via setup_audio...");
 
@@ -144,6 +156,7 @@ pub fn setup_audio() -> Result<(EventQueue, SynthTime, InstrumentsMap, MuteFlag,
     let im_clone = instruments_map.clone();
     let st_clone = synth_time.clone();
     let bus_clone: Arc<Mutex<BusState>> = Arc::new(Mutex::new(BusState::new()));
+    DEVICE_RATE.store(actual_sample_rate, std::sync::atomic::Ordering::Relaxed);
     let mut samples_generated: u64 = 0;
     let mut last_callback_time = std::time::Instant::now();
     let mut callback_count = 0;
