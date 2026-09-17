@@ -277,3 +277,62 @@ fn repeat_elision_does_not_shift_columns() {
         sers[0], sers[1]
     );
 }
+
+/// PSG pitch writes land latch-lo first (transient: new low nibble over
+/// stale high bits) then data-hi. The tracker must spell the note from
+/// the completed period, not freeze the transient midi: period 0x190
+/// (400, C#4) then 0x12C (300, F#4) must yield exactly those two notes.
+#[test]
+fn psg_pitch_uses_completed_period_not_transient() {
+    fn synth_psg() -> Vec<u8> {
+        let mut header = vec![0u8; 0x40];
+        header[0..4].copy_from_slice(b"Vgm ");
+        header[8..12].copy_from_slice(&0x150u32.to_le_bytes());
+        header[0x18..0x1C].copy_from_slice(&2000u32.to_le_bytes()); // total
+        header[0x2C..0x30].copy_from_slice(&7_670_453u32.to_le_bytes());
+        header[0x34..0x38].copy_from_slice(&0x0Cu32.to_le_bytes());
+        let mut body = vec![];
+        fn psg(body: &mut Vec<u8>, byte: u8) {
+            body.push(0x50);
+            body.push(byte);
+        }
+        fn wait(body: &mut Vec<u8>, samples: u16) {
+            body.push(0x61);
+            body.extend(samples.to_le_bytes());
+        }
+        psg(&mut body, 0x90); // ch0 volume on (atten 0)
+        psg(&mut body, 0x80); // ch0 latch, period lo = 0
+        psg(&mut body, 0x19); // period hi -> 0x190 = 400
+        wait(&mut body, 1000);
+        psg(&mut body, 0x8C); // ch0 latch, period lo = 0xC (transient 0x19C)
+        psg(&mut body, 0x12); // period hi -> 0x12C = 300
+        wait(&mut body, 1000);
+        psg(&mut body, 0x9F); // ch0 volume off
+        body.push(0x66);
+        header.extend(body);
+        header
+    }
+    let data = synth_psg();
+    let header = parse_header(&data).expect("header");
+    let commands = parse_commands(&data, &header).expect("commands");
+    let notes = track_psg(&commands, 2000);
+    assert_eq!(notes.len(), 2, "two notes, no transient sliver: {notes:?}");
+    assert_eq!(
+        (
+            notes[0].start,
+            notes[0].duration,
+            notes[0].voice,
+            notes[0].midi
+        ),
+        (0, 1000, 10, 61)
+    );
+    assert_eq!(
+        (
+            notes[1].start,
+            notes[1].duration,
+            notes[1].voice,
+            notes[1].midi
+        ),
+        (1000, 1000, 10, 66)
+    );
+}

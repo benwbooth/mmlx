@@ -444,6 +444,50 @@ pub fn track_fm(commands: &[(usize, u64, Command)], clock: u32, end_sample: u64)
 
 const PSG_CLOCK: f32 = 3_579_545.0;
 
+/// Re-spell the sounding tone on `channel` after a pitch-register write:
+/// when the current period now rounds to a new semitone, close the old
+/// note and open the new one (vibrato that stays in-semitone stays glued).
+///
+/// Shared by latch-lo writes and data-hi completions. A full pitch write
+/// lands latch first (transient: new low nibble over stale high bits)
+/// then data, so checking only the latch freezes the transient midi
+/// forever — every octave-crossing pitch change sounded wrong. When
+/// latch and data share a sample (the usual driver order) the transient
+/// note has zero duration and `close` drops it, leaving a clean boundary.
+fn psg_resplit(
+    sounding: &mut [Option<(u64, u8, f32, f32)>; 4],
+    notes: &mut Vec<TrackNote>,
+    freq: &[u16; 4],
+    volume: &[u8; 4],
+    channel: usize,
+    sample: u64,
+) {
+    if channel < 3 && volume[channel] != 0x0F && freq[channel] > 0 {
+        // Retune: split only across semitones (vibrato stays glued).
+        let tone = PSG_CLOCK / 32.0 / freq[channel] as f32;
+        let midi = freq_midi(tone.max(1.0));
+        if sounding[channel].map(|(_, held, _, _)| held) != Some(midi) {
+            if let Some((start, held, velocity, _)) = sounding[channel].take() {
+                if sample > start {
+                    notes.push(TrackNote {
+                        start,
+                        duration: sample - start,
+                        voice: 10 + channel as u8,
+                        midi: held,
+                        velocity,
+                        params: vec![],
+                        approx: false,
+                        tied: false,
+                    });
+                }
+            }
+            let velocity = (15 - volume[channel].min(15)) as f32 / 15.0;
+            let (start, _) = merged_start(notes, 10 + channel as u8, sample, velocity, &[], false);
+            sounding[channel] = Some((start, midi, velocity, 0.0));
+        }
+    }
+}
+
 /// Track SN76489 writes: tone channels 0-2 (voices 10-12), noise (voice 13).
 pub fn track_psg(commands: &[(usize, u64, Command)], end_sample: u64) -> Vec<TrackNote> {
     let mut freq = [0u16; 4];
@@ -527,28 +571,14 @@ pub fn track_psg(commands: &[(usize, u64, Command)], end_sample: u64) -> Vec<Tra
                         };
                     }
                     freq[latched] = (freq[latched] & 0x3F0) | (byte & 0x0F) as u16;
-                    if latched < 3 && volume[latched] != 0x0F && freq[latched] > 0 {
-                        // Retune: split only across semitones (vibrato stays glued).
-                        let tone = PSG_CLOCK / 32.0 / freq[latched] as f32;
-                        let midi = freq_midi(tone.max(1.0));
-                        if sounding[latched].map(|(_, held, _, _)| held) != Some(midi) {
-                            close(&mut sounding, latched, *sample, &mut notes);
-                            let velocity = loudness(volume[latched]);
-                            let (start, _) = merged_start(
-                                &mut notes,
-                                10 + latched as u8,
-                                *sample,
-                                velocity,
-                                &[],
-                                false,
-                            );
-                            sounding[latched] = Some((start, midi, velocity, 0.0));
-                        }
-                    }
+                    psg_resplit(&mut sounding, &mut notes, &freq, &volume, latched, *sample);
                 }
             } else {
-                // Frequency high data.
+                // Frequency high data: completes the pitch started by the
+                // latch byte, so re-check the split here too (see
+                // `psg_resplit` — the latch alone only sees a transient).
                 freq[latched] = (freq[latched] & 0x0F) | (((byte & 0x3F) as u16) << 4);
+                psg_resplit(&mut sounding, &mut notes, &freq, &volume, latched, *sample);
             }
         }
     }
