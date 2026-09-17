@@ -124,7 +124,9 @@ bar, notes align vertically by point in time (subdivided at event
 boundaries, content-sized columns, whitespace only — the stream
 resolves identically). Each column pads setup prefixes (`voice_*`,
 velocity) to a shared width first, so head notes start together even
-when their prefixes differ in length.
+when their prefixes differ in length. Leading grouping opens
+(`legato!(`, `ser!(`) take no time either, so they ride the setup
+prefix: same-tick heads share a column regardless of wrapper depth.
 
 Voice programs as variables: a `param!` setter block splices
 like any nested block — its params leak forward to following siblings
@@ -138,8 +140,8 @@ parts align vertically like staff systems. Every sounding channel restates
 its program per bar (track branches reset ambient); rest-only bars carry bare
 rests. Repeated phrases recurring 3+
 times with net savings extract to bar-local `seg_*()` functions (fitting
-their bar; crossing occurrences stay inline; single-call segs inline as
-nested `ser!` with no surviving def). Cross-bar sustains are
+their bar; crossing occurrences stay inline; single-call segs stay calls
+with one definition, so no bar carries an unalignable nested `ser!`). Cross-bar sustains are
 `legato!` plus rest cover, so no bar opens with a bare tie. Advance
 accounting uses branch logical ends (`BranchEnd` markers, consumed by par
 heaps): sustain overhang never extends a bar.

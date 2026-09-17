@@ -1741,6 +1741,36 @@ fn align_bar(channels: &[Vec<String>], lens: &[Vec<u64>], bar_ticks: u64) -> Vec
         pre: String,
         post: String,
     }
+    /// Split leading grouping opens (`legato!(`, `ser!(`, …) off a lane
+    /// item so the inner head note aligns at the tick column: opens take
+    /// no time, so they ride the zero-length setup prefix (whitespace-only
+    /// move — token order and lengths are unchanged, only padding shifts).
+    /// Without this, same-tick notes in different wrapper depths sit at
+    /// different columns (inner head = token column + prefix length).
+    fn split_wrapper_opens(item: &str) -> (String, String) {
+        let mut rest = item;
+        let mut opens = String::new();
+        loop {
+            let open = [
+                "legato!(",
+                "ser!(",
+                "par!(",
+                "parmin!(",
+                "forkseq!(",
+                "forkpar!(",
+            ]
+            .iter()
+            .find(|open| rest.starts_with(**open));
+            match open {
+                Some(open) => {
+                    opens.push_str(open);
+                    rest = &rest[open.len()..];
+                }
+                None => break,
+            }
+        }
+        (opens, rest.to_string())
+    }
     let mut all: Vec<Vec<Seg>> = Vec::new();
     for (items, ls) in channels.iter().zip(lens.iter()) {
         let mut segs: Vec<Seg> = Vec::new();
@@ -1786,11 +1816,19 @@ fn align_bar(channels: &[Vec<String>], lens: &[Vec<u64>], bar_ticks: u64) -> Vec
             } else if *len == 0 {
                 pending.push(item.clone());
             } else {
+                let (opens, head) = split_wrapper_opens(item);
+                let mut pre = pending.join(" ");
+                if !opens.is_empty() {
+                    if !pre.is_empty() {
+                        pre.push(' ');
+                    }
+                    pre.push_str(&opens);
+                }
                 segs.push(Seg {
                     start: pos,
                     len: *len,
-                    pre: pending.join(" "),
-                    post: item.clone(),
+                    pre,
+                    post: head,
                 });
                 pending.clear();
                 pos += len;
@@ -1947,21 +1985,6 @@ fn bar_uses(bars: &[AsmBar], pat: &str) -> usize {
         .flat_map(|ch| ch.items.iter())
         .map(|item| item.matches(pat).count())
         .sum()
-}
-
-/// First item containing `pat` (bar-major order) gets one replacement.
-fn replace_first_in_bars(bars: &mut [AsmBar], pat: &str, rep: &str) -> bool {
-    for bar in bars {
-        for ch in &mut bar.channels {
-            for item in &mut ch.items {
-                if item.contains(pat) {
-                    *item = item.replacen(pat, rep, 1);
-                    return true;
-                }
-            }
-        }
-    }
-    false
 }
 
 /// Every occurrence in every item replaced; true when anything matched.
@@ -2320,9 +2343,13 @@ pub fn emit_song(
             lines.join("\n") + "\n\n"
         }
     };
-    // Seg phrases called exactly once inline as nested `ser!` blocks and
-    // drop their definitions (same single-use rule as voices). Fixpoint:
-    // inlining can strand nested single-call segs; unreferenced defs drop.
+    // Seg phrases stay calls with definitions, even single-use ones:
+    // inlining them as nested `ser!` blocks strands inner notes at
+    // interior columns no other lane can share (one bar's arp figure
+    // failed column audit exactly this way). A call token aligns at its
+    // start tick like any head; the definition holds the phrase once, as
+    // for multi-use segs. Fixpoint: dropping dead defs can orphan nested
+    // calls, so repeat until stable.
     loop {
         // Parse current defs into (name, one-line ser expr).
         let mut defs: Vec<(String, String)> = Vec::new();
@@ -2358,44 +2385,15 @@ pub fn emit_song(
             }
             n.saturating_sub(1)
         };
-        let singles: Vec<(String, String)> = defs
+        // Single-use phrases stay calls with definitions (see above): drop
+        // only defs nothing references anymore, and repeat until stable
+        // since dropping can orphan nested calls.
+        let live: std::collections::HashSet<String> = defs
             .iter()
-            .filter(|(seg_name, _)| uses_of(seg_name) == 1)
-            .cloned()
+            .filter(|(seg_name, _)| uses_of(seg_name) > 0)
+            .map(|(seg_name, _)| seg_name.clone())
             .collect();
-        if singles.is_empty() {
-            let live: std::collections::HashSet<String> = defs
-                .iter()
-                .filter(|(seg_name, _)| uses_of(seg_name) > 0)
-                .map(|(seg_name, _)| seg_name.clone())
-                .collect();
-            seg_defs.retain(|def| {
-                let Some(fn_pos) = def.find("fn ") else {
-                    return true;
-                };
-                let rest = &def[fn_pos + 3..];
-                let Some(paren) = rest.find("()") else {
-                    return true;
-                };
-                live.contains(&rest[..paren])
-            });
-            break;
-        }
-        for (seg_name, expr) in &singles {
-            let pat = format!("{seg_name}()");
-            // The nested expr keeps its call site's item slot (whose tick
-            // length already equals the expansion), so layout stays exact.
-            if !replace_first_in_bars(&mut intro_bars, pat.as_str(), expr) {
-                if !replace_first_in_bars(&mut loop_bars, pat.as_str(), expr) {
-                    for def in seg_defs.iter_mut() {
-                        if def.contains(pat.as_str()) {
-                            *def = def.replacen(pat.as_str(), expr, 1);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        let before = seg_defs.len();
         seg_defs.retain(|def| {
             let Some(fn_pos) = def.find("fn ") else {
                 return true;
@@ -2404,10 +2402,11 @@ pub fn emit_song(
             let Some(paren) = rest.find("()") else {
                 return true;
             };
-            !singles
-                .iter()
-                .any(|(seg_name, _)| seg_name == &rest[..paren])
+            live.contains(&rest[..paren])
         });
+        if seg_defs.len() == before {
+            break;
+        }
     }
     // Render bar-major mixes last, after every substitution, so column
     // layout sees final widths. Loop bars sit one level deeper (inside
@@ -2428,7 +2427,7 @@ pub fn emit_song(
          /// Each `bar!` outlines into its own closure for parallel codegen;\n\
          /// Voice programs bind once as `let voice_*` variables (spliced
          /// bare, never inline); `seg_*()` phrases are bar-local repeats
-         /// (single-call segs inline too); cross-bar sustains are `legato!`
+         /// phrases stay `seg_*()` calls with one definition each; cross-bar sustains are `legato!`
          /// plus rest cover.\n\
          /// One generator fn streams the whole performance: intro `yield_!`
          /// once, then `loop` yielding the loop body forever. Voices and
