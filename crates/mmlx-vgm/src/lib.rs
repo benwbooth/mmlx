@@ -612,8 +612,12 @@ pub fn tempo_for_tick(tick_samples: u64) -> f32 {
 }
 
 /// Split notes into (intro, looping) at a loop sample point.
-/// Looping notes are rebased to start at 0; intro notes crossing the
-/// boundary are clipped. Without a loop point everything is intro.
+/// Looping notes are rebased to start at 0. Intro notes are CLIPPED at
+/// the loop point (no ring-out past it): the wrap must land exactly on
+/// the joint like the VGM jump, or tails plus rest padding stretch every
+/// cycle change into seconds of thinning air. The wrap releases cut
+/// voices through their envelopes, so the joint stays gapless without
+/// playing past the loop. Without a loop point everything is intro.
 pub fn split_loop(
     notes: Vec<TrackNote>,
     loop_sample: Option<u64>,
@@ -623,7 +627,9 @@ pub fn split_loop(
             let (mut intro, mut looping) = (Vec::new(), Vec::new());
             for mut note in notes {
                 if note.start < at {
-                    // Intro notes ring out naturally past the loop point.
+                    // Clip sustains at the joint (start < at, so the
+                    // truncated duration stays positive).
+                    note.duration = note.duration.min(at - note.start);
                     intro.push(note);
                 } else {
                     note.start -= at;

@@ -241,3 +241,39 @@ fn verbatim_ch2_bar2_legato_diff_applies() {
     assert_eq!(last.1, 17.0, "verbatim lane applies final diff");
     assert_eq!(last.2, 0.0, "verbatim lane applies final tied");
 }
+
+/// Bodies end at their musical joints: the intro wraps at the VGM loop
+/// point (no multi-second tail past it = the pre-loop pause), the loop
+/// spans the VGM loop range. Ticks at 116.955444 BPM (62.371/s).
+fn body_span_ticks(body: usize) -> (f32, f32) {
+    let events: Vec<_> = mmlx_songs::vgm::alisia_stage1::alisia_stage1()
+        .into_iter()
+        .nth(body)
+        .expect("body")
+        .event_stream(0.0)
+        .collect();
+    const TPS: f32 = 116.955444 * 128.0 / 240.0;
+    let mut max_start = 0.0f32;
+    let mut max_end = 0.0f32;
+    for ev in &events {
+        use mmlx_core::MusicalEventType;
+        if matches!(ev.event, MusicalEventType::NoteOn { .. }) {
+            max_start = max_start.max(ev.time_seconds);
+        }
+        max_end = max_end.max(ev.time_seconds + ev.real_duration);
+    }
+    (max_start * TPS, max_end * TPS)
+}
+
+#[test]
+fn bodies_end_at_their_musical_joints() {
+    let (intro_start, intro_end) = body_span_ticks(0);
+    // Intro attacks play into the joint; nothing rings materially past it.
+    assert!(intro_start > 6180.0, "intro reaches the joint, last attack {intro_start:.1}");
+    assert!(intro_start <= 6215.0, "intro attacks stop at the joint, {intro_start:.1}");
+    assert!(intro_end <= 6220.0, "no tail past the loop point, end {intro_end:.1}");
+    let (loop_start, loop_end) = body_span_ticks(1);
+    assert!(loop_start > 2560.0, "loop plays into its end, last attack {loop_start:.1}");
+    assert!(loop_end <= 2596.0, "loop spans the VGM range, end {loop_end:.1}");
+    assert!(loop_end >= 2585.0, "loop is not cut short, end {loop_end:.1}");
+}

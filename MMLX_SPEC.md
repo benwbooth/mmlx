@@ -141,7 +141,12 @@ its program per bar (track branches reset ambient); rest-only bars carry bare
 rests. Repeated phrases recurring 3+
 times with net savings extract to bar-local `seg_*()` functions (fitting
 their bar; crossing occurrences stay inline; single-call segs stay calls
-with one definition, so no bar carries an unalignable nested `ser!`). Cross-bar sustains are
+with one definition, so no bar carries an unalignable nested `ser!`).
+Intro notes are clipped at the VGM loop point (the wrap releases them
+through envelopes, gapless like the VGM jump) — never padded past it,
+or every cycle change gains seconds of thinning air. VGM loop points are
+not bar-aligned, so the two joint bars are honestly partial (intro tail,
+loop tail); every other bar is exactly the meter grid. Cross-bar sustains are
 `legato!` plus rest cover, so no bar opens with a bare tie. Advance
 accounting uses branch logical ends (`BranchEnd` markers, consumed by par
 heaps): sustain overhang never extends a bar.
