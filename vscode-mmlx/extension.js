@@ -25,6 +25,9 @@ const SONG_RET = /Note|SongStream/;
 
 let ts = null; // Promise<{ parser, query }>
 let server = null; // { proc }
+let serverGen = 0; // bumped per spawned server (REPL state is per-proc)
+let loadMemo = null; // { gen, text } of the last `load` sent
+let loadPending = false; // a `load` reply is still in flight
 let out = null;
 let playing = null; // { doc, name, paused }
 const loopState = new Map(); // "uri#name" -> bool (default on)
@@ -41,7 +44,7 @@ let rollPanel = null;
 let rollRows = [];
 
 const highlight = vscode.window.createTextEditorDecorationType({
-  backgroundColor: "rgba(255,235,59,0.35)",
+  backgroundColor: "rgba(255,235,59,0.6)",
   border: "1px solid rgba(255,235,59,0.95)",
   borderRadius: "2px",
   overviewRulerColor: "rgba(255,235,59,1.0)",
@@ -207,8 +210,7 @@ async function previewAtCursor(doc) {
   const pos = ed.selection.active;
   const m = doc.lineAt(pos.line).text.slice(0, pos.character).match(/[a-z0-9_]+$/);
   if (!m || !NOTE_RE.test(m[0])) return;
-  ensureServer(doc);
-  send(`preview ${m[0]}`);
+  requestAudition(doc);
   const idle = () => !playing || playing.paused;
   if (idle()) {
     const range = new vscode.Range(pos.line, pos.character - m[0].length, pos.line, pos.character);
@@ -216,6 +218,104 @@ async function previewAtCursor(doc) {
     clearTimeout(previewHlTimer);
     previewHlTimer = setTimeout(() => { if (idle()) ed.setDecorations(highlight, []); }, 400);
   }
+}
+
+// Cursor audition: play the note under the cursor on arrival, and
+// re-play an edited note (typing confirms at once; space/enter re-hit the
+// just-typed token through the same path). Native `audition` (no JIT, so
+// it never queues behind a song compile); gated on live audio and the
+// `mmlx.audition` setting. Throttled trailing so fast arrowing plays the
+// landing note, not every passed one.
+let audLast = null; // { key, snip, version, line, ch, inst }
+let audTimer = null;
+const AUDIT_MS = 150;
+const AUD_PC = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+
+function noteTokToMidi(tok) {
+  const m = tok.match(/^([a-g])(ss|ff|[sfn]|nn)?(_\d|\d)/);
+  if (!m) return null;
+  const base = AUD_PC[m[1]];
+  const acc = { s: 1, f: -1, ss: 2, ff: -2, n: 0, nn: 0 }[m[2] || "n"] || 0;
+  const oct = m[3].startsWith("_") ? -Number(m[3].slice(1)) : Number(m[3]);
+  return (oct + 1) * 12 + base + acc;
+}
+
+function tokenAt(line, col) {
+  const left = line.slice(0, col).match(/[A-Za-z0-9_]+$/);
+  const right = (line.slice(col).match(/^[A-Za-z0-9_]*/) || [""])[0];
+  const start = left ? col - left[0].length : col;
+  const tok = (left ? left[0] : "") + right;
+  return tok ? { tok, a: start, b: start + tok.length } : null;
+}
+
+function elAtSection(lanes, off) {
+  for (const lane of lanes || []) {
+    if (lane.inst !== "ym" && lane.inst !== "psg") continue;
+    for (const el of lane.els || []) {
+      if (off >= el.a && off < el.b) return { el, inst: lane.inst };
+    }
+  }
+  return null;
+}
+
+async function maybeAudition(doc) {
+  if (!server) return;
+  const cfg = vscode.workspace.getConfiguration("mmlx");
+  if (!cfg.get("audio", false) || !cfg.get("audition", true)) return;
+  const ed = vscode.window.activeTextEditor;
+  if (!ed || ed.document !== doc) return;
+  const sel = ed.selection.active;
+  let name = playing && playing.doc === doc ? playing.name : null;
+  if (!name) {
+    const fn = await functionAt(doc, sel.line);
+    if (!fn) return;
+    name = fn.name;
+  }
+  let sections;
+  try {
+    sections = await laneMap(doc, name);
+  } catch {
+    return;
+  }
+  const off = doc.offsetAt(sel);
+  const found =
+    elAtSection(sections.intro, off) || elAtSection(sections.loop, off);
+  const line = doc.lineAt(sel.line).text;
+  const tok = tokenAt(line, sel.character);
+  const key = found ? `${found.el.a}:${found.el.b}` : null;
+  // Leaving an edited note: confirm the old pitch when its text changed
+  // under a moved cursor (typing itself already auditioned via the arrival
+  // rule below, so this only fires for unplayed edits).
+  if (audLast && audLast.key !== key && doc.version !== audLast.version) {
+    const oldLineNo = Math.min(audLast.line, doc.lineCount - 1);
+    const oldLine = doc.lineAt(oldLineNo).text;
+    const oldTok = tokenAt(oldLine, Math.min(audLast.ch, oldLine.length));
+    if (oldTok && oldTok.tok !== audLast.snip) {
+      const m = PITCH_RE.test(oldTok.tok) ? noteTokToMidi(oldTok.tok) : null;
+      if (m !== null && m >= 0 && m <= 127) send(`audition ${m} ${audLast.inst}`);
+    }
+  }
+  if (found && tok && PITCH_RE.test(tok.tok)) {
+    const midi = noteTokToMidi(tok.tok);
+    if (
+      midi !== null &&
+      midi >= 0 &&
+      midi <= 127 &&
+      (!audLast || audLast.key !== key || audLast.snip !== tok.tok)
+    ) {
+      send(`audition ${midi} ${found.inst}`);
+      audLast = { key, snip: tok.tok, version: doc.version, line: sel.line, ch: sel.character, inst: found.inst };
+      return;
+    }
+  }
+  if (!found) audLast = null;
+}
+
+function requestAudition(doc) {
+  clearTimeout(audTimer);
+  audTimer = setTimeout(() => {
+    maybeAudition(doc).catch(() => {});
+  }, AUDIT_MS);
 }
 
 function workspaceDir(doc) {
@@ -229,6 +329,9 @@ function ensureServer(doc) {
   const args = ["run", "--quiet", "-p", "mmlx-server"];
   if (cfg.get("audio", false)) args.push("--features", "audio");
   const proc = cp.spawn("cargo", args, { cwd: workspaceDir(doc), env: { ...process.env, NIX_LDFLAGS: "" } });
+  serverGen++;
+  loadMemo = null;
+  loadPending = false;
   proc.stdout.setEncoding("utf8");
   let buf = "";
   proc.stdout.on("data", (d) => {
@@ -249,6 +352,17 @@ function send(cmd) {
   if (server && server.proc.stdin.writable) server.proc.stdin.write(cmd + "\n");
 }
 
+// Send a `load` only when the text actually changed since the last one:
+// re-sends of identical code (repeat plays, bar hops) used to recompile
+// ~10s in evcxr every time. tmp paths are stable per window session.
+function sendLoad(tmp, text) {
+  if (loadMemo && loadMemo.gen === serverGen && loadMemo.text === text) return;
+  fs.writeFileSync(tmp, text);
+  send(`load ${tmp}`);
+  loadMemo = { gen: serverGen, text };
+  loadPending = true;
+}
+
 // Cold evcxr compiles take minutes with no server output; keep a visible
 // "working" message until the server answers with anything.
 let busyMsg = null;
@@ -263,6 +377,12 @@ function clearBusy() {
 function handleEvent(line) {
   if (!line) return;
   clearBusy();
+  if (line === "ok loaded") {
+    loadPending = false;
+  } else if (line.startsWith("err ") && loadPending) {
+    loadPending = false;
+    loadMemo = null;
+  }
   if (line.startsWith("pos ")) {
     // `pos <tick> <ordinal> [<inst> <ch> <lane-ordinal> [<cycle>]]`
     const parts = line.split(/\s+/);
@@ -384,6 +504,12 @@ function pickReveal(spans, visStart, visEnd, visStartCh, visEndCh) {
   return { action: "first", lo: first.aLine, hi: first.bLine };
 }
 
+// Follow dead-zone: notes within a few lines / a couple dozen columns
+// of the viewport edge never yank the screen (the old InCenter-on-every-
+// note chased the playhead constantly on wide bar lines).
+const FOLLOW_LINE_MARGIN = 4;
+const FOLLOW_COL_MARGIN = 32;
+
 function followRecent(ed) {
   const recent = playing && playing.recent;
   if (!recent || !recent.length) return;
@@ -395,7 +521,13 @@ function followRecent(ed) {
   });
   const vis = ed.visibleRanges && ed.visibleRanges[0];
   const pick = vis
-    ? pickReveal(spans, vis.start.line, vis.end.line, vis.start.character, vis.end.character)
+    ? pickReveal(
+        spans,
+        vis.start.line - FOLLOW_LINE_MARGIN,
+        vis.end.line + FOLLOW_LINE_MARGIN,
+        vis.start.character - FOLLOW_COL_MARGIN,
+        vis.end.character + FOLLOW_COL_MARGIN
+      )
     : pickReveal(spans, -1, -2);
   if (pick.action === "none") return;
   let minA = Infinity;
@@ -408,7 +540,8 @@ function followRecent(ed) {
     pick.action === "full"
       ? new vscode.Range(doc.positionAt(minA), doc.positionAt(maxB))
       : new vscode.Range(doc.positionAt(spans[0].a), doc.positionAt(spans[0].b));
-  ed.revealRange(range, vscode.TextEditorRevealType.InCenter);
+  // Minimal scroll (not center): the viewport pages instead of seizing.
+  ed.revealRange(range, vscode.TextEditorRevealType.Default);
 }
 
 // Voice lanes of a function, bar-major: the outer mix is a top-level
@@ -891,8 +1024,7 @@ async function playSection(doc, name, index) {
   vscode.commands.executeCommand("setContext", "mmlxPlaying", true);
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
-  fs.writeFileSync(tmp, doc.getText());
-  send(`load ${tmp}`);
+  sendLoad(tmp, doc.getText());
   send(`play { ${lets} ${src} }`);
   markBusy("loading…");
   lensChanged.fire();
@@ -927,8 +1059,7 @@ async function playBar(doc, name, index) {
   vscode.commands.executeCommand("setContext", "mmlxPlaying", true);
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
   const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
-  fs.writeFileSync(tmp, doc.getText());
-  send(`load ${tmp}`);
+  sendLoad(tmp, doc.getText());
   send(`play { ${lets} ${src} }`);
   markBusy("loading…");
   lensChanged.fire();
@@ -960,8 +1091,7 @@ async function playBarToggle(doc, name, bar) {
 function writeAndSend() {
   if (!playing) return;
   const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
-  fs.writeFileSync(tmp, playing.doc.getText());
-  send(`load ${tmp}`);
+  sendLoad(tmp, playing.doc.getText());
   send(`play ${playing.name}()`);
 }
 
@@ -990,8 +1120,7 @@ async function showRoll(doc, name) {
   }
   rollRows = [];
   const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
-  fs.writeFileSync(tmp, doc.getText());
-  send(`load ${tmp}`);
+  sendLoad(tmp, doc.getText());
   send(`roll ${name}()`);
   markBusy("loading…");
 }
@@ -1091,11 +1220,18 @@ function activate(ctx) {
   );
 
   ctx.subscriptions.push(
+    vscode.window.onDidChangeTextEditorSelection((e) => {
+      if (e.textEditor.document.languageId !== "rust") return;
+      requestAudition(e.textEditor.document);
+    }),
     vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.languageId !== "rust") return;
       lensChanged.fire();
       clearTimeout(previewDebounce);
-      previewDebounce = setTimeout(() => previewAtCursor(e.document), 120);
+      previewDebounce = setTimeout(() => {
+        previewAtCursor(e.document);
+        requestAudition(e.document);
+      }, 120);
       if (!playing || e.document !== playing.doc) return;
       clearTimeout(debounce);
       const ms = vscode.workspace.getConfiguration("mmlx").get("debounceMs", 300);

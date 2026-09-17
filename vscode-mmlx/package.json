@@ -40,6 +40,11 @@
           "type": "number",
           "default": 300,
           "description": "Delay after you stop typing before reloading the playing song."
+        },
+        "mmlx.audition": {
+          "type": "boolean",
+          "default": true,
+          "description": "Audition the note under the cursor on arrival, and re-play an edited note when leaving it (native preview voices, needs live audio)."
         }
       }
     }
