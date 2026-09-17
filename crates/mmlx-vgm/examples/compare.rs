@@ -82,19 +82,27 @@ fn main() {
         };
         for (notes, tag) in [(intro, "intro"), (looping, "loop")] {
             for note in snap_voice(&notes, tick) {
+                // Sorted to match the song side's key order; carries the
+                // note's own params too (sn_noise_mode on drum notes).
+                let mut params = vec![
+                    ("sn_channel".to_string(), channel),
+                    (
+                        "velocity".to_string(),
+                        (note.velocity * 1000.0).round() / 1000.0,
+                    ),
+                ];
+                params.extend(
+                    note.params
+                        .iter()
+                        .map(|(key, value)| (key.clone(), (value * 1000.0).round() / 1000.0)),
+                );
+                params.sort_by(|a, b| a.0.cmp(&b.0));
                 reference.push((
                     to_ticks(note.start as f32 / 44100.0),
                     to_ticks(note.duration as f32 / 44100.0),
                     note.midi,
                     format!("psg:{tag_voice}:{tag}"),
-                    // Sorted to match the song side's key order.
-                    vec![
-                        ("sn_channel".to_string(), channel),
-                        (
-                            "velocity".to_string(),
-                            (note.velocity * 1000.0).round() / 1000.0,
-                        ),
-                    ],
+                    params,
                 ));
             }
         }

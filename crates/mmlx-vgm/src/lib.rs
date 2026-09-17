@@ -201,12 +201,14 @@ fn fm_snapshot(channel: &FmChannel) -> (Vec<(String, f32)>, bool) {
         let row = &channel.rows[[0, 2, 1, 3][slot]];
         let prefix = format!("op{}", slot + 1);
         params.push((format!("{prefix}_mult"), (row.mult & 0x0F) as f32));
+        params.push((format!("{prefix}_dt"), ((row.mult >> 4) & 0x07) as f32));
         params.push((format!("{prefix}_tl"), (row.tl & 0x7F) as f32));
         params.push((format!("{prefix}_ar"), (row.ar & 0x1F) as f32));
         params.push((format!("{prefix}_dr"), (row.dr & 0x1F) as f32));
         params.push((format!("{prefix}_sr"), (row.sr & 0x1F) as f32));
         params.push((format!("{prefix}_sl"), ((row.sl >> 4) & 0x0F) as f32));
         params.push((format!("{prefix}_rr"), (row.rr & 0x0F) as f32));
+        params.push((format!("{prefix}_ssg"), (row.ssg & 0x0F) as f32));
         if row.ssg & 0x08 != 0 {
             approx = true; // SSG-EG shape approximated (flagged)
         }
@@ -442,22 +444,30 @@ pub fn track_psg(commands: &[(usize, u64, Command)], end_sample: u64) -> Vec<Tra
     let mut freq = [0u16; 4];
     let mut volume: [u8; 4] = [0x0F; 4];
     let mut latched = 0usize;
-    let mut sounding: [Option<(u64, u8, f32)>; 4] = [None, None, None, None];
+    // Noise mode from 0xE4-style control writes: 0 white N/512, 1 periodic
+    // N/512, 2 tone-3 follow. Tracked so each noise note carries its own.
+    let mut noise_mode: f32 = 0.0;
+    let mut sounding: [Option<(u64, u8, f32, f32)>; 4] = [None, None, None, None];
     let mut notes = Vec::new();
     let loudness = |attenuation: u8| (15 - attenuation.min(15)) as f32 / 15.0;
-    let close = |sounding: &mut [Option<(u64, u8, f32)>; 4],
+    let close = |sounding: &mut [Option<(u64, u8, f32, f32)>; 4],
                  channel: usize,
                  at: u64,
                  notes: &mut Vec<TrackNote>| {
-        if let Some((start, midi, velocity)) = sounding[channel].take() {
+        if let Some((start, midi, velocity, mode)) = sounding[channel].take() {
             if at > start {
+                let params = if channel == 3 {
+                    vec![("sn_noise_mode".to_string(), mode)]
+                } else {
+                    vec![]
+                };
                 notes.push(TrackNote {
                     start,
                     duration: at - start,
                     voice: 10 + channel as u8,
                     midi,
                     velocity,
-                    params: vec![],
+                    params,
                     approx: false,
                 });
             }
@@ -485,24 +495,37 @@ pub fn track_psg(commands: &[(usize, u64, Command)], end_sample: u64) -> Vec<Tra
                                 &[],
                                 false,
                             );
-                            sounding[latched] = Some((start, freq_midi(tone.max(1.0)), velocity));
+                            sounding[latched] =
+                                Some((start, freq_midi(tone.max(1.0)), velocity, 0.0));
                         }
                     } else if attenuation == 0x0F {
                         close(&mut sounding, 3, *sample, &mut notes);
                     } else if sounding[3].is_none() {
                         let velocity = loudness(attenuation);
+                        let mode_params = vec![("sn_noise_mode".to_string(), noise_mode)];
                         let (start, _) =
-                            merged_start(&mut notes, 13, *sample, velocity, &[], false);
-                        sounding[3] = Some((start, 60, velocity));
+                            merged_start(&mut notes, 13, *sample, velocity, &mode_params, false);
+                        sounding[3] = Some((start, 60, velocity, noise_mode));
                     }
                 } else {
-                    // Frequency low latch.
+                    // Frequency low latch; on channel 3 these are noise
+                    // control writes (0xE0-0xE7): NFB + rate select.
+                    if latched == 3 {
+                        let rate = byte & 0x03;
+                        noise_mode = if rate == 3 {
+                            2.0
+                        } else if byte & 0x04 != 0 {
+                            1.0
+                        } else {
+                            0.0
+                        };
+                    }
                     freq[latched] = (freq[latched] & 0x3F0) | (byte & 0x0F) as u16;
                     if latched < 3 && volume[latched] != 0x0F && freq[latched] > 0 {
                         // Retune: split only across semitones (vibrato stays glued).
                         let tone = PSG_CLOCK / 32.0 / freq[latched] as f32;
                         let midi = freq_midi(tone.max(1.0));
-                        if sounding[latched].map(|(_, held, _)| held) != Some(midi) {
+                        if sounding[latched].map(|(_, held, _, _)| held) != Some(midi) {
                             close(&mut sounding, latched, *sample, &mut notes);
                             let velocity = loudness(volume[latched]);
                             let (start, _) = merged_start(
@@ -513,7 +536,7 @@ pub fn track_psg(commands: &[(usize, u64, Command)], end_sample: u64) -> Vec<Tra
                                 &[],
                                 false,
                             );
-                            sounding[latched] = Some((start, midi, velocity));
+                            sounding[latched] = Some((start, midi, velocity, 0.0));
                         }
                     }
                 }
