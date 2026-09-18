@@ -1075,7 +1075,10 @@ function stripLineComments(text) {
 function jitPrelude(doc, fn) {
   const text = doc.getText();
   const parts = [];
-  for (const m of text.matchAll(/^[ \t]*const\s+\w+\s*:[^;\n]+;[^\n]*$/gm)) {
+  const seen = new Set();
+  for (const m of text.matchAll(/^[ \t]*const\s+(\w+)\s*:[^;\n]+;[^\n]*$/gm)) {
+    if (seen.has(m[1])) continue; // multi-song files: define once
+    seen.add(m[1]);
     parts.push(stripLineComments(m[0]).replace(/\s+/g, " ").trim());
   }
   // `seg_*` phrase fns, brace-balanced (bodies contain strings/macros).
@@ -1124,7 +1127,11 @@ function jitPrelude(doc, fn) {
         if (depth === 0) break;
       }
     }
-    parts.push(stripLineComments(text.slice(m.index, i + 1)).replace(/\s+/g, " ").trim());
+    const segName = (m[0].match(/fn\s+(\w+_seg_\d+)/) || [])[1];
+    if (segName && !seen.has(segName)) {
+      seen.add(segName);
+      parts.push(stripLineComments(text.slice(m.index, i + 1)).replace(/\s+/g, " ").trim());
+    }
     re.lastIndex = i + 1;
   }
   const bodyText = doc.getText(new vscode.Range(doc.positionAt(fn.bodyA), doc.positionAt(fn.bodyB)));
