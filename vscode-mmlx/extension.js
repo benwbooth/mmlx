@@ -1003,29 +1003,154 @@ function bufferMatchesDisk(doc) {
   }
 }
 
-// Sections play by submitting their (whitespace-collapsed) source text.
-// Voice `let` bindings live outside sections, so the fn's single-line
-// lets ride along; otherwise references like bare `voice_melody` splices
-// fail to eval (the server error shows in the status bar).
+// Drop `//` line comments (string/char aware) from source before it is
+// whitespace-collapsed into a one-line play expression: collapsing turns
+// every comment into a comment on the WHOLE remainder of that line, so
+// any staff comment or trailing const note silently killed the command.
+function stripLineComments(text) {
+  let out = "";
+  let mode = null; // "str" | "chr" | "line" | "block"
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const nx = text[i + 1] || "";
+    if (mode === "str") {
+      out += ch;
+      if (ch === "\\") {
+        out += nx;
+        i++;
+      } else if (ch === '"') mode = null;
+      continue;
+    }
+    if (mode === "chr") {
+      out += ch;
+      if (ch === "\\") {
+        out += nx;
+        i++;
+      } else if (ch === "'") mode = null;
+      continue;
+    }
+    if (mode === "line") {
+      if (ch === "\n") {
+        mode = null;
+        out += ch;
+      }
+      continue;
+    }
+    if (mode === "block") {
+      out += ch;
+      if (ch === "*" && nx === "/") {
+        out += nx;
+        i++;
+        mode = null;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      mode = "str";
+      out += ch;
+    } else if (ch === "'") {
+      mode = "chr";
+      out += ch;
+    } else if (ch === "/" && nx === "/") {
+      mode = "line";
+    } else if (ch === "/" && nx === "*") {
+      mode = "block";
+      out += ch;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+// Self-contained JIT prelude for bar/section playback.
+//
+// A bare `load` of a generated song file can't define these: the file
+// imports the vendored genawaiter (`use genawaiter::sync::gen;`), which
+// the evcxr context doesn't `:dep`, so the load fails and the following
+// `play { lets src }` dies on every unresolved name — clicking a bar's
+// play lens did nothing. So the expression carries its own definitions:
+// the file's `const` dynamics, its `seg_*` phrase fns, and the song fn's
+// voice `let`s, all legal as items/statements inside the play block.
+function jitPrelude(doc, fn) {
+  const text = doc.getText();
+  const parts = [];
+  for (const m of text.matchAll(/^[ \t]*const\s+\w+\s*:[^;\n]+;[^\n]*$/gm)) {
+    parts.push(stripLineComments(m[0]).replace(/\s+/g, " ").trim());
+  }
+  // `seg_*` phrase fns, brace-balanced (bodies contain strings/macros).
+  const re = /(?:^|\n)[ \t]*(?:#\[[^\]]*\][ \t]*\r?\n[ \t]*)*fn\s+\w+_seg_\d+\s*\(\)\s*->\s*Note\s*\{/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const open = m.index + m[0].length - 1;
+    let depth = 0;
+    let mode = null;
+    let i = open;
+    for (; i < text.length; i++) {
+      const ch = text[i];
+      const nx = text[i + 1] || "";
+      if (mode === "str") {
+        if (ch === "\\") i++;
+        else if (ch === '"') mode = null;
+        continue;
+      }
+      if (mode === "chr") {
+        if (ch === "\\") i++;
+        else if (ch === "'") mode = null;
+        continue;
+      }
+      if (mode === "line") {
+        if (ch === "\n") mode = null;
+        continue;
+      }
+      if (mode === "block") {
+        if (ch === "*" && nx === "/") {
+          mode = null;
+          i++;
+        }
+        continue;
+      }
+      if (ch === '"') mode = "str";
+      else if (ch === "'") mode = "chr";
+      else if (ch === "/" && nx === "/") {
+        mode = "line";
+        i++;
+      } else if (ch === "/" && nx === "*") {
+        mode = "block";
+        i++;
+      } else if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) break;
+      }
+    }
+    parts.push(stripLineComments(text.slice(m.index, i + 1)).replace(/\s+/g, " ").trim());
+    re.lastIndex = i + 1;
+  }
+  const bodyText = doc.getText(new vscode.Range(doc.positionAt(fn.bodyA), doc.positionAt(fn.bodyB)));
+  for (const m of bodyText.matchAll(/^[ \t]*let\s+\w+\s*:[^;\n]+;[ \t]*$/gm)) {
+    parts.push(stripLineComments(m[0]).replace(/\s+/g, " ").trim());
+  }
+  return parts.join(" ");
+}
+
+// Sections play by submitting their source text plus `jitPrelude` (the
+// file's consts, seg fns, and voice lets): a slice alone can't resolve
+// bare `voice_*` splices, `VEL_*` dynamics, or `seg_*()` calls.
 async function playSection(doc, name, index) {
   ensureServer(doc);
   const fns = await structure(doc);
   const fn = fns.find((f) => f.name === name);
   const section = fn && fn.sections[index];
   if (!section) return;
-  const bodyText = doc.getText(new vscode.Range(doc.positionAt(fn.bodyA), doc.positionAt(fn.bodyB)));
-  const lets = [...bodyText.matchAll(/^[ \t]*let\s+\w+\s*:[^;\n]+;[ \t]*$/gm)]
-    .map((m) => m[0].trim().replace(/\s+/g, " "))
-    .join(" ");
-  const src = doc.getText(new vscode.Range(doc.positionAt(section.start), doc.positionAt(section.end))).replace(/\s+/g, " ");
+  const prelude = jitPrelude(doc, fn);
+  const src = stripLineComments(doc.getText(new vscode.Range(doc.positionAt(section.start), doc.positionAt(section.end)))).replace(/\s+/g, " ");
   out.appendLine(`▶ ${name} §${index + 1}`);
   playing = { doc, name, section: index, sectionSrc: src, sectionStart: section.start, paused: false, recent: [] };
   playing.playWall = Date.now();
   vscode.commands.executeCommand("setContext", "mmlxPlaying", true);
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
-  const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
-  sendLoad(tmp, doc.getText());
-  send(`play { ${lets} ${src} }`);
+  send(`play { ${prelude} ${src} }`);
   markBusy("loading…");
   lensChanged.fire();
 }
@@ -1048,19 +1173,14 @@ async function playBar(doc, name, index) {
   const fn = fns.find((f) => f.name === name);
   const bar = fn && (fn.bars || [])[index];
   if (!bar) return;
-  const bodyText = doc.getText(new vscode.Range(doc.positionAt(fn.bodyA), doc.positionAt(fn.bodyB)));
-  const lets = [...bodyText.matchAll(/^[ \t]*let\s+\w+\s*:[^;\n]+;[ \t]*$/gm)]
-    .map((m) => m[0].trim().replace(/\s+/g, " "))
-    .join(" ");
-  const src = doc.getText(new vscode.Range(doc.positionAt(bar.start), doc.positionAt(bar.end))).replace(/\s+/g, " ");
+  const prelude = jitPrelude(doc, fn);
+  const src = stripLineComments(doc.getText(new vscode.Range(doc.positionAt(bar.start), doc.positionAt(bar.end)))).replace(/\s+/g, " ");
   out.appendLine(`▶ ${name} bar${index + 1}`);
   playing = { doc, name, section: null, bar: index, barStart: bar.start, barSrc: src, paused: false, recent: [] };
   playing.playWall = Date.now();
   vscode.commands.executeCommand("setContext", "mmlxPlaying", true);
   send(`loop ${loopOf(doc, name) ? "on" : "off"}`);
-  const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
-  sendLoad(tmp, doc.getText());
-  send(`play { ${lets} ${src} }`);
+  send(`play { ${prelude} ${src} }`);
   markBusy("loading…");
   lensChanged.fire();
 }
@@ -1127,6 +1247,19 @@ async function showRoll(doc, name) {
 
 async function reloadIfPlaying() {
   if (!playing || playing.paused) return;
+  // Bar/section playback submits a self-contained expression built from
+  // the live text (defs inlined), so an edit must re-submit that
+  // expression — `reload` alone would replay the stale one. Full-song
+  // playback keeps its load + reload (position preserved; the server
+  // restarts generator streams).
+  if (playing.bar != null) {
+    playBar(playing.doc, playing.name, playing.bar);
+    return;
+  }
+  if (playing.section != null) {
+    playSection(playing.doc, playing.name, playing.section);
+    return;
+  }
   const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
   fs.writeFileSync(tmp, playing.doc.getText());
   send(`load ${tmp}`);
@@ -1246,4 +1379,4 @@ function deactivate() {
 
 module.exports = { activate, deactivate };
 // Exported for headless testing (node harness with a vscode stub).
-module.exports.__test = { laneMap, songElements, sectionElements, structure, pickReveal, NOTE_RE, PITCH_RE, initTreeSitter, splitTopLevel, splitNested };
+module.exports.__test = { laneMap, songElements, sectionElements, structure, pickReveal, jitPrelude, stripLineComments, NOTE_RE, PITCH_RE, initTreeSitter, splitTopLevel, splitNested };
