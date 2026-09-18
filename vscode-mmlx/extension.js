@@ -1199,12 +1199,11 @@ async function playBarToggle(doc, name, bar) {
       playing.frozenText = doc.getText();
       send("stop");
     } else if (playing.frozenText !== undefined && playing.frozenText !== doc.getText()) {
+      // Edited while paused: the bar expression is self-contained, so
+      // rebuild it from the live text instead of `reload`ing the old one.
       playing.frozenText = undefined;
-      const tmp = path.join(os.tmpdir(), `mmlx_${process.pid}.rs`);
-      fs.writeFileSync(tmp, doc.getText());
-      send(`load ${tmp}`);
-      send(`reload`);
-      markBusy("reloading…");
+      await playBar(doc, name, bar);
+      return;
     } else {
       playing.frozenText = undefined;
       send("resume");
